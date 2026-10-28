@@ -4,7 +4,7 @@ import { Redirect, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import QRCode from 'react-native-qrcode-svg';
-import { Camera, GeoJSONSource, Layer, Map, Marker, NativeUserLocation, type CameraRef } from '@maplibre/maplibre-react-native';
+import { Camera, GeoJSONSource, Layer, Map, NativeUserLocation, type CameraRef } from '@maplibre/maplibre-react-native';
 import { BroadcastIcon, CrosshairIcon, DotsThreeIcon, MapTrifoldIcon, QrCodeIcon, ScanIcon } from 'phosphor-react-native';
 import type { GameView, LatLng, SeenPlayer } from '@kr/shared';
 import { emit, leaveGame } from '../api';
@@ -66,6 +66,7 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
   const zoneShape = useMemo(() => circle(zone.center, zone.radiusM), [zone.center.lat, zone.center.lng, zone.radiusM]);
   // En spectateur (ou en fin de partie), la vue différée remplace le dernier ping : pas de doublon de marqueurs.
   const others = game.spectating.length ? game.spectating : (game.ping?.players ?? []);
+  const players = toFeatures(game, others);
 
   return (
     <View style={{ flex: 1 }}>
@@ -78,8 +79,31 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
           </GeoJSONSource>
         )}
         <NativeUserLocation />
-        {game.team.filter(p => p.id !== game.me.id).map(p => <PlayerMarker key={`t-${p.id}`} p={p} game={game} kind="team" />)}
-        {others.map(p => <PlayerMarker key={`o-${p.id}`} p={p} game={game} kind="enemy" />)}
+        <GeoJSONSource id="players" data={players}>
+          <Layer type="circle" id="players-dot" paint={{
+            'circle-radius': ['match', ['get', 'kind'], 'team', 7, 8],
+            'circle-color': ['match', ['get', 'kind'], 'team', t.accent, t.bg],
+            'circle-stroke-width': ['match', ['get', 'kind'], 'team', 3, 4],
+            'circle-stroke-color': ['match', ['get', 'kind'], 'team', t.bg, 'exposed', t.accent, t.text],
+            'circle-opacity': ['case', ['get', 'caught'], 0.4, 1],
+            'circle-stroke-opacity': ['case', ['get', 'caught'], 0.4, 1],
+          }} />
+          {/* MapLibre place chaque étiquette du côté libre (gauche, droite, haut, bas) : pas de chevauchement. */}
+          <Layer type="symbol" id="players-label" layout={{
+            'text-field': ['get', 'label'],
+            'text-font': ['Noto Sans Bold'],
+            'text-size': 13,
+            'text-variable-anchor': ['left', 'right', 'top', 'bottom'],
+            'text-radial-offset': 1.1,
+            'text-justify': 'auto',
+            'text-padding': 2,
+          }} paint={{
+            'text-color': t.text,
+            'text-halo-color': t.bg,
+            'text-halo-width': 2,
+            'text-opacity': ['case', ['get', 'caught'], 0.5, 1],
+          }} />
+        </GeoJSONSource>
       </Map>
 
       <SafeAreaView edges={['top']} style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 12 }} pointerEvents="box-none">
@@ -141,22 +165,21 @@ function PhaseBanner({ game, t }: { game: GameView; t: Theme }) {
   );
 }
 
-function PlayerMarker({ p, game, kind }: { p: SeenPlayer; game: GameView; kind: 'team' | 'enemy' }) {
-  const t = useTheme();
-  const age = game.clock - p.t;
-  return (
-    <Marker lngLat={[p.lng, p.lat]} anchor="left">
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, opacity: p.caught ? 0.5 : 1 }}>
-        <View style={kind === 'team'
-          ? { width: 18, height: 18, borderRadius: 9, backgroundColor: t.accent, borderWidth: 3, borderColor: t.bg }
-          : { width: 22, height: 22, borderRadius: 11, borderWidth: 4, borderColor: p.exposed ? t.accent : t.text, backgroundColor: t.bg }} />
-        <View style={{ backgroundColor: t.surface, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', gap: 6 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: t.text }}>{p.name.toUpperCase()}</Text>
-          {kind === 'enemy' && <Text style={{ fontFamily: fonts.body, fontSize: 14, color: t.textDim }}>{p.caught ? 'attrapé' : `il y a ${fmtClock(age).replace(/^0/, '')}`}</Text>}
-        </View>
-      </View>
-    </Marker>
-  );
+/** Coéquipiers (en direct) et adversaires (ping ou vue spectateur) en GeoJSON pour les couches natives. */
+function toFeatures(game: GameView, others: SeenPlayer[]): GeoJSON.FeatureCollection<GeoJSON.Point> {
+  const feature = (p: SeenPlayer, kind: 'team' | 'enemy' | 'exposed', label: string): GeoJSON.Feature<GeoJSON.Point> => ({
+    type: 'Feature', id: `${kind}-${p.id}`,
+    properties: { kind, label, caught: p.caught },
+    geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+  });
+  return {
+    type: 'FeatureCollection',
+    features: [
+      ...game.team.filter(p => p.id !== game.me.id).map(p => feature(p, 'team', p.name.toUpperCase())),
+      ...others.map(p => feature(p, p.exposed ? 'exposed' : 'enemy',
+        `${p.name.toUpperCase()}  ${p.caught ? 'attrapé' : fmtClock(game.clock - p.t).replace(/^0/, '')}`)),
+    ],
+  };
 }
 
 // ---------- HUD ----------
