@@ -30,3 +30,16 @@ Derrière NPMPlus (ou Nginx Proxy Manager) : proxy host vers `http://<ip>:3022`,
 Variables : `KR_PORT` (port publié, 3022), `TZ`. Les comptes sont dans le volume `keeprunnin-data`.
 
 Construire l'image en local : `docker build -t keeprunnin -f apps/server/Dockerfile .`
+
+## App Android (APK)
+```sh
+cd apps/mobile
+EXPO_PUBLIC_SERVER_URL=https://nuc.exemple.eu npx expo prebuild --platform android --clean
+cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a
+# → android/app/build/outputs/apk/release/app-release.apk
+```
+Sous Windows :
+- compiler depuis un chemin **sans apostrophe** (le `'` de `KeepRunni'n` casse CMake) : `git worktree add C:/dev/keeprunnin`.
+- chemins de plus de 260 caractères : installer CMake 3.31.6 via le SDK Manager et ajouter `cmake.dir=<sdk>/cmake/3.31.6` dans `android/local.properties` (à refaire après chaque `prebuild --clean`).
+
+L'APK release est signé avec la clé de debug : suffisant pour l'installer à la main, une vraie clé sera nécessaire pour le Play Store.
