@@ -1,0 +1,16 @@
+{
+  "name": "@kr/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --experimental-strip-types --watch src/index.ts",
+    "start": "node --experimental-strip-types src/index.ts",
+    "test": "node --experimental-strip-types --test src/game.test.ts"
+  },
+  "dependencies": {
+    "@kr/shared": "*",
+    "socket.io": "^4.8.4"
+  },
+  "devDependencies": { "@types/node": "^22.0.0" }
+}
