@@ -51,7 +51,6 @@ export default function GameScreen() {
       <PingFlash game={game} />
       <MoreSheet game={game} visible={more} onClose={() => setMore(false)} onQr={() => { setMore(false); setQr(true); }} />
       <QrSheet game={game} visible={qr && !!game.me.qr} onClose={() => setQr(false)} />
-      {game.phase === 'ended' && <EndPanel game={game} />}
     </View>
   );
 }
@@ -130,7 +129,7 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
       </Map>
 
       <SafeAreaView edges={['top']} style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 12 }} pointerEvents="box-none">
-        <Hud game={game} />
+        {game.phase === 'ended' ? <EndBanner game={game} /> : <Hud game={game} />}
         <Legend game={game} others={others} />
         {game.me.outOfZone && (
           <View style={{ marginTop: 8, backgroundColor: t.accent, borderRadius: radius.block, padding: 14 }}>
@@ -171,7 +170,10 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
 
 function PhaseBanner({ game, t }: { game: GameView; t: Theme }) {
   let title: string, sub: string;
-  if (game.phase === 'headstart') {
+  if (game.phase === 'ended') {
+    title = 'Partie terminée';
+    sub = 'Tout le monde est visible sur la carte.';
+  } else if (game.phase === 'headstart') {
     title = game.me.role === 'hunter' ? 'Les fugitifs se cachent' : 'Cache-toi !';
     sub = `${game.me.role === 'hunter' ? 'Départ' : 'Les chasseurs partent'} dans ${fmtClock(game.huntStart - game.clock)}`;
   } else if (game.me.caught) {
@@ -220,7 +222,9 @@ function Legend({ game, others }: { game: GameView; others: SeenPlayer[] }) {
   const hasTeam = game.team.some(p => p.id !== game.me.id);
   const hasExposed = others.some(p => p.exposed);
   if (!hasTeam && !others.length) return null;
-  const enemyLabel = game.spectating.length
+  const enemyLabel = game.phase === 'ended'
+    ? 'Équipe adverse, position actuelle'
+    : game.spectating.length
     ? 'Adversaires en différé · NOM 1:06 = vu il y a 1 min 06'
     : `${game.me.role === 'hunter' ? 'Fugitif' : 'Chasseur'} au ping · NOM 1:06 = vu il y a 1 min 06`;
   const item = (symbol: React.ReactNode, label: string) => (
@@ -458,27 +462,29 @@ function QrSheet({ game, visible, onClose }: { game: GameView; visible: boolean;
 
 // ---------- Fin ----------
 
-function EndPanel({ game }: { game: GameView }) {
+/** Fin de partie : bandeau en haut de la carte, tout le monde visible dessous. */
+function EndBanner({ game }: { game: GameView }) {
   const t = useTheme();
   const router = useRouter();
   const won = game.winner === game.me.role;
+  const fg = won ? t.onAccent : t.text;
   return (
-    <View style={{ position: 'absolute', inset: 0, backgroundColor: won ? t.accent : t.bg, justifyContent: 'flex-end', padding: 20, paddingBottom: 40 }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: won ? t.onAccent : t.textDim }}>
+    <View style={{ backgroundColor: won ? t.accent : t.surface, borderRadius: radius.block + 4, padding: 18, gap: 4 }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: won ? t.onAccent : t.textDim, opacity: 0.9 }}>
         {game.winner === 'hunter'
           ? 'Tous les fugitifs ont été attrapés.'
           : `${game.clock < game.huntEnd ? 'Manche terminée.' : 'Temps écoulé.'} ${game.fugitivesLeft} fugitif${game.fugitivesLeft > 1 ? 's' : ''} en liberté.`}
       </Text>
-      <Text style={{ fontFamily: fonts.hero, fontSize: 104, lineHeight: 100, color: won ? t.onAccent : t.text, marginTop: 8 }}>
-        {won ? 'Gagné.' : 'Perdu.'}
-      </Text>
-      <Text style={{ fontFamily: fonts.display, fontSize: 20, color: won ? t.onAccent : t.text, marginTop: 8, marginBottom: 32 }}>
-        {game.winner === 'hunter' ? 'Victoire des chasseurs' : 'Victoire des fugitifs'}
-      </Text>
-      <Pressable accessibilityRole="button" onPress={async () => { await leaveGame(); router.replace('/'); }}
-        style={{ height: 62, borderRadius: radius.block, alignItems: 'center', justifyContent: 'center', backgroundColor: won ? t.onAccent : t.accent }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: won ? '#161414' : t.onAccent }}>Retour à l'accueil</Text>
-      </Pressable>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.hero, fontSize: 56, lineHeight: 58, color: fg }}>{won ? 'Gagné.' : 'Perdu.'}</Text>
+          <Text style={{ fontFamily: fonts.display, fontSize: 16, color: fg }}>{game.winner === 'hunter' ? 'Victoire des chasseurs' : 'Victoire des fugitifs'}</Text>
+        </View>
+        <Pressable accessibilityRole="button" onPress={async () => { await leaveGame(); router.replace('/'); }}
+          style={({ pressed }) => ({ height: 48, paddingHorizontal: 18, borderRadius: radius.inner, justifyContent: 'center', backgroundColor: won ? t.onAccent : t.accent, opacity: pressed ? 0.85 : 1 })}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: won ? '#161414' : t.onAccent }}>Quitter</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }

@@ -162,7 +162,12 @@ io.on('connection', (socket) => {
   const resume = games.get(userGame.get(user.id) ?? '');
   if (resume) sendEverything(socket, resume, user.id);
   log('connexion', 'connecté', { user: at(user), ip: clientIp(socket.handshake.headers, socket.handshake.address), reprise: resume?.code });
-  socket.on('disconnect', reason => log('connexion', 'déconnecté', { user: at(user), raison: reason, partie: userGame.get(user.id) }));
+  socket.on('disconnect', reason => {
+    log('connexion', 'déconnecté', { user: at(user), raison: reason, partie: userGame.get(user.id) });
+    // Un entraînement n'a qu'un joueur : s'il n'est plus connecté (app fermée), on le supprime.
+    const g = games.get(userGame.get(user.id) ?? '');
+    if (g?.training && !io.sockets.adapter.rooms.get(`u:${user.id}`)?.size) leaveCurrent(user.id);
+  });
 
   /** Valide l'entrée avec zod, convertit les GameError en { error } pour le client. */
   function on<S extends z.ZodType>(ev: string, schema: S, fn: (data: z.infer<S>, g: Game | undefined) => object | void) {

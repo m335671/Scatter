@@ -70,7 +70,8 @@ export function join(g: Game, u: UserRef, opts: { isBot?: boolean; choice?: Role
 }
 
 export function leave(g: Game, id: string) {
-  if (g.phase === 'lobby') g.players.delete(id);
+  // Pendant une manche, on garde le joueur (ses positions servent encore aux autres). Avant ou après, il part vraiment.
+  if (g.phase === 'lobby' || g.phase === 'ended') g.players.delete(id);
   if (g.hostId === id) g.hostId = [...g.players.values()].find(p => !p.isBot)?.id ?? '';
 }
 
@@ -261,12 +262,18 @@ export function view(g: Game, id: string): GameView | null {
     const s = p.role === me.role ? current(p) : null;
     return s ? [seen(p, s)] : [];
   });
-  const spectating = me.caughtAt !== null || g.phase === 'ended'
+  // Fin de partie : tout le monde, position actuelle. Attrapé : l'équipe adverse, avec le retard réglé.
+  const spectating = g.phase === 'ended'
     ? ps.flatMap(p => {
-      const s = p.role !== me.role ? positionAt(p, g.clock - g.rules.spectatorDelayMin * MIN) : null;
+      const s = p.id !== me.id && p.role !== me.role ? current(p) : null;
       return s ? [seen(p, s)] : [];
     })
-    : [];
+    : me.caughtAt !== null
+      ? ps.flatMap(p => {
+        const s = p.role !== me.role ? positionAt(p, g.clock - g.rules.spectatorDelayMin * MIN) : null;
+        return s ? [seen(p, s)] : [];
+      })
+      : [];
   const fugitives = ps.filter(p => p.role === 'fugitive');
   return {
     code: g.code, phase: g.phase, training: g.training, speed: g.speed, clock: g.clock,

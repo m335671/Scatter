@@ -64,11 +64,12 @@ export default function Home() {
           </Pressable>
         </View>
 
-        {lobby && (
-          <Pressable onPress={() => router.push(inGame ? '/game' : phase === 'ended' ? '/game' : '/lobby')}
+        {/* Seules les vraies parties, en cours ou en salon, sont proposées : pas les entraînements ni les parties finies. */}
+        {lobby && !lobby.training && phase !== 'ended' && (
+          <Pressable onPress={() => router.push(inGame ? '/game' : '/lobby')}
             style={{ marginTop: 8, backgroundColor: 'rgba(0,0,0,0.18)', borderRadius: radius.block, padding: 16 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: INK }}>
-              {inGame ? 'Partie en cours' : phase === 'ended' ? 'Partie terminée' : 'Salon ouvert'} · {lobby.code}
+              {inGame ? 'Partie en cours' : 'Salon ouvert'} · {lobby.code}
             </Text>
             <Text style={{ fontFamily: fonts.body, fontSize: 15, color: INK, opacity: 0.85, marginTop: 2 }}>Touche pour y retourner</Text>
           </Pressable>

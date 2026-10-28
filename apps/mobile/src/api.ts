@@ -44,7 +44,8 @@ export function connect() {
   socket.on('connect_error', (e) => {
     if (e.message === 'unauthorized') { socket?.close(); setState({ token: null, user: null }); }
   });
-  socket.on('lobby', (lobby: Lobby) => setState({ lobby }));
+  socket.on('lobby', (lobby: Lobby) => setState(s =>
+    s.game && s.game.code !== lobby.code ? { lobby, game: null, chat: [], unread: { team: 0, all: 0 } } : { lobby }));
   socket.on('state', (game: GameView) => setState({ game }));
   socket.on('chat:history', (chat: ChatMessage[]) => setState({ chat }));
   socket.on('chat', (m: ChatMessage) => setState(s => ({ chat: [...s.chat, m].slice(-400), unread: { ...s.unread, [m.channel ?? 'team']: s.unread[m.channel ?? 'team'] + 1 } })));

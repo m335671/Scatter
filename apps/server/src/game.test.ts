@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { defaultRules, MIN, zoneRadius } from '@kr/shared';
-import { type Game, GameError, capture, createGame, join, qrFor, say, start, tick, updatePosition, view } from './game.ts';
+import { type Game, GameError, capture, createGame, join, leave, qrFor, say, start, tick, updatePosition, view } from './game.ts';
 import { addBots, moveBots } from './bots.ts';
 
 const C = { lat: 45.9, lng: 4.6 };
@@ -73,8 +73,14 @@ test('capture par QR : bon secret, mauvais secret, pendant l\'avance', () => {
 
 test('fin au temps écoulé : victoire des fugitifs', () => {
   const g = setup();
+  updatePosition(g, 'f', C);
   tick(g, 33 * MIN);
   assert.equal(g.winner, 'fugitive');
+  // Fin : le chasseur voit le fugitif en position actuelle.
+  assert.equal(view(g, 'h')!.spectating[0].id, 'f');
+  // Quitter une partie terminée retire vraiment le joueur.
+  leave(g, 'h');
+  assert.equal(g.players.has('h'), false);
 });
 
 test('radio : chat par équipe, chasseurs muets si la règle le dit', () => {
