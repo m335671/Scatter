@@ -7,6 +7,7 @@ export interface User { id: string; name: string; username: string }
 export interface Settings {
   appearance: 'system' | 'light' | 'dark';
   units: 'km' | 'mi';
+  /** Vide = serveur compilé dans l'app. Rempli seulement si le joueur saisit sa propre adresse. */
   serverUrl: string;
   /** Tutoriel vu au moins une fois (affiché automatiquement après l'installation). */
   tutorialSeen: boolean;
@@ -24,11 +25,12 @@ export interface State {
   unread: number;
 }
 
-const DEFAULT_SERVER = process.env.EXPO_PUBLIC_SERVER_URL ?? 'http://localhost:3000'; // en dev : `adb reverse tcp:3000 tcp:3000` relie le téléphone au PC
+// Défini au build (EXPO_PUBLIC_SERVER_URL). En dev : `adb reverse tcp:3000 tcp:3000` relie le téléphone au PC.
+export const DEFAULT_SERVER = process.env.EXPO_PUBLIC_SERVER_URL ?? 'http://localhost:3000';
 
 let state: State = {
   ready: false, token: null, user: null, connected: false, lobby: null, game: null, chat: [], unread: 0,
-  settings: { appearance: 'system', units: 'km', serverUrl: DEFAULT_SERVER, tutorialSeen: false },
+  settings: { appearance: 'system', units: 'km', serverUrl: '', tutorialSeen: false },
 };
 const listeners = new Set<() => void>();
 
@@ -60,7 +62,9 @@ export async function loadPersisted() {
     const raw = await SecureStore.getItemAsync(KEY);
     if (raw) {
       const saved = JSON.parse(raw);
-      state = { ...state, token: saved.token, user: saved.user, settings: { ...state.settings, ...saved.settings } };
+      const settings = { ...state.settings, ...saved.settings };
+      if (/^http:\/\/(localhost|10\.0\.2\.2):3000$/.test(settings.serverUrl)) settings.serverUrl = '';
+      state = { ...state, token: saved.token, user: saved.user, settings };
     }
   } finally {
     setState({ ready: true });

@@ -1,8 +1,8 @@
 import { io, type Socket } from 'socket.io-client';
 import type { ChatMessage, GameView, Lobby } from '@kr/shared';
-import { getState, setState, type User } from './store';
+import { DEFAULT_SERVER, getState, setState, type User } from './store';
 
-const base = () => getState().settings.serverUrl.replace(/\/$/, '');
+const base = () => (getState().settings.serverUrl || DEFAULT_SERVER).replace(/\/$/, '');
 
 async function http<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getState().token;

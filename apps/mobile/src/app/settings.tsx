@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Alert, Pressable, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { connect, updateMe } from '../api';
-import { setState, useStore, type Settings } from '../store';
+import { DEFAULT_SERVER, setState, useStore, type Settings } from '../store';
 import { fonts, radius, useTheme } from '../theme';
 import { Group, Row, Screen, Segmented } from '../ui';
 
@@ -12,7 +12,7 @@ export default function SettingsScreen() {
   const user = useStore(s => s.user);
   const settings = useStore(s => s.settings);
   const connected = useStore(s => s.connected);
-  const [server, setServer] = useState(settings.serverUrl);
+  const [server, setServer] = useState(settings.serverUrl || DEFAULT_SERVER);
 
   const patch = (p: Partial<Settings>) => setState(s => ({ settings: { ...s.settings, ...p } }));
 
@@ -30,7 +30,8 @@ export default function SettingsScreen() {
   }
 
   function saveServer() {
-    patch({ serverUrl: server.trim() });
+    // L'adresse du build n'est pas enregistrée : un futur build pourra la changer.
+    patch({ serverUrl: server.trim() === DEFAULT_SERVER ? '' : server.trim() });
     connect();
   }
 
@@ -67,7 +68,8 @@ export default function SettingsScreen() {
 
       <Group label="Serveur" footer={connected ? 'Connecté.' : 'Non connecté. Keep Runni\'n est open source : tu peux héberger ton propre serveur.'}>
         {input(server, setServer, saveServer, { autoFocus: false, keyboardType: 'url', placeholder: 'https://keeprunnin.exemple.fr', returnKeyType: 'done' })}
-        {server.trim() !== settings.serverUrl && <Row title="Enregistrer l'adresse" onPress={saveServer} />}
+        {server.trim() !== (settings.serverUrl || DEFAULT_SERVER) && <Row title="Enregistrer l'adresse" onPress={saveServer} />}
+        {!!settings.serverUrl && <Row title="Revenir au serveur officiel" onPress={() => { setServer(DEFAULT_SERVER); patch({ serverUrl: '' }); connect(); }} />}
       </Group>
     </Screen>
   );
