@@ -17,7 +17,6 @@
       "adaptiveIcon": {
         "backgroundColor": "#EE2E14",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
@@ -43,6 +42,15 @@
           "cameraPermission": "La caméra sert à scanner le QR code d'un fugitif pour l'attraper.",
           "microphonePermission": false,
           "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "resizeMode": "contain",
+          "backgroundColor": "#121111"
         }
       ]
     ],

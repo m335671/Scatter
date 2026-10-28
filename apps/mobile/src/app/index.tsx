@@ -8,6 +8,7 @@ import { emit } from '../api';
 import { askLocation, currentPosition } from '../location';
 import { useStore } from '../store';
 import { fonts, radius } from '../theme';
+import { Mark } from '../logo';
 
 const RED = '#EE2E14';
 const INK = '#F7F2F0';
@@ -44,7 +45,10 @@ export default function Home() {
     <SafeAreaView style={{ flex: 1, backgroundColor: RED }}>
       <View style={{ flex: 1, paddingHorizontal: 20, paddingBottom: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 64 }}>
-          <Text style={{ fontFamily: fonts.hero, fontSize: 40, color: INK, letterSpacing: -0.5 }} accessibilityRole="header">KEEP RUNNI'N</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Mark size={38} color={INK} />
+            <Text style={{ fontFamily: fonts.hero, fontSize: 40, color: INK, letterSpacing: -0.5 }} accessibilityRole="header">KEEP RUNNI'N</Text>
+          </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Réglages" onPress={() => router.push('/settings')}
             style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}>
             <GearIcon size={24} color={INK} weight="bold" />
