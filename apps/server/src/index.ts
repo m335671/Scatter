@@ -109,7 +109,7 @@ function broadcastLobby(g: Game) {
 
 function broadcastState(g: Game) {
   for (const { team, msg } of g.outbox.splice(0)) {
-    for (const p of humans(g, team)) io.to(`u:${p.id}`).emit('chat', msg);
+    for (const p of humans(g, team === 'all' ? undefined : team)) io.to(`u:${p.id}`).emit('chat', msg);
   }
   for (const p of humans(g)) {
     const v = view(g, p.id);
@@ -117,10 +117,13 @@ function broadcastState(g: Game) {
   }
 }
 
+/** Historique radio d'un joueur : son équipe + la radio globale, dans l'ordre. */
+const history = (g: Game, role: Role) => [...g.chat[role], ...g.chat.all].sort((a, b) => a.at - b.at);
+
 function sendEverything(socket: Socket, g: Game, userId: string) {
   socket.emit('lobby', lobbyView(g));
   const role = g.players.get(userId)?.role;
-  if (role) socket.emit('chat:history', g.chat[role]);
+  if (role) socket.emit('chat:history', history(g, role));
   const v = view(g, userId);
   if (v) socket.emit('state', v);
 }
@@ -237,7 +240,7 @@ io.on('connection', (socket) => {
       avance: `${x.rules.headStartMin}min`, pings: `${x.rules.pingEveryMin}min`, zone: x.rules.zone.enabled ? `${x.rules.zone.startRadiusM}m` : 'non',
     });
     broadcastLobby(x);
-    for (const p of humans(x)) io.to(`u:${p.id}`).emit('chat:history', x.chat[p.role!]);
+    for (const p of humans(x)) io.to(`u:${p.id}`).emit('chat:history', history(x, p.role!));
     x.outbox.length = 0; // déjà envoyé dans l'historique
     broadcastState(x);
   });
@@ -254,9 +257,9 @@ io.on('connection', (socket) => {
     broadcastState(x);
   });
 
-  on('chat', C2S.chat, ({ text }, g) => {
+  on('chat', C2S.chat, ({ text, channel }, g) => {
     const x = need(g);
-    say(x, user.id, text);
+    say(x, user.id, text, channel);
     broadcastState(x);
   });
 

@@ -87,6 +87,11 @@ const steps: Step[] = [
     Scene: ({ p, g }) => <Capture p={p} g={g} />,
   },
   {
+    eyebrow: 'La radio', title: 'Deux canaux pour parler.', body: "« Équipe » : seuls tes coéquipiers t'entendent. « Tous » : les deux équipes, pour chambrer ou bluffer.",
+    cam: { zoom: 15.8, bearing: 4, pitch: 35 },
+    Scene: ({ p, g }) => <RadioScene p={p} g={g} />,
+  },
+  {
     eyebrow: 'La fin', title: "Tiens jusqu'au bout.", body: "Les chasseurs gagnent s'ils attrapent tout le monde. Sinon, les fugitifs encore libres l'emportent.",
     cam: { zoom: 15.4, bearing: -8, pitch: 30 },
     Scene: ({ p }) => (
@@ -311,6 +316,50 @@ function Capture({ p, g }: StepProps) {
           <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#FFF7F4' }}>Capture validée</Text>
         </View>
       </Animated.View>
+    </Animated.View>
+  );
+}
+
+/** La radio : canal équipe puis bascule sur le canal global. */
+function RadioScene({ p, g }: StepProps) {
+  const appear = (from: number) => ({
+    opacity: p.interpolate({ inputRange: [from, from + 0.06], outputRange: [0, 1], extrapolate: 'clamp' }),
+    transform: [{ translateY: p.interpolate({ inputRange: [from, from + 0.06], outputRange: [12, 0], extrapolate: 'clamp' }) }],
+  });
+  const teamOn = p.interpolate({ inputRange: [0.48, 0.52], outputRange: [1, 0], extrapolate: 'clamp' });
+  const allOn = p.interpolate({ inputRange: [0.48, 0.52], outputRange: [0, 1], extrapolate: 'clamp' });
+  const bubble = (text: string, mine: boolean, from: number, name?: string) => (
+    <Animated.View key={text} style={[{ alignItems: mine ? 'flex-end' : 'flex-start', gap: 4 }, appear(from)]}>
+      {name && <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: '#9A9591', marginLeft: 10 }}>{name}</Text>}
+      <View style={{ backgroundColor: mine ? RED : '#2A2827', borderRadius: radius.block, paddingHorizontal: 14, paddingVertical: 9, maxWidth: '82%' }}>
+        <Text style={{ fontFamily: fonts.body, fontSize: 15, color: INK }}>{text}</Text>
+      </View>
+    </Animated.View>
+  );
+  const seg = (label: string, on: Animated.AnimatedInterpolation<number>) => (
+    <View style={{ flex: 1, height: 34, alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View style={{ position: 'absolute', inset: 0, backgroundColor: RED, borderRadius: radius.inner - 3, opacity: on }} />
+      <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: INK }}>{label}</Text>
+    </View>
+  );
+  return (
+    <Animated.View style={{ position: 'absolute', left: 16, right: 16, top: g.cy - 190, backgroundColor: CARD, borderRadius: radius.block + 4, padding: 16, gap: 12,
+      opacity: p.interpolate({ inputRange: [0, 0.08], outputRange: [0, 1], extrapolate: 'clamp' }) }}>
+      <Text style={{ fontFamily: fonts.displayBlack, fontSize: 28, color: INK }}>Radio</Text>
+      <View style={{ flexDirection: 'row', backgroundColor: '#2A2827', borderRadius: radius.inner, padding: 3 }}>
+        {seg('Équipe', teamOn)}
+        {seg('Tous', allOn)}
+      </View>
+      <View style={{ height: 190 }}>
+        <Animated.View style={{ position: 'absolute', inset: 0, gap: 10, justifyContent: 'flex-end', opacity: teamOn }}>
+          {bubble('Je prends le stade, toi la rue des Figuiers.', false, 0.1, 'Leo')}
+          {bubble("J'en vois un !", true, 0.25)}
+        </Animated.View>
+        <Animated.View style={{ position: 'absolute', inset: 0, gap: 10, justifyContent: 'flex-end', opacity: allOn }}>
+          {bubble('Vous ne nous aurez pas', false, 0.56, 'Nina (fugitive)')}
+          {bubble('On verra au prochain ping', true, 0.72)}
+        </Animated.View>
+      </View>
     </Animated.View>
   );
 }

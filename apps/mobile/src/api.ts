@@ -39,7 +39,7 @@ export function connect() {
   if (!token) return;
   socket = io(base(), { auth: { token }, transports: ['websocket'] });
   // Le serveur renvoie la partie en cours juste après la connexion : on repart de son état, pas d'un état périmé.
-  socket.on('connect', () => setState({ connected: true, lobby: null, game: null, chat: [], unread: 0 }));
+  socket.on('connect', () => setState({ connected: true, lobby: null, game: null, chat: [], unread: { team: 0, all: 0 } }));
   socket.on('disconnect', () => setState({ connected: false }));
   socket.on('connect_error', (e) => {
     if (e.message === 'unauthorized') { socket?.close(); setState({ token: null, user: null }); }
@@ -47,7 +47,7 @@ export function connect() {
   socket.on('lobby', (lobby: Lobby) => setState({ lobby }));
   socket.on('state', (game: GameView) => setState({ game }));
   socket.on('chat:history', (chat: ChatMessage[]) => setState({ chat }));
-  socket.on('chat', (m: ChatMessage) => setState(s => ({ chat: [...s.chat, m].slice(-200), unread: s.unread + 1 })));
+  socket.on('chat', (m: ChatMessage) => setState(s => ({ chat: [...s.chat, m].slice(-400), unread: { ...s.unread, [m.channel]: s.unread[m.channel] + 1 } })));
 }
 
 /** Émet un événement et attend l'accusé du serveur. Lève une Error avec le message serveur. */
@@ -67,5 +67,5 @@ export const sendPosition = (lat: number, lng: number, acc?: number) => socket?.
 
 export async function leaveGame() {
   await emit('leave').catch(() => {});
-  setState({ lobby: null, game: null, chat: [], unread: 0 });
+  setState({ lobby: null, game: null, chat: [], unread: { team: 0, all: 0 } });
 }

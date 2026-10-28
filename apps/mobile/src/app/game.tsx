@@ -292,7 +292,7 @@ function Hud({ game }: { game: GameView }) {
 function TabBar({ tab, onTab, onMore }: { tab: 'map' | 'radio'; onTab: (t: 'map' | 'radio') => void; onMore: () => void }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
-  const unread = useStore(s => s.unread);
+  const unread = useStore(s => s.unread.team + s.unread.all);
   const item = (key: 'map' | 'radio', label: string, Icon: typeof MapTrifoldIcon, badge?: number) => {
     const on = tab === key;
     return (

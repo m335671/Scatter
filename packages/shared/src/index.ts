@@ -58,7 +58,7 @@ export const C2S = {
   role: z.object({ role: RoleChoice }),
   pos: LatLng.extend({ acc: z.number().min(0).max(10_000).optional() }),
   capture: z.object({ qr: z.string().max(200) }),
-  chat: z.object({ text: z.string().trim().min(1).max(280) }),
+  chat: z.object({ text: z.string().trim().min(1).max(280), channel: z.enum(['team', 'all']).default('team') }),
   training: z.discriminatedUnion('action', [
     z.object({ action: z.literal('ping') }),
     z.object({ action: z.literal('catchNearest') }),
@@ -97,7 +97,9 @@ export interface GameView {
   winner: Role | null;
 }
 
-export interface ChatMessage { id: string; at: number; from: string | null; fromName: string | null; text: string; system: boolean }
+/** channel : « team » = radio de l'équipe, « all » = radio globale (les deux équipes). */
+export type Channel = 'team' | 'all';
+export interface ChatMessage { id: string; at: number; from: string | null; fromName: string | null; text: string; system: boolean; channel: Channel }
 
 // ---------- Géo ----------
 

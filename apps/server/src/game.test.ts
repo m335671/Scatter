@@ -85,6 +85,10 @@ test('radio : chat par équipe, chasseurs muets si la règle le dit', () => {
   assert.ok(!g.chat.fugitive.some(m => m.text === 'Je prends le stade'));
   g.rules.huntersCanTalk = false;
   assert.throws(() => say(g, 'h', 'test'), GameError);
+  // La radio globale reste ouverte et arrive aux deux équipes.
+  say(g, 'h', 'Vous ne m\'échapperez pas', 'all');
+  assert.equal(g.chat.all.at(-1)!.channel, 'all');
+  assert.equal(g.outbox.at(-1)!.team, 'all');
 });
 
 test('rôles : au hasard complète l\'équipe vide, erreur si impossible', () => {

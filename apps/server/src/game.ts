@@ -1,7 +1,7 @@
 // Moteur de jeu : logique pure sur l'horloge de jeu, aucun réseau ici.
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import {
-  type ChatMessage, type GameView, type LatLng, type Lobby, type Phase, type Role, type RoleChoice,
+  type Channel, type ChatMessage, type GameView, type LatLng, type Lobby, type Phase, type Role, type RoleChoice,
   type Rules, type SeenPlayer, distanceM, MIN, nextShrinkAt, PING_DELAY_MS, zoneRadius,
 } from '@kr/shared';
 
@@ -36,9 +36,9 @@ export interface Game {
   lastPing: { at: number; forHunters: SeenPlayer[]; forFugitives: SeenPlayer[] } | null;
   winner: Role | null;
   players: Map<string, Player>;
-  chat: Record<Role, ChatMessage[]>;
+  chat: Record<Role | 'all', ChatMessage[]>;
   /** Messages créés depuis le dernier drain, à diffuser par le serveur. */
-  outbox: { team: Role; msg: ChatMessage }[];
+  outbox: { team: Role | 'all'; msg: ChatMessage }[];
   seq: number;
 }
 
@@ -50,7 +50,7 @@ export function createGame(code: string, host: UserRef, rules: Rules, training =
   const g: Game = {
     code, hostId: host.id, rules, training, speed: 1, phase: 'lobby', clock: 0,
     nextPingAt: null, lastPing: null, winner: null, players: new Map(),
-    chat: { hunter: [], fugitive: [] }, outbox: [], seq: 0,
+    chat: { hunter: [], fugitive: [], all: [] }, outbox: [], seq: 0,
   };
   join(g, host);
   return g;
@@ -99,6 +99,7 @@ export function start(g: Game, rng = Math.random) {
   g.nextPingAt = huntStart(g);
   system(g, 'fugitive', `Tu as ${g.rules.headStartMin} min d'avance. Cache-toi !`);
   system(g, 'hunter', `Les fugitifs ont ${g.rules.headStartMin} min d'avance. Patience.`);
+  system(g, 'all', 'La partie commence. Bonne chance à tous !');
 }
 
 // ---------- Positions ----------
@@ -181,6 +182,7 @@ function end(g: Game, winner: Role) {
   const msg = winner === 'hunter' ? 'Tous les fugitifs sont attrapés. Les chasseurs gagnent !' : 'Temps écoulé. Les fugitifs gagnent !';
   system(g, 'hunter', msg);
   system(g, 'fugitive', msg);
+  system(g, 'all', msg);
 }
 
 export function endNow(g: Game) {
@@ -211,6 +213,7 @@ export function catchFugitive(g: Game, hunter: Player, target: Player) {
   const left = aliveFugitives(g).length;
   system(g, 'hunter', `${hunter.name} a attrapé ${target.name}. Il en reste ${left}.`);
   system(g, 'fugitive', `${target.name} s'est fait attraper. Il en reste ${left}.`);
+  system(g, 'all', `${target.name} est attrapé. Il reste ${left} fugitif${left > 1 ? 's' : ''}.`);
   if (left === 0) end(g, 'hunter');
 }
 
@@ -219,22 +222,24 @@ export const aliveFugitives = (g: Game) =>
 
 // ---------- Radio ----------
 
-function push(g: Game, team: Role, msg: ChatMessage) {
+function push(g: Game, team: Role | 'all', msg: Omit<ChatMessage, 'channel'>) {
   const list = g.chat[team];
-  list.push(msg);
+  const full: ChatMessage = { ...msg, channel: team === 'all' ? 'all' : 'team' };
+  list.push(full);
   if (list.length > CHAT_KEEP) list.shift();
-  g.outbox.push({ team, msg });
+  g.outbox.push({ team, msg: full });
 }
 
-function system(g: Game, team: Role, text: string) {
+function system(g: Game, team: Role | 'all', text: string) {
   push(g, team, { id: `${g.code}-${++g.seq}`, at: g.clock, from: null, fromName: null, text, system: true });
 }
 
-export function say(g: Game, id: string, text: string) {
+/** La règle « les chasseurs peuvent parler » ne coupe que leur radio d'équipe : la radio globale reste ouverte à tous. */
+export function say(g: Game, id: string, text: string, channel: Channel = 'team') {
   const p = g.players.get(id);
   if (!p?.role) throw new GameError("Tu n'es pas dans une équipe.");
-  if (p.role === 'hunter' && !g.rules.huntersCanTalk) throw new GameError('Les chasseurs ne peuvent pas parler dans cette partie.');
-  push(g, p.role, { id: `${g.code}-${++g.seq}`, at: g.clock, from: p.id, fromName: p.name, text, system: false });
+  if (channel === 'team' && p.role === 'hunter' && !g.rules.huntersCanTalk) throw new GameError('Les chasseurs ne peuvent pas parler dans cette partie.');
+  push(g, channel === 'all' ? 'all' : p.role, { id: `${g.code}-${++g.seq}`, at: g.clock, from: p.id, fromName: p.name, text, system: false });
 }
 
 // ---------- Vues ----------

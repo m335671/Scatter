@@ -1,7 +1,7 @@
 // État global minimal : un objet, des abonnés, un hook. Pas besoin de lib.
 import { useSyncExternalStore } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import type { ChatMessage, GameView, Lobby } from '@kr/shared';
+import type { Channel, ChatMessage, GameView, Lobby } from '@kr/shared';
 
 export interface User { id: string; name: string; username: string }
 export interface Settings {
@@ -25,7 +25,7 @@ export interface State {
   lobby: Lobby | null;
   game: GameView | null;
   chat: ChatMessage[];
-  unread: number;
+  unread: Record<Channel, number>;
   dialog: Dialog | null;
 }
 
@@ -33,7 +33,7 @@ export interface State {
 export const DEFAULT_SERVER = process.env.EXPO_PUBLIC_SERVER_URL ?? 'http://localhost:3000';
 
 let state: State = {
-  ready: false, token: null, user: null, connected: false, lobby: null, game: null, chat: [], unread: 0, dialog: null,
+  ready: false, token: null, user: null, connected: false, lobby: null, game: null, chat: [], unread: { team: 0, all: 0 }, dialog: null,
   settings: { appearance: 'system', units: 'km', serverUrl: '', tutorialSeen: false },
 };
 const listeners = new Set<() => void>();
