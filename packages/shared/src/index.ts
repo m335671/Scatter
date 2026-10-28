@@ -61,7 +61,6 @@ export const C2S = {
   chat: z.object({ text: z.string().trim().min(1).max(280), channel: z.enum(['team', 'all']).default('team') }),
   training: z.discriminatedUnion('action', [
     z.object({ action: z.literal('ping') }),
-    z.object({ action: z.literal('catchNearest') }),
     z.object({ action: z.literal('advance') }),
     z.object({ action: z.literal('speed'), value: z.union([z.literal(1), z.literal(5), z.literal(20)]) }),
     z.object({ action: z.literal('end') }),

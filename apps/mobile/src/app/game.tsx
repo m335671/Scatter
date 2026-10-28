@@ -429,7 +429,6 @@ function MoreSheet({ game, visible, onClose, onQr }: { game: GameView; visible: 
       {training && (
         <Group>
           <Row title="Lancer un ping" onPress={() => ctl({ action: 'ping' })} />
-          {game.me.role === 'hunter' && <Row title="Attraper le fugitif le plus proche" onPress={() => ctl({ action: 'catchNearest' })} />}
           <Row title="Avancer d'une minute" onPress={() => ctl({ action: 'advance' })} />
           <Row title="Vitesse" right={
             <Segmented<number> value={game.speed} onChange={value => ctl({ action: 'speed', value })}

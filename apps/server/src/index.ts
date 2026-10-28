@@ -7,7 +7,7 @@ import {
   type Game, GameError, capture, createGame, endNow, join, leave, lobbyView, ping, say, start,
   tick, updatePosition, view,
 } from './game.ts';
-import { addBots, catchNearest, moveBots } from './bots.ts';
+import { addBots, moveBots } from './bots.ts';
 
 const PORT = Number(process.env.PORT ?? 3000);
 
@@ -267,15 +267,9 @@ io.on('connection', (socket) => {
     const x = host(g);
     if (!x.training) throw new GameError("Réservé au mode entraînement.");
     if (x.phase === 'lobby' || x.phase === 'ended') throw new GameError('La manche est terminée.');
-    const me = x.players.get(user.id)!;
     log('entraînement', cmd.action, { code: x.code, user: at(user), vitesse: cmd.action === 'speed' ? cmd.value : undefined });
     switch (cmd.action) {
       case 'ping': ping(x); break;
-      case 'catchNearest':
-        if (me.role !== 'hunter') throw new GameError('Tu es fugitif dans cette manche.');
-        if (x.phase !== 'hunt') throw new GameError("Attends la fin de l'avance.");
-        catchNearest(x, me);
-        break;
       case 'advance': { const before = x.clock; tick(x, 60_000 / x.speed); moveBots(x, x.clock - before); break; }
       case 'speed': x.speed = cmd.value; break;
       case 'end': endNow(x); break;

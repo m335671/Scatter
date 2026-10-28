@@ -1,6 +1,6 @@
 // Bots du mode entraînement : marche aléatoire dans la zone.
 import { type LatLng, distanceM, zoneRadius } from '@kr/shared';
-import { type Game, type Player, aliveFugitives, catchFugitive, join, positionAt, updatePosition } from './game.ts';
+import { type Game, aliveFugitives, catchFugitive, join, positionAt, updatePosition } from './game.ts';
 
 const SPEED_MPS = 1.6;   // petite foulée
 const CATCH_M = 15;      // un bot chasseur attrape un joueur humain à cette distance
@@ -58,11 +58,3 @@ function botsCatch(g: Game) {
   }
 }
 
-/** Contrôle de démo : le joueur humain chasseur attrape le fugitif vivant le plus proche. */
-export function catchNearest(g: Game, hunter: Player) {
-  const hp = hunter.history.at(-1);
-  const list = aliveFugitives(g);
-  if (!list.length) return;
-  const dist = (p: Player) => { const s = p.history.at(-1); return hp && s ? distanceM(hp, s) : Infinity; };
-  catchFugitive(g, hunter, list.reduce((a, b) => (dist(b) < dist(a) ? b : a)));
-}
