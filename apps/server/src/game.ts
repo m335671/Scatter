@@ -170,7 +170,7 @@ export function ping(g: Game) {
   const k = Math.floor((g.clock - huntStart(g)) / every) + 1;
   g.nextPingAt = Math.max(huntStart(g), huntStart(g) + k * every);
   const n = forHunters.length;
-  system(g, 'hunter', `Ping ! ${n} fugitif${n > 1 ? 's viennent' : ' vient'} d'apparaître sur la carte.`);
+  system(g, 'hunter', n ? `Ping ! ${n} fugitif${n > 1 ? 's viennent' : ' vient'} d'apparaître sur la carte.` : 'Ping ! Aucun fugitif repéré pour l\'instant.');
   system(g, 'fugitive', 'Ping ! Les chasseurs savent où tu étais il y a 1 min.');
 }
 

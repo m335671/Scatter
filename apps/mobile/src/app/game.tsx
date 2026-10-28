@@ -50,7 +50,7 @@ export default function GameScreen() {
       <TabBar tab={tab} onTab={setTab} onMore={() => setMore(true)} />
       <PingFlash game={game} />
       <MoreSheet game={game} visible={more} onClose={() => setMore(false)} onQr={() => { setMore(false); setQr(true); }} />
-      <QrSheet game={game} visible={qr} onClose={() => setQr(false)} />
+      <QrSheet game={game} visible={qr && !!game.me.qr} onClose={() => setQr(false)} />
       {game.phase === 'ended' && <EndPanel game={game} />}
     </View>
   );

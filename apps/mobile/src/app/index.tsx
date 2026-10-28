@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,7 +6,8 @@ import { GearIcon } from 'phosphor-react-native';
 import { defaultRules } from '@kr/shared';
 import { emit } from '../api';
 import { askLocation, currentPosition } from '../location';
-import { useStore } from '../store';
+import { setState, useStore } from '../store';
+import { allGranted, checkAll } from '../permissions';
 import { fonts, radius } from '../theme';
 import { Mark } from '../logo';
 import { showDialog } from '../ui';
@@ -18,6 +19,13 @@ export default function Home() {
   const router = useRouter();
   const user = useStore(s => s.user);
   const tutorialSeen = useStore(s => s.settings.tutorialSeen);
+  const permsChecked = useStore(s => s.permsChecked);
+
+  // À chaque lancement : s'il manque une permission, on montre l'écran qui les liste.
+  useEffect(() => {
+    if (!user || !tutorialSeen || permsChecked) return;
+    checkAll().then(p => (allGranted(p) ? setState({ permsChecked: true }) : router.push('/permissions'))).catch(() => {});
+  }, [user, tutorialSeen, permsChecked]);
   const connected = useStore(s => s.connected);
   const lobby = useStore(s => s.lobby);
   const phase = useStore(s => s.game?.phase);

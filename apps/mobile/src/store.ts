@@ -27,13 +27,15 @@ export interface State {
   chat: ChatMessage[];
   unread: Record<Channel, number>;
   dialog: Dialog | null;
+  /** Écran des permissions déjà montré depuis le lancement de l'app. */
+  permsChecked: boolean;
 }
 
 // Défini au build (EXPO_PUBLIC_SERVER_URL). En dev : `adb reverse tcp:3000 tcp:3000` relie le téléphone au PC.
 export const DEFAULT_SERVER = process.env.EXPO_PUBLIC_SERVER_URL ?? 'http://localhost:3000';
 
 let state: State = {
-  ready: false, token: null, user: null, connected: false, lobby: null, game: null, chat: [], unread: { team: 0, all: 0 }, dialog: null,
+  ready: false, token: null, user: null, connected: false, lobby: null, game: null, chat: [], unread: { team: 0, all: 0 }, dialog: null, permsChecked: false,
   settings: { appearance: 'system', units: 'km', serverUrl: '', tutorialSeen: false },
 };
 const listeners = new Set<() => void>();

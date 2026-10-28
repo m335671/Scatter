@@ -37,6 +37,9 @@ export async function startTracking() {
       timeInterval: 2000,
       distanceInterval: 0,
       showsBackgroundLocationIndicator: true,
+      // iOS : ne pas couper le GPS quand on s'arrête de courir, profil « sport ».
+      pausesUpdatesAutomatically: false,
+      activityType: Location.ActivityType.Fitness,
       foregroundService: {
         notificationTitle: "Keep Runni'n",
         notificationBody: 'Partie en cours. Ta position est partagée avec le serveur de jeu.',

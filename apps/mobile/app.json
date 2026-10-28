@@ -10,7 +10,11 @@
     "backgroundColor": "#121111",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.m335671.keeprunnin"
+      "bundleIdentifier": "com.m335671.keeprunnin",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.m335671.keeprunnin",
@@ -19,7 +23,8 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "versionCode": 1
     },
     "plugins": [
       "expo-router",
@@ -30,7 +35,7 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "Ta position sert à te placer sur la carte de la partie.",
-          "locationAlwaysAndWhenInUsePermission": "Pendant une partie, ton téléphone est dans ta poche : la position doit continuer d'être envoyée écran éteint.",
+          "locationAlwaysAndWhenInUsePermission": "Pendant une partie, ton téléphone est dans ta poche : choisis « Toujours » pour que ta position continue d'être envoyée écran éteint.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
@@ -40,8 +45,8 @@
         "expo-camera",
         {
           "cameraPermission": "La caméra sert à scanner le QR code d'un fugitif pour l'attraper.",
-          "microphonePermission": false,
-          "recordAudioAndroid": false
+          "microphonePermission": "Le micro sert à envoyer des messages vocaux dans la radio.",
+          "recordAudioAndroid": true
         }
       ],
       [
