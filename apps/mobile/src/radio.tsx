@@ -1,5 +1,5 @@
 import { type ComponentRef, useEffect, useRef, useState } from 'react';
-import { Keyboard, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Dimensions, Keyboard, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { PaperPlaneRightIcon } from 'phosphor-react-native';
 import type { Channel, GameView } from '@kr/shared';
 import { emit } from './api';
@@ -25,7 +25,9 @@ const ago = (ms: number) => (ms < 60_000 ? "à l'instant" : `il y a ${Math.floor
 function useKeyboardHeight() {
   const [h, setH] = useState(0);
   useEffect(() => {
-    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', e => setH(e.endCoordinates.height));
+    // Distance réelle entre le haut du clavier et le bas de l'écran (la hauteur rapportée oublie la barre de navigation).
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', e =>
+      setH(Math.max(e.endCoordinates.height, Dimensions.get('screen').height - e.endCoordinates.screenY)));
     const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setH(0));
     return () => { show.remove(); hide.remove(); };
   }, []);
@@ -43,7 +45,8 @@ export function Radio({ game }: { game: GameView }) {
   const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
   const keyboard = useKeyboardHeight();
 
-  const messages = chat.filter(m => m.channel === channel);
+  // Un serveur pas encore à jour envoie des messages sans canal : ils vont dans « Équipe ».
+  const messages = chat.filter(m => (m.channel ?? 'team') === channel);
   // Le canal affiché est lu : on remet son compteur à zéro.
   useEffect(() => { setState(s => ({ unread: { ...s.unread, [channel]: 0 } })); }, [channel, messages.length]);
 

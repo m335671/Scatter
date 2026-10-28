@@ -47,7 +47,7 @@ export function connect() {
   socket.on('lobby', (lobby: Lobby) => setState({ lobby }));
   socket.on('state', (game: GameView) => setState({ game }));
   socket.on('chat:history', (chat: ChatMessage[]) => setState({ chat }));
-  socket.on('chat', (m: ChatMessage) => setState(s => ({ chat: [...s.chat, m].slice(-400), unread: { ...s.unread, [m.channel]: s.unread[m.channel] + 1 } })));
+  socket.on('chat', (m: ChatMessage) => setState(s => ({ chat: [...s.chat, m].slice(-400), unread: { ...s.unread, [m.channel ?? 'team']: s.unread[m.channel ?? 'team'] + 1 } })));
 }
 
 /** Émet un événement et attend l'accusé du serveur. Lève une Error avec le message serveur. */
