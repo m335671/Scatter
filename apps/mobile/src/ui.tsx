@@ -82,7 +82,10 @@ export function Group({ children, label, footer }: { children: ReactNode; label?
       {label ? <T kind="label" style={{ marginLeft: 4, marginTop: 8 }}>{label}</T> : null}
       <View style={{ backgroundColor: t.surface, borderRadius: radius.block, overflow: 'hidden' }}>
         {items.map((c, i) => (
-          <View key={i} style={i > 0 ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.line, marginLeft: 16 } : undefined}>{c}</View>
+          <View key={i}>
+            {i > 0 && <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: t.line, marginLeft: 16 }} />}
+            {c}
+          </View>
         ))}
       </View>
       {footer ? <T kind="small" style={{ marginHorizontal: 4, lineHeight: 19 }}>{footer}</T> : null}
@@ -97,19 +100,19 @@ export function Row({ title, sub, value, right, onPress, danger }: {
   return (
     <Pressable onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined}
       style={({ pressed }) => [{ minHeight: 60, paddingVertical: 12, paddingRight: 16, paddingLeft: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }, pressed && { backgroundColor: t.surface2 }]}>
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, minWidth: 90 }}>
         <Text style={{ fontFamily: fonts.body, fontSize: 17, color: danger ? t.accentText : t.text }}>{title}</Text>
         {sub ? <Text style={{ fontFamily: fonts.body, fontSize: 15, color: t.textDim, marginTop: 2 }}>{sub}</Text> : null}
       </View>
       {value ? <Text style={{ fontFamily: fonts.body, fontSize: 17, color: t.textDim }} numberOfLines={1}>{value}</Text> : null}
-      {right}
+      {right ? <View style={{ flexShrink: 0 }}>{right}</View> : null}
       {onPress && !right && !danger ? <CaretRightIcon size={18} color={t.textDim} /> : null}
     </Pressable>
   );
 }
 
-export function Segmented<V extends string | number>({ options, value, onChange }: {
-  options: { value: V; label: string }[]; value: V; onChange: (v: V) => void;
+export function Segmented<V extends string | number>({ options, value, onChange, stretch }: {
+  options: { value: V; label: string }[]; value: V; onChange: (v: V) => void; stretch?: boolean;
 }) {
   const t = useTheme();
   return (
@@ -118,7 +121,7 @@ export function Segmented<V extends string | number>({ options, value, onChange 
         const on = o.value === value;
         return (
           <Pressable key={String(o.value)} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => onChange(o.value)}
-            style={{ paddingHorizontal: 16, height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: radius.inner - 3, backgroundColor: on ? t.accent : 'transparent', flexGrow: 1 }}>
+            style={{ height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: radius.inner - 3, backgroundColor: on ? t.accent : 'transparent', flexGrow: stretch ? 1 : 0, paddingHorizontal: 14 }}>
             <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: on ? t.onAccent : t.text }}>{o.label}</Text>
           </Pressable>
         );

@@ -12,6 +12,9 @@ const QUICK = {
   fugitive: ['Je suis repéré !', 'Je bouge', 'Vous êtes où ?'],
 };
 
+/** Hauteur réservée à la barre d'onglets flottante de l'écran de partie. */
+const TAB_SPACE = 104;
+
 const ago = (ms: number) => (ms < 60_000 ? "à l'instant" : `il y a ${Math.floor(ms / 60_000)} min`);
 
 export function Radio({ game }: { game: GameView }) {
@@ -85,7 +88,7 @@ export function Radio({ game }: { game: GameView }) {
       </ScrollView>
 
       {canTalk ? (
-        <View style={{ paddingHorizontal: 12, paddingBottom: 8, gap: 10 }}>
+        <View style={{ paddingHorizontal: 12, paddingBottom: TAB_SPACE, gap: 10 }}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} keyboardShouldPersistTaps="handled">
             {QUICK[game.me.role].map(q => (
               <Pressable key={q} onPress={() => send(q)} style={({ pressed }) => ({ borderWidth: 1.5, borderColor: t.line, borderRadius: radius.block, paddingHorizontal: 18, height: 44, justifyContent: 'center', opacity: pressed ? 0.6 : 1 })}>
@@ -106,7 +109,7 @@ export function Radio({ game }: { game: GameView }) {
           </View>
         </View>
       ) : (
-        <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: t.textDim, textAlign: 'center', padding: 16 }}>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: t.textDim, textAlign: 'center', padding: 16, paddingBottom: TAB_SPACE }}>
           Dans cette partie, les chasseurs ne peuvent pas parler.
         </Text>
       )}

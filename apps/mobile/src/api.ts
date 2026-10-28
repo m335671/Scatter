@@ -38,7 +38,8 @@ export function connect() {
   const { token } = getState();
   if (!token) return;
   socket = io(base(), { auth: { token }, transports: ['websocket'] });
-  socket.on('connect', () => setState({ connected: true }));
+  // Le serveur renvoie la partie en cours juste après la connexion : on repart de son état, pas d'un état périmé.
+  socket.on('connect', () => setState({ connected: true, lobby: null, game: null, chat: [], unread: 0 }));
   socket.on('disconnect', () => setState({ connected: false }));
   socket.on('connect_error', (e) => {
     if (e.message === 'unauthorized') { socket?.close(); setState({ token: null, user: null }); }

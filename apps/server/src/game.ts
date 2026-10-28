@@ -276,7 +276,11 @@ export function view(g: Game, id: string): GameView | null {
     fugitivesLeft: fugitives.filter(p => p.caughtAt === null).length,
     fugitivesTotal: fugitives.length,
     team,
-    ping: g.lastPing && { at: g.lastPing.at, players: me.role === 'hunter' ? g.lastPing.forHunters : g.lastPing.forFugitives },
+    // Un joueur attrapé depuis le ping disparaît de la carte adverse.
+    ping: g.lastPing && {
+      at: g.lastPing.at,
+      players: (me.role === 'hunter' ? g.lastPing.forHunters : g.lastPing.forFugitives).filter(p => g.players.get(p.id)?.caughtAt === null),
+    },
     spectating,
     winner: g.winner,
   };

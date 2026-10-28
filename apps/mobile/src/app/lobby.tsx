@@ -115,6 +115,7 @@ export default function LobbyScreen() {
         <Group label="Tu joues">
           <View style={{ padding: 12 }}>
             <Segmented<RoleChoice>
+              stretch
               value={myChoice}
               onChange={role => emit('role', { role }).catch(e => Alert.alert('Oups', e.message))}
               options={(['hunter', 'fugitive', 'random'] as const).map(v => ({ value: v, label: ROLE_LABEL[v] }))}

@@ -231,6 +231,7 @@ io.on('connection', (socket) => {
       case 'ping': ping(x); break;
       case 'catchNearest':
         if (me.role !== 'hunter') throw new GameError('Tu es fugitif dans cette manche.');
+        if (x.phase !== 'hunt') throw new GameError("Attends la fin de l'avance.");
         catchNearest(x, me);
         break;
       case 'advance': { const before = x.clock; tick(x, 60_000 / x.speed); moveBots(x, x.clock - before); break; }

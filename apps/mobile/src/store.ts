@@ -23,7 +23,7 @@ export interface State {
   unread: number;
 }
 
-const DEFAULT_SERVER = process.env.EXPO_PUBLIC_SERVER_URL ?? 'http://10.0.2.2:3000'; // 10.0.2.2 = PC hôte vu depuis l'émulateur Android
+const DEFAULT_SERVER = process.env.EXPO_PUBLIC_SERVER_URL ?? 'http://localhost:3000'; // en dev : `adb reverse tcp:3000 tcp:3000` relie le téléphone au PC
 
 let state: State = {
   ready: false, token: null, user: null, connected: false, lobby: null, game: null, chat: [], unread: 0,

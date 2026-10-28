@@ -26,6 +26,9 @@ function circle(c: LatLng, r: number): GeoJSON.Feature<GeoJSON.Polygon> {
   return { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [coords] } };
 }
 
+/** Hauteur fixe de la barre d'onglets flottante : le reste de l'écran se cale dessus. */
+const TAB_H = 76;
+
 const zoomFor = (radiusM: number) => 16 - Math.log2(Math.max(radiusM, 80) / 160);
 
 export default function GameScreen() {
@@ -57,14 +60,16 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
   const t = useTheme();
   const router = useRouter();
   const camera = useRef<CameraRef>(null);
+  const insets = useSafeAreaInsets();
   const last = useStore(s => s.chat.at(-1));
   const zone = game.zone;
   const zoneShape = useMemo(() => circle(zone.center, zone.radiusM), [zone.center.lat, zone.center.lng, zone.radiusM]);
-  const others = [...(game.ping?.players ?? []), ...game.spectating];
+  // En spectateur (ou en fin de partie), la vue différée remplace le dernier ping : pas de doublon de marqueurs.
+  const others = game.spectating.length ? game.spectating : (game.ping?.players ?? []);
 
   return (
     <View style={{ flex: 1 }}>
-      <Map style={{ flex: 1 }} mapStyle={t.mapStyle} logo={false} compass={false} attribution attributionPosition={{ bottom: 150, left: 12 }}>
+      <Map style={{ flex: 1 }} mapStyle={t.mapStyle} logo={false} compass={false} attribution attributionPosition={{ top: 230, left: 12 }}>
         <Camera ref={camera} initialViewState={{ center: [zone.center.lng, zone.center.lat], zoom: zoomFor(zone.radiusM) }} />
         {zone.enabled && (
           <GeoJSONSource id="zone" data={zoneShape}>
@@ -87,23 +92,22 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
         )}
       </SafeAreaView>
 
-      <View style={{ position: 'absolute', right: 12, bottom: 172, gap: 12 }}>
-        <RoundButton label="Recentrer" onPress={() => camera.current?.jumpTo({ center: [zone.center.lng, zone.center.lat], zoom: zoomFor(zone.radiusM) })}>
-          <CrosshairIcon size={24} color={t.text} weight="bold" />
-        </RoundButton>
-        {game.phase === 'hunt' && game.me.role === 'hunter' && (
-          <RoundButton label="Scanner un fugitif" big accent onPress={() => router.push('/scan')}>
-            <ScanIcon size={30} color={t.onAccent} weight="bold" />
+      <View pointerEvents="box-none" style={{ position: 'absolute', left: 12, right: 12, bottom: Math.max(insets.bottom, 12) + TAB_H + 10, gap: 12 }}>
+        <View pointerEvents="box-none" style={{ alignSelf: 'flex-end', gap: 12, alignItems: 'flex-end' }}>
+          <RoundButton label="Recentrer" onPress={() => camera.current?.jumpTo({ center: [zone.center.lng, zone.center.lat], zoom: zoomFor(zone.radiusM) })}>
+            <CrosshairIcon size={24} color={t.text} weight="bold" />
           </RoundButton>
-        )}
-        {game.me.role === 'fugitive' && !game.me.caught && game.phase !== 'ended' && (
-          <RoundButton label="Mon QR code" big accent onPress={onQr}>
-            <QrCodeIcon size={30} color={t.onAccent} weight="bold" />
-          </RoundButton>
-        )}
-      </View>
-
-      <View style={{ position: 'absolute', left: 12, right: 12, bottom: 96 }}>
+          {game.phase === 'hunt' && game.me.role === 'hunter' && (
+            <RoundButton label="Scanner un fugitif" big accent onPress={() => router.push('/scan')}>
+              <ScanIcon size={30} color={t.onAccent} weight="bold" />
+            </RoundButton>
+          )}
+          {game.me.role === 'fugitive' && !game.me.caught && game.phase !== 'ended' && (
+            <RoundButton label="Mon QR code" big accent onPress={onQr}>
+              <QrCodeIcon size={30} color={t.onAccent} weight="bold" />
+            </RoundButton>
+          )}
+        </View>
         <Pressable onPress={onRadio} style={{ backgroundColor: t.surface, borderRadius: radius.block, padding: 14, gap: 10 }}>
           {last && (
             <Text numberOfLines={1} style={{ fontFamily: fonts.body, fontSize: 16, color: t.text }}>
@@ -223,12 +227,12 @@ function TabBar({ tab, onTab, onMore }: { tab: 'map' | 'radio'; onTab: (t: 'map'
   };
   return (
     <View style={{ position: 'absolute', left: 12, right: 12, bottom: Math.max(insets.bottom, 12), flexDirection: 'row', gap: 10 }}>
-      <View style={{ flex: 1, flexDirection: 'row', backgroundColor: t.surface, borderRadius: radius.block + 8, padding: 6, borderWidth: 1, borderColor: t.line }}>
+      <View style={{ flex: 1, height: TAB_H, flexDirection: 'row', backgroundColor: t.surface, borderRadius: radius.block + 8, padding: 6, borderWidth: 1, borderColor: t.line }}>
         {item('map', 'Carte', MapTrifoldIcon)}
         {item('radio', 'Radio', BroadcastIcon, unread)}
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel="Plus d'options" onPress={onMore}
-        style={{ width: 72, borderRadius: radius.block + 8, backgroundColor: t.surface, borderWidth: 1, borderColor: t.line, alignItems: 'center', justifyContent: 'center' }}>
+        style={{ width: 72, height: TAB_H, borderRadius: radius.block + 8, backgroundColor: t.surface, borderWidth: 1, borderColor: t.line, alignItems: 'center', justifyContent: 'center' }}>
         <DotsThreeIcon size={30} color={t.text} weight="bold" />
       </Pressable>
     </View>
@@ -296,7 +300,7 @@ function Sheet({ visible, onClose, title, children }: { visible: boolean; onClos
       <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} onPress={onClose} accessibilityLabel="Fermer" />
       <View style={{ backgroundColor: t.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 10, paddingHorizontal: 16, paddingBottom: insets.bottom + 16, maxHeight: '85%' }}>
         <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: t.surface2, marginBottom: 14 }} />
-        <Text style={{ fontFamily: fonts.displayBlack, fontSize: 30, color: t.text, marginBottom: 8 }}>{title}</Text>
+        <Text style={{ fontFamily: fonts.displayBlack, fontSize: 26, color: t.text, marginBottom: 8 }}>{title}</Text>
         <ScrollView contentContainerStyle={{ gap: 12 }}>{children}</ScrollView>
       </View>
     </Modal>
@@ -308,7 +312,10 @@ function MoreSheet({ game, visible, onClose, onQr }: { game: GameView; visible: 
   const router = useRouter();
   const appearance = useStore(s => s.settings.appearance);
   const training = game.training && game.phase !== 'ended';
-  const ctl = (body: object) => emit('training', body).catch(e => Alert.alert('Oups', e.message));
+  const ctl = (body: { action: string; value?: number }) => {
+    if (body.action !== 'speed') onClose(); // on ferme pour voir l'effet (flash, capture, fin)
+    emit('training', body).catch(e => Alert.alert('Oups', e.message));
+  };
 
   function quit() {
     Alert.alert('Quitter la partie ?', 'Tu ne pourras pas revenir dans cette manche.', [
@@ -369,7 +376,9 @@ function EndPanel({ game }: { game: GameView }) {
   return (
     <View style={{ position: 'absolute', inset: 0, backgroundColor: won ? t.accent : t.bg, justifyContent: 'flex-end', padding: 20, paddingBottom: 40 }}>
       <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: won ? t.onAccent : t.textDim }}>
-        {game.winner === 'hunter' ? 'Tous les fugitifs ont été attrapés.' : `Temps écoulé. ${game.fugitivesLeft} fugitif${game.fugitivesLeft > 1 ? 's' : ''} en liberté.`}
+        {game.winner === 'hunter'
+          ? 'Tous les fugitifs ont été attrapés.'
+          : `${game.clock < game.huntEnd ? 'Manche terminée.' : 'Temps écoulé.'} ${game.fugitivesLeft} fugitif${game.fugitivesLeft > 1 ? 's' : ''} en liberté.`}
       </Text>
       <Text style={{ fontFamily: fonts.hero, fontSize: 104, lineHeight: 100, color: won ? t.onAccent : t.text, marginTop: 8 }}>
         {won ? 'Gagné.' : 'Perdu.'}

@@ -58,11 +58,14 @@ test('zone : 420 m → 150 m par paliers de 5 min, finale à 5 min de la fin', (
 test('capture par QR : bon secret, mauvais secret, pendant l\'avance', () => {
   const g = setup();
   const f = g.players.get('f')!;
+  updatePosition(g, 'f', C);
   assert.throws(() => capture(g, 'h', qrFor(g, f)), GameError); // encore l'avance
   tick(g, 3 * MIN);
   assert.throws(() => capture(g, 'h', `KR1:ABCD12:f:${'0'.repeat(24)}`), /invalide/);
   assert.throws(() => capture(g, 'f', qrFor(g, f)), GameError);
+  assert.equal(view(g, 'h')!.ping!.players.length, 1); // vu au ping de fin d'avance
   capture(g, 'h', qrFor(g, f));
+  assert.equal(view(g, 'h')!.ping!.players.length, 0); // attrapé : retiré du ping
   assert.equal(g.phase, 'ended');
   assert.equal(g.winner, 'hunter');
 });
