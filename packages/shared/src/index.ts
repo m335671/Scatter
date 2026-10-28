@@ -76,7 +76,8 @@ export type Phase = 'lobby' | 'headstart' | 'hunt' | 'ended';
 export interface LobbyPlayer { id: string; name: string; username: string; choice: RoleChoice; isBot: boolean; host: boolean }
 export interface Lobby { code: string; rules: Rules; training: boolean; players: LobbyPlayer[] }
 
-export interface SeenPlayer { id: string; name: string; role: Role; lat: number; lng: number; t: number; caught: boolean; exposed?: boolean }
+/** acc : précision GPS en mètres au moment de la mesure (absente pour les bots). */
+export interface SeenPlayer { id: string; name: string; role: Role; lat: number; lng: number; t: number; acc?: number; caught: boolean; exposed?: boolean }
 
 export interface GameView {
   code: string;

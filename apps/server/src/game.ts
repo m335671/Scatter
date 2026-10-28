@@ -9,7 +9,7 @@ const HISTORY_MS = 3 * MIN;
 const MAX_PLAYERS = 20;
 const CHAT_KEEP = 200;
 
-interface Sample { t: number; lat: number; lng: number }
+interface Sample { t: number; lat: number; lng: number; acc?: number }
 
 export interface Player {
   id: string;
@@ -103,10 +103,10 @@ export function start(g: Game, rng = Math.random) {
 
 // ---------- Positions ----------
 
-export function updatePosition(g: Game, id: string, pos: LatLng) {
+export function updatePosition(g: Game, id: string, pos: LatLng & { acc?: number }) {
   const p = g.players.get(id);
   if (!p) return;
-  p.history.push({ t: g.clock, lat: pos.lat, lng: pos.lng });
+  p.history.push({ t: g.clock, lat: pos.lat, lng: pos.lng, acc: pos.acc });
   // On garde le dernier échantillon antérieur à la fenêtre pour pouvoir répondre à positionAt(clock - 3 min).
   const cutoff = g.clock - HISTORY_MS;
   let i = 0;
@@ -132,6 +132,7 @@ export function isOutOfZone(g: Game, p: Player): boolean {
 
 const seen = (p: Player, s: Sample, exposed?: boolean): SeenPlayer => ({
   id: p.id, name: p.name, role: p.role!, lat: s.lat, lng: s.lng, t: s.t, caught: p.caughtAt !== null,
+  ...(s.acc !== undefined ? { acc: Math.round(s.acc) } : {}),
   ...(exposed ? { exposed } : {}),
 });
 

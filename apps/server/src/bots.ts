@@ -42,7 +42,8 @@ export function moveBots(g: Game, gameDtMs: number, rng = Math.random) {
     }
     const d = distanceM(pos, p.target);
     const f = Math.min(1, (SPEED_MPS * gameDtMs) / 1000 / d);
-    updatePosition(g, p.id, { lat: pos.lat + (p.target.lat - pos.lat) * f, lng: pos.lng + (p.target.lng - pos.lng) * f });
+    // Précision GPS simulée, comme un vrai téléphone en extérieur.
+    updatePosition(g, p.id, { lat: pos.lat + (p.target.lat - pos.lat) * f, lng: pos.lng + (p.target.lng - pos.lng) * f, acc: 6 + rng() * 10 });
   }
   if (g.phase === 'hunt') botsCatch(g);
 }

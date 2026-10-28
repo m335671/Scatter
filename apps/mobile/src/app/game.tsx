@@ -67,6 +67,7 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
   // En spectateur (ou en fin de partie), la vue différée remplace le dernier ping : pas de doublon de marqueurs.
   const others = game.spectating.length ? game.spectating : (game.ping?.players ?? []);
   const players = toFeatures(game, others);
+  const mPerPx0 = 78_271.5 * Math.cos((zone.center.lat * Math.PI) / 180);
 
   return (
     <View style={{ flex: 1 }}>
@@ -80,28 +81,45 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
         )}
         <NativeUserLocation />
         <GeoJSONSource id="players" data={players}>
+          {/* Halo de précision GPS autour d'une position signalée : la vraie position est dans ce cercle. */}
+          <Layer type="circle" id="players-acc" filter={['all', ['!=', ['get', 'kind'], 'team'], ['>', ['get', 'acc'], 0]]} paint={{
+            // Rayon de `acc` mètres en pixels : 78 271,5 m/px au zoom 0 (tuiles de 512 px), divisé par 2 par niveau.
+            'circle-radius': ['interpolate', ['exponential', 2], ['zoom'],
+              10, ['*', ['get', 'acc'], 2 ** 10 / mPerPx0],
+              20, ['*', ['get', 'acc'], 2 ** 20 / mPerPx0]],
+            'circle-color': ['match', ['get', 'kind'], 'exposed', t.accent, t.text],
+            'circle-opacity': ['case', ['get', 'caught'], 0.04, 0.12],
+            'circle-stroke-width': 1,
+            'circle-stroke-color': ['match', ['get', 'kind'], 'exposed', t.accent, t.text],
+            'circle-stroke-opacity': ['case', ['get', 'caught'], 0.1, 0.35],
+          }} />
+          {/* Coéquipier = point plein rouge. Position signalée = cible (anneau + point central exact). */}
           <Layer type="circle" id="players-dot" paint={{
-            // Petits points qui grossissent un peu avec le zoom (vue quartier → vue rue).
             'circle-radius': ['interpolate', ['linear'], ['zoom'],
-              13, ['match', ['get', 'kind'], 'team', 2.5, 3],
-              18, ['match', ['get', 'kind'], 'team', 5, 6]],
-            'circle-color': ['match', ['get', 'kind'], 'team', t.accent, t.bg],
+              13, ['match', ['get', 'kind'], 'team', 3, 4.5],
+              18, ['match', ['get', 'kind'], 'team', 6, 8]],
+            'circle-color': t.accent,
+            'circle-opacity': ['match', ['get', 'kind'], 'team', ['case', ['get', 'caught'], 0.4, 1], 0],
             'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 13, 1.5, 18, 2.5],
             'circle-stroke-color': ['match', ['get', 'kind'], 'team', t.bg, 'exposed', t.accent, t.text],
-            'circle-opacity': ['case', ['get', 'caught'], 0.4, 1],
             'circle-stroke-opacity': ['case', ['get', 'caught'], 0.4, 1],
+          }} />
+          <Layer type="circle" id="players-center" filter={['!=', ['get', 'kind'], 'team']} paint={{
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 1.5, 18, 2.5],
+            'circle-color': ['match', ['get', 'kind'], 'exposed', t.accent, t.text],
+            'circle-opacity': ['case', ['get', 'caught'], 0.4, 1],
           }} />
           {/* MapLibre place chaque étiquette du côté libre (gauche, droite, haut, bas) : pas de chevauchement. */}
           <Layer type="symbol" id="players-label" layout={{
             'text-field': ['get', 'label'],
             'text-font': ['Noto Sans Bold'],
             'text-size': ['interpolate', ['linear'], ['zoom'], 13, 10, 18, 13],
-            'text-variable-anchor': ['left', 'right', 'top', 'bottom'],
-            'text-radial-offset': 0.8,
+            'text-variable-anchor': ['left', 'right', 'top', 'bottom', 'top-left', 'top-right', 'bottom-left', 'bottom-right'],
+            'text-radial-offset': 0.9,
             'text-justify': 'auto',
             'text-padding': 2,
           }} paint={{
-            'text-color': t.text,
+            'text-color': ['match', ['get', 'kind'], 'exposed', t.accentText, t.text],
             'text-halo-color': t.bg,
             'text-halo-width': 1.5,
             'text-opacity': ['case', ['get', 'caught'], 0.5, 1],
@@ -111,6 +129,7 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
 
       <SafeAreaView edges={['top']} style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 12 }} pointerEvents="box-none">
         <Hud game={game} />
+        <Legend game={game} others={others} />
         {game.me.outOfZone && (
           <View style={{ marginTop: 8, backgroundColor: t.accent, borderRadius: radius.block, padding: 14 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: t.onAccent }}>Tu es hors de la zone !</Text>
@@ -172,17 +191,51 @@ function PhaseBanner({ game, t }: { game: GameView; t: Theme }) {
 function toFeatures(game: GameView, others: SeenPlayer[]): GeoJSON.FeatureCollection<GeoJSON.Point> {
   const feature = (p: SeenPlayer, kind: 'team' | 'enemy' | 'exposed', label: string): GeoJSON.Feature<GeoJSON.Point> => ({
     type: 'Feature', id: `${kind}-${p.id}`,
-    properties: { kind, label, caught: p.caught },
+    properties: { kind, label, caught: p.caught, acc: p.acc ?? 0 },
     geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
   });
+  const ago = (p: SeenPlayer) => fmtClock(game.clock - p.t).replace(/^0/, '');
   return {
     type: 'FeatureCollection',
     features: [
       ...game.team.filter(p => p.id !== game.me.id).map(p => feature(p, 'team', p.name.toUpperCase())),
-      ...others.map(p => feature(p, p.exposed ? 'exposed' : 'enemy',
-        `${p.name.toUpperCase()}  ${p.caught ? 'attrapé' : fmtClock(game.clock - p.t).replace(/^0/, '')}`)),
+      ...others.map(p => {
+        const name = p.name.toUpperCase();
+        if (p.caught) return feature(p, 'enemy', `${name} attrapé`);
+        return feature(p, p.exposed ? 'exposed' : 'enemy', `${name} ${ago(p)}`);
+      }),
     ],
   };
+}
+
+/** Légende des symboles de la carte, uniquement pour ce qui est affiché. */
+function Legend({ game, others }: { game: GameView; others: SeenPlayer[] }) {
+  const t = useTheme();
+  const hasTeam = game.team.some(p => p.id !== game.me.id);
+  const hasExposed = others.some(p => p.exposed);
+  if (!hasTeam && !others.length) return null;
+  const enemyLabel = game.spectating.length
+    ? 'Adversaires en différé · NOM 1:06 = vu il y a 1 min 06'
+    : `${game.me.role === 'hunter' ? 'Fugitif' : 'Chasseur'} au ping · NOM 1:06 = vu il y a 1 min 06`;
+  const item = (symbol: React.ReactNode, label: string) => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      {symbol}
+      <Text style={{ flexShrink: 1, fontFamily: fonts.medium, fontSize: 12, color: t.textDim }}>{label}</Text>
+    </View>
+  );
+  const target = (color: string) => (
+    <View style={{ width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: color, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: 3, height: 3, borderRadius: 2, backgroundColor: color }} />
+    </View>
+  );
+  return (
+    <View pointerEvents="none" style={{ marginTop: 8, alignSelf: 'flex-start', maxWidth: '100%', backgroundColor: t.surface, borderRadius: radius.inner, paddingHorizontal: 12, paddingVertical: 8, gap: 4 }}>
+      {hasTeam && item(<View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: t.accent, marginHorizontal: 1 }} />, 'Ton équipe, en direct')}
+      {others.length > 0 && item(target(t.text), enemyLabel)}
+      {hasExposed && item(target(t.accent), 'Hors zone : position exacte, sans délai')}
+      {others.length > 0 && item(<View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: t.text, opacity: 0.2 }} />, 'Halo : précision du GPS (visible en zoomant)')}
+    </View>
+  );
 }
 
 // ---------- HUD ----------

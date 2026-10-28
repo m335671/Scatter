@@ -20,7 +20,7 @@ test('ping : les chasseurs voient la position du fugitif 1 min avant', () => {
   updatePosition(g, 'h', C);
   // le fugitif bouge pendant l'avance (3 min)
   for (let s = 0; s < 3 * 60; s += 10) {
-    updatePosition(g, 'f', { lat: C.lat + s * 1e-6, lng: C.lng });
+    updatePosition(g, 'f', { lat: C.lat + s * 1e-6, lng: C.lng, acc: 8.4 });
     tick(g, 10_000);
   }
   // 1er ping à la fin de l'avance (clock = 180 s) → position à t = 120 s
@@ -28,6 +28,7 @@ test('ping : les chasseurs voient la position du fugitif 1 min avant', () => {
   assert.equal(v.phase, 'hunt');
   assert.equal(v.ping!.players.length, 1);
   assert.equal(v.ping!.players[0].t, 120_000);
+  assert.equal(v.ping!.players[0].acc, 8); // précision GPS transmise (arrondie)
   assert.ok(Math.abs(v.ping!.players[0].lat - (C.lat + 120e-6)) < 1e-9);
   // le fugitif, lui, voit le chasseur en direct
   assert.equal(view(g, 'f')!.ping!.players[0].id, 'h');
