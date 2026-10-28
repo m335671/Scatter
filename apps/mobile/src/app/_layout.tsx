@@ -33,6 +33,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.bg }, animation: 'slide_from_right' }}>
         <Stack.Screen name="index" options={{ animation: 'fade' }} />
         <Stack.Screen name="game" options={{ gestureEnabled: false, animation: 'fade' }} />
+        <Stack.Screen name="tutorial" options={{ animation: 'fade' }} />
       </Stack>
     </>
   );

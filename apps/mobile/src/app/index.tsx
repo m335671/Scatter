@@ -15,12 +15,14 @@ const INK = '#F7F2F0';
 export default function Home() {
   const router = useRouter();
   const user = useStore(s => s.user);
+  const tutorialSeen = useStore(s => s.settings.tutorialSeen);
   const connected = useStore(s => s.connected);
   const lobby = useStore(s => s.lobby);
   const phase = useStore(s => s.game?.phase);
   const [busy, setBusy] = useState<'create' | 'train' | null>(null);
 
   if (!user) return <Redirect href="/onboarding" />;
+  if (!tutorialSeen) return <Redirect href="/tutorial" />;
 
   async function create(training: boolean) {
     setBusy(training ? 'train' : 'create');
@@ -73,7 +75,7 @@ export default function Home() {
           <HomeButton title="Créer une partie" solid loading={busy === 'create'} onPress={() => create(false)} disabled={!connected || !!busy} />
           <HomeButton title="Rejoindre avec un code" onPress={() => router.push('/join')} disabled={!connected || !!busy} />
           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 28, paddingVertical: 10 }}>
-            <Pressable hitSlop={10} onPress={() => router.push('/how')}>
+            <Pressable hitSlop={10} onPress={() => router.push('/tutorial')}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: INK, opacity: 0.85 }}>Comment ça marche</Text>
             </Pressable>
             <Pressable hitSlop={10} onPress={() => create(true)} disabled={!connected || !!busy}>

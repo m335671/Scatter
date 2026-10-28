@@ -33,8 +33,9 @@ export async function startTracking() {
   if (bg.granted) {
     await Location.startLocationUpdatesAsync(TASK, {
       accuracy: Location.Accuracy.High,
-      timeInterval: 3000,
-      distanceInterval: 3,
+      // Position envoyée au moins toutes les 2 s, même immobile : l'équipe voit du vrai direct.
+      timeInterval: 2000,
+      distanceInterval: 0,
       showsBackgroundLocationIndicator: true,
       foregroundService: {
         notificationTitle: "Keep Runni'n",
@@ -45,7 +46,7 @@ export async function startTracking() {
   } else if (!foregroundSub) {
     // Sans la permission « toujours », on suit au moins quand l'app est ouverte.
     foregroundSub = await Location.watchPositionAsync(
-      { accuracy: Location.Accuracy.High, timeInterval: 3000, distanceInterval: 3 },
+      { accuracy: Location.Accuracy.High, timeInterval: 2000, distanceInterval: 0 },
       p => sendPosition(p.coords.latitude, p.coords.longitude, p.coords.accuracy ?? undefined),
     );
   }

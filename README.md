@@ -15,7 +15,7 @@ npm test         # tests du moteur de jeu
 ```
 
 ### Déploiement (Docker)
-Chaque push sur `main` qui touche le serveur publie l'image `ghcr.io/m335671/keep-runni-n` (amd64 + arm64) via GitHub Actions, après avoir lancé les tests dans l'image. Un tag `v1.2.3` publie aussi `:1.2.3`.
+Chaque push sur `main` qui touche le serveur publie l'image `ghcr.io/m335671/keep-runni-n` (amd64) via GitHub Actions, après avoir lancé les tests dans l'image. Un tag `v1.2.3` publie aussi `:1.2.3`.
 
 Sur le serveur, seul `docker-compose.yml` est nécessaire :
 ```sh

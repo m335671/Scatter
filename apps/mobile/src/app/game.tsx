@@ -28,6 +28,8 @@ function circle(c: LatLng, r: number): GeoJSON.Feature<GeoJSON.Polygon> {
 
 /** Hauteur fixe de la barre d'onglets flottante : le reste de l'écran se cale dessus. */
 const TAB_H = 76;
+/** Au-delà, la position d'un coéquipier n'est plus considérée comme « en direct ». */
+const STALE_MS = 10_000;
 
 const zoomFor = (radiusM: number) => 16 - Math.log2(Math.max(radiusM, 80) / 160);
 
@@ -198,7 +200,11 @@ function toFeatures(game: GameView, others: SeenPlayer[]): GeoJSON.FeatureCollec
   return {
     type: 'FeatureCollection',
     features: [
-      ...game.team.filter(p => p.id !== game.me.id).map(p => feature(p, 'team', p.name.toUpperCase())),
+      // Coéquipier sans nouvelle position depuis 10 s (réseau perdu) : estompé, avec l'âge de sa dernière position.
+      ...game.team.filter(p => p.id !== game.me.id).map(p => {
+        const stale = game.clock - p.t > STALE_MS;
+        return feature({ ...p, caught: p.caught || stale }, 'team', stale ? `${p.name.toUpperCase()} ${ago(p)}` : p.name.toUpperCase());
+      }),
       ...others.map(p => {
         const name = p.name.toUpperCase();
         if (p.caught) return feature(p, 'enemy', `${name} attrapé`);
