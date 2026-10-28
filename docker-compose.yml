@@ -11,6 +11,9 @@ services:
       - "${KR_PORT:-3000}:3000"
     volumes:
       - keeprunnin-data:/data   # comptes (SQLite)
+      # Ou un dossier précis du serveur (supprimer alors le bloc « volumes: » en bas) :
+      #   - /srv/keeprunnin/data:/data
+      # Le conteneur tourne en utilisateur node (uid 1000) : sudo chown 1000:1000 /srv/keeprunnin/data
     environment:
       TZ: ${TZ:-Europe/Paris}
 
