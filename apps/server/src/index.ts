@@ -11,6 +11,22 @@ import { addBots, catchNearest, moveBots } from './bots.ts';
 
 const PORT = Number(process.env.PORT ?? 3000);
 
+// ---------- Logs ----------
+// Une ligne par événement : « 2026-10-28T22:10:00.000Z [partie] lancée code=TACO42 joueurs=5 ».
+// Pas de positions (trop de bruit) ni de contenu radio (vie privée).
+function log(tag: string, msg: string, fields: Record<string, unknown> = {}) {
+  const kv = Object.entries(fields).filter(([, v]) => v !== undefined).map(([k, v]) => `${k}=${v}`).join(' ');
+  console.log(`${new Date().toISOString()} [${tag}] ${msg}${kv ? ' ' + kv : ''}`);
+}
+
+/** IP réelle du client derrière NPMPlus (X-Forwarded-For / X-Real-IP), sinon l'adresse TCP. */
+function clientIp(headers: IncomingMessage['headers'], fallback?: string) {
+  const fwd = headers['x-forwarded-for'];
+  return (Array.isArray(fwd) ? fwd[0] : fwd)?.split(',')[0].trim() || (headers['x-real-ip'] as string | undefined) || fallback || '?';
+}
+
+const at = (u: { username: string }) => `@${u.username}`;
+
 // ---------- HTTP : santé + comptes ----------
 
 async function body(req: IncomingMessage): Promise<unknown> {
@@ -43,6 +59,7 @@ const http = createServer(async (req, res) => {
       const p = Register.safeParse(await body(req));
       if (!p.success) return send(res, 400, { error: 'Nom ou username invalide.' });
       const r = db.createUser(p.data.name, p.data.username);
+      log('compte', r ? 'inscription' : 'inscription refusée (pseudo pris)', { user: '@' + p.data.username, ip: clientIp(req.headers, req.socket.remoteAddress) });
       return r ? send(res, 201, r) : send(res, 409, { error: 'Ce nom d’utilisateur est déjà pris.' });
     }
 
@@ -54,11 +71,14 @@ const http = createServer(async (req, res) => {
         const p = UpdateMe.safeParse(await body(req));
         if (!p.success) return send(res, 400, { error: 'Valeur invalide.' });
         if (!db.updateUser(user.id, p.data)) return send(res, 409, { error: 'Ce nom d’utilisateur est déjà pris.' });
+        log('compte', 'profil modifié', { user: at(user), nom: p.data.name, pseudo: p.data.username && '@' + p.data.username });
         return send(res, 200, { ...user, ...p.data });
       }
     }
+    if (!url.pathname.startsWith('/socket.io')) log('http', 'introuvable', { status: 404, method: req.method, path: url.pathname, ip: clientIp(req.headers, req.socket.remoteAddress) });
     send(res, 404, { error: 'Not found' });
-  } catch {
+  } catch (e) {
+    log('http', 'requête invalide', { status: 400, method: req.method, path: req.url, ip: clientIp(req.headers, req.socket.remoteAddress), erreur: (e as Error).message });
     send(res, 400, { error: 'Requête invalide.' });
   }
 });
@@ -110,16 +130,24 @@ function leaveCurrent(userId: string) {
   const g = code && games.get(code);
   userGame.delete(userId);
   if (!g) return;
+  const leaver = g.players.get(userId);
   leave(g, userId);
-  if (!humans(g).length || g.training) games.delete(g.code);
-  else broadcastLobby(g);
+  log('partie', 'joueur parti', { code: g.code, user: leaver ? at(leaver) : userId, phase: g.phase });
+  if (!humans(g).length || g.training) {
+    games.delete(g.code);
+    lastSeen.delete(g.code);
+    log('partie', 'supprimée (plus de joueurs)', { code: g.code });
+  } else broadcastLobby(g);
 }
 
 type Ack = (r: object) => void;
 
 io.use((socket, next) => {
   const user = db.userByToken(String(socket.handshake.auth?.token ?? ''));
-  if (!user) return next(new Error('unauthorized'));
+  if (!user) {
+    log('connexion', 'refusée (jeton inconnu)', { ip: clientIp(socket.handshake.headers, socket.handshake.address) });
+    return next(new Error('unauthorized'));
+  }
   socket.data.user = user;
   next();
 });
@@ -130,6 +158,8 @@ io.on('connection', (socket) => {
 
   const resume = games.get(userGame.get(user.id) ?? '');
   if (resume) sendEverything(socket, resume, user.id);
+  log('connexion', 'connecté', { user: at(user), ip: clientIp(socket.handshake.headers, socket.handshake.address), reprise: resume?.code });
+  socket.on('disconnect', reason => log('connexion', 'déconnecté', { user: at(user), raison: reason, partie: userGame.get(user.id) }));
 
   /** Valide l'entrée avec zod, convertit les GameError en { error } pour le client. */
   function on<S extends z.ZodType>(ev: string, schema: S, fn: (data: z.infer<S>, g: Game | undefined) => object | void) {
@@ -140,7 +170,11 @@ io.on('connection', (socket) => {
       try {
         reply({ ok: true, ...(fn(p.data, games.get(userGame.get(user.id) ?? '')) ?? {}) });
       } catch (e) {
-        if (e instanceof GameError) return reply({ error: e.message });
+        if (e instanceof GameError) {
+          log('refus', e.message, { user: at(user), action: ev });
+          return reply({ error: e.message });
+        }
+        log('erreur', (e as Error).message, { user: at(user), action: ev });
         console.error(e);
         reply({ error: 'Erreur serveur.' });
       }
@@ -160,6 +194,7 @@ io.on('connection', (socket) => {
     games.set(g.code, g);
     userGame.set(user.id, g.code);
     broadcastLobby(g);
+    log('partie', training ? 'entraînement créé' : 'salon créé', { code: g.code, hote: at(user) });
     return { code: g.code };
   });
 
@@ -169,6 +204,7 @@ io.on('connection', (socket) => {
     if (userGame.get(user.id) !== code) leaveCurrent(user.id);
     join(g, user);
     userGame.set(user.id, code);
+    log('partie', 'joueur arrivé', { code, user: at(user), joueurs: humans(g).length });
     broadcastLobby(g);
     sendEverything(socket, g, user.id);
     return { code };
@@ -194,6 +230,12 @@ io.on('connection', (socket) => {
     const x = host(g);
     if (x.training) addBots(x);
     start(x);
+    lastSeen.set(x.code, { phase: x.phase, pingAt: null });
+    const team = (r: Role) => [...x.players.values()].filter(p => p.role === r).map(p => (p.isBot ? p.name : at(p))).join(',');
+    log('partie', x.training ? 'entraînement lancé' : 'lancée', {
+      code: x.code, chasseurs: team('hunter'), fugitifs: team('fugitive'), duree: `${x.rules.durationMin}min`,
+      avance: `${x.rules.headStartMin}min`, pings: `${x.rules.pingEveryMin}min`, zone: x.rules.zone.enabled ? `${x.rules.zone.startRadiusM}m` : 'non',
+    });
     broadcastLobby(x);
     for (const p of humans(x)) io.to(`u:${p.id}`).emit('chat:history', x.chat[p.role!]);
     x.outbox.length = 0; // déjà envoyé dans l'historique
@@ -207,6 +249,8 @@ io.on('connection', (socket) => {
   on('capture', C2S.capture, ({ qr }, g) => {
     const x = need(g);
     capture(x, user.id, qr);
+    const target = [...x.players.values()].find(p => p.role === 'fugitive' && p.caughtAt === x.clock);
+    log('partie', 'capture', { code: x.code, chasseur: at(user), fugitif: target ? at(target) : '?', restants: fugitivesLeft(x) });
     broadcastState(x);
   });
 
@@ -221,6 +265,7 @@ io.on('connection', (socket) => {
     if (!x.training) throw new GameError("Réservé au mode entraînement.");
     if (x.phase === 'lobby' || x.phase === 'ended') throw new GameError('La manche est terminée.');
     const me = x.players.get(user.id)!;
+    log('entraînement', cmd.action, { code: x.code, user: at(user), vitesse: cmd.action === 'speed' ? cmd.value : undefined });
     switch (cmd.action) {
       case 'ping': ping(x); break;
       case 'catchNearest':
@@ -238,6 +283,24 @@ io.on('connection', (socket) => {
 
 // ---------- Boucle de jeu ----------
 
+const fugitivesLeft = (g: Game) => [...g.players.values()].filter(p => p.role === 'fugitive' && p.caughtAt === null).length;
+
+/** Dernier état connu de chaque partie lancée, pour loguer ses changements (chasse lancée, ping, fin). */
+const lastSeen = new Map<string, { phase: string; pingAt: number | null }>();
+
+function logChanges(g: Game) {
+  const prev = lastSeen.get(g.code);
+  if (!prev) return;
+  if (g.lastPing && g.lastPing.at !== prev.pingAt) {
+    log('partie', 'ping', { code: g.code, minute: Math.round(g.clock / 60_000), fugitifs_vus: g.lastPing.forHunters.length });
+  }
+  if (g.phase !== prev.phase && g.phase === 'hunt') log('partie', 'chasse lancée', { code: g.code });
+  if (g.phase !== prev.phase && g.phase === 'ended') {
+    log('partie', 'terminée', { code: g.code, gagnant: g.winner === 'hunter' ? 'chasseurs' : 'fugitifs', duree: `${Math.round(g.clock / 60_000)}min`, fugitifs_libres: fugitivesLeft(g) });
+  }
+  lastSeen.set(g.code, { phase: g.phase, pingAt: g.lastPing?.at ?? null });
+}
+
 let last = performance.now();
 setInterval(() => {
   const now = performance.now(), dt = now - last;
@@ -249,6 +312,8 @@ setInterval(() => {
       else if (Date.now() - endedAt.get(g.code)! > 10 * 60_000) {
         games.delete(g.code);
         endedAt.delete(g.code);
+        lastSeen.delete(g.code);
+        log('partie', 'nettoyée (terminée depuis 10 min)', { code: g.code });
         for (const p of humans(g)) if (userGame.get(p.id) === g.code) userGame.delete(p.id);
         continue;
       }
@@ -256,8 +321,18 @@ setInterval(() => {
     const before = g.clock;
     tick(g, dt);
     if (g.training) moveBots(g, g.clock - before);
+    logChanges(g);
     broadcastState(g);
   }
 }, 1000);
 
-http.listen(PORT, () => console.log(`Keep Runni'n server on :${PORT}`));
+// Bilan toutes les 10 min : de quoi vérifier d'un coup d'œil que le serveur vit.
+setInterval(() => {
+  const list = [...games.values()];
+  log('bilan', 'état', {
+    connectes: io.engine.clientsCount, salons: list.filter(g => g.phase === 'lobby').length,
+    parties_en_cours: list.filter(g => g.phase === 'headstart' || g.phase === 'hunt').length, comptes: db.userCount(),
+  });
+}, 10 * 60_000);
+
+http.listen(PORT, () => log('serveur', 'démarré', { port: PORT, donnees: process.env.DATA_DIR ?? './data', comptes: db.userCount(), node: process.version }));

@@ -21,6 +21,8 @@ export interface User { id: string; name: string; username: string }
 // On ne stocke que le hash du jeton : une fuite de la base ne permet pas d'usurper un compte.
 const hash = (token: string) => createHash('sha256').update(token).digest('hex');
 
+export const userCount = () => (db.prepare('SELECT COUNT(*) AS n FROM users').get() as { n: number }).n;
+
 export function usernameTaken(username: string): boolean {
   return !!db.prepare('SELECT 1 FROM users WHERE username = ?').get(username);
 }
