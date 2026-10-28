@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Alert, Animated, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { AccessibilityInfo, Animated, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -11,7 +11,7 @@ import { emit, leaveGame } from '../api';
 import { Radio } from '../radio';
 import { setState, useStore } from '../store';
 import { fonts, radius, useTheme, type Theme } from '../theme';
-import { Group, Row, Segmented, fmtClock, fmtDistance } from '../ui';
+import { Group, Row, Segmented, fmtClock, fmtDistance, showDialog } from '../ui';
 
 /** Polygone approchant un cercle de `r` mètres (64 côtés). */
 function circle(c: LatLng, r: number): GeoJSON.Feature<GeoJSON.Polygon> {
@@ -399,14 +399,19 @@ function MoreSheet({ game, visible, onClose, onQr }: { game: GameView; visible: 
   const training = game.training && game.phase !== 'ended';
   const ctl = (body: { action: string; value?: number }) => {
     if (body.action !== 'speed') onClose(); // on ferme pour voir l'effet (flash, capture, fin)
-    emit('training', body).catch(e => Alert.alert('Oups', e.message));
+    emit('training', body).catch(e => showDialog({ title: 'Oups', message: e.message }));
   };
 
   function quit() {
-    Alert.alert('Quitter la partie ?', 'Tu ne pourras pas revenir dans cette manche.', [
-      { text: 'Annuler', style: 'cancel' },
-      { text: 'Quitter', style: 'destructive', onPress: async () => { onClose(); await leaveGame(); router.replace('/'); } },
-    ]);
+    onClose();
+    showDialog({
+      title: 'Quitter la partie ?',
+      message: 'Tu ne pourras pas revenir dans cette manche.',
+      actions: [
+        { label: 'Quitter', kind: 'danger', onPress: async () => { await leaveGame(); router.replace('/'); } },
+        { label: 'Rester', kind: 'cancel' },
+      ],
+    });
   }
 
   return (

@@ -8,6 +8,7 @@ import { connect } from '../api';
 import { startTracking, stopTracking } from '../location';
 import { loadPersisted, useStore } from '../store';
 import { fontFiles, useTheme } from '../theme';
+import { DialogHost } from '../ui';
 
 export default function RootLayout() {
   const t = useTheme();
@@ -35,6 +36,7 @@ export default function RootLayout() {
         <Stack.Screen name="game" options={{ gestureEnabled: false, animation: 'fade' }} />
         <Stack.Screen name="tutorial" options={{ animation: 'fade' }} />
       </Stack>
+      <DialogHost />
     </>
   );
 }

@@ -1,13 +1,14 @@
 // Composants de base : une seule source pour les couleurs, typos et arrondis.
 import { type ReactNode } from 'react';
 import {
-  ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View,
+  ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View,
   type PressableProps, type StyleProp, type TextInputProps, type TextStyle, type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CaretLeftIcon, CaretRightIcon } from 'phosphor-react-native';
 import { useRouter } from 'expo-router';
 import { fonts, radius, useTheme } from './theme';
+import { setState, useStore, type Dialog } from './store';
 
 export function Screen({ children, scroll, style }: { children: ReactNode; scroll?: boolean; style?: StyleProp<ViewStyle> }) {
   const t = useTheme();
@@ -190,3 +191,31 @@ export const fmtDistance = (m: number, units: 'km' | 'mi') =>
   units === 'km'
     ? (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`)
     : (m < 1609 ? `${Math.round(m * 1.0936)} yd` : `${(m / 1609.34).toFixed(1)} mi`);
+
+/** Boîte de dialogue aux couleurs de l'app, à la place des alertes Android/iOS natives. */
+export const showDialog = (dialog: Dialog) => setState({ dialog });
+
+export function DialogHost() {
+  const t = useTheme();
+  const d = useStore(s => s.dialog);
+  const close = () => setState({ dialog: null });
+  const actions = d?.actions?.length ? d.actions : [{ label: 'OK', kind: 'primary' as const }];
+  return (
+    <Modal visible={!!d} transparent animationType="fade" onRequestClose={close} statusBarTranslucent>
+      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24 }} onPress={close} accessibilityLabel="Fermer">
+        <Pressable style={{ backgroundColor: t.bg, borderRadius: radius.block + 4, padding: 22, gap: 10 }} onPress={() => {}} accessibilityRole="alert">
+          <Text style={{ fontFamily: fonts.displayBlack, fontSize: 22, lineHeight: 27, color: t.text }}>{d?.title}</Text>
+          {d?.message ? <Text style={{ fontFamily: fonts.body, fontSize: 16, lineHeight: 22, color: t.textDim }}>{d.message}</Text> : null}
+          <View style={{ gap: 10, marginTop: 10 }}>
+            {actions.map(a => (
+              <Button key={a.label} title={a.label}
+                kind={a.kind === 'cancel' ? 'secondary' : a.kind === 'danger' ? 'primary' : 'primary'}
+                style={a.kind === 'cancel' ? undefined : { height: 54 }}
+                onPress={() => { close(); a.onPress?.(); }} />
+            ))}
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}

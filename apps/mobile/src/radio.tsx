@@ -1,11 +1,11 @@
 import { type ComponentRef, useEffect, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { PaperPlaneRightIcon } from 'phosphor-react-native';
 import type { GameView } from '@kr/shared';
 import { emit } from './api';
 import { setState, useStore } from './store';
 import { fonts, radius, useTheme } from './theme';
-import { fmtClock } from './ui';
+import { fmtClock, showDialog } from './ui';
 
 const QUICK = {
   hunter: ["J'en vois un !", 'Surveillez le canal', 'Vous êtes où ?'],
@@ -31,7 +31,7 @@ export function Radio({ game }: { game: GameView }) {
   async function send(msg: string) {
     if (!msg.trim()) return;
     setText('');
-    try { await emit('chat', { text: msg }); } catch (e) { Alert.alert('Message non envoyé', (e as Error).message); }
+    try { await emit('chat', { text: msg }); } catch (e) { showDialog({ title: 'Message non envoyé', message: (e as Error).message }); }
   }
 
   return (

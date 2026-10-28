@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Alert, Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { connect, updateMe } from '../api';
 import { DEFAULT_SERVER, setState, useStore, type Settings } from '../store';
 import { fonts, radius, useTheme } from '../theme';
-import { Group, Row, Screen, Segmented } from '../ui';
+import { Group, Row, Screen, Segmented, showDialog } from '../ui';
 
 export default function SettingsScreen() {
   const t = useTheme();
@@ -25,7 +25,7 @@ export default function SettingsScreen() {
       await updateMe(edit === 'name' ? { name: draft.trim() } : { username: draft.trim().toLowerCase() });
       setEdit(null);
     } catch (e) {
-      Alert.alert('Oups', (e as Error).message);
+      showDialog({ title: 'Oups', message: (e as Error).message });
     }
   }
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GearIcon } from 'phosphor-react-native';
@@ -9,6 +9,7 @@ import { askLocation, currentPosition } from '../location';
 import { useStore } from '../store';
 import { fonts, radius } from '../theme';
 import { Mark } from '../logo';
+import { showDialog } from '../ui';
 
 const RED = '#EE2E14';
 const INK = '#F7F2F0';
@@ -33,7 +34,7 @@ export default function Home() {
       await emit('create', { rules: defaultRules(center), training });
       router.push('/lobby');
     } catch (e) {
-      Alert.alert('Oups', (e as Error).message);
+      showDialog({ title: 'Oups', message: (e as Error).message });
     } finally {
       setBusy(null);
     }

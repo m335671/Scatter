@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, Share, Text, View } from 'react-native';
+import { Pressable, Share, Text, View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import type { RoleChoice, Rules } from '@kr/shared';
 import { emit, leaveGame } from '../api';
 import { currentPosition } from '../location';
 import { useStore } from '../store';
 import { fonts, radius, useTheme } from '../theme';
-import { BackHeader, Button, Group, Row, Screen, Segmented, Stepper, T, Toggle, fmtDistance } from '../ui';
+import { BackHeader, Button, Group, Row, Screen, Segmented, Stepper, T, Toggle, fmtDistance, showDialog } from '../ui';
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 const ROLE_LABEL: Record<RoleChoice, string> = { hunter: 'Chasseur', fugitive: 'Fugitif', random: 'Au hasard' };
@@ -31,21 +31,21 @@ export default function LobbyScreen() {
   const myChoice = lobby.players.find(p => p.id === me.id)?.choice ?? 'random';
   const humans = lobby.players.filter(p => !p.isBot);
 
-  const set = (patch: (r: Rules) => Rules) => emit('rules', patch(r)).catch(e => Alert.alert('Oups', e.message));
+  const set = (patch: (r: Rules) => Rules) => emit('rules', patch(r)).catch(e => showDialog({ title: 'Oups', message: e.message }));
   const step = (label: string, value: string, fn: (d: number) => void, sub?: string) => (
     <Row title={label} sub={sub} value={value} right={isHost ? <Stepper onMinus={() => fn(-1)} onPlus={() => fn(1)} /> : undefined} />
   );
 
   async function start() {
     setBusy(true);
-    try { await emit('start'); } catch (e) { Alert.alert('Impossible de lancer', (e as Error).message); } finally { setBusy(false); }
+    try { await emit('start'); } catch (e) { showDialog({ title: 'Impossible de lancer', message: (e as Error).message }); } finally { setBusy(false); }
   }
 
   async function recenter() {
     try {
       const center = await currentPosition();
       await set(x => ({ ...x, zone: { ...x.zone, center } }));
-    } catch (e) { Alert.alert('Oups', (e as Error).message); }
+    } catch (e) { showDialog({ title: 'Oups', message: (e as Error).message }); }
   }
 
   const shrinkText = r.zone.enabled
@@ -117,7 +117,7 @@ export default function LobbyScreen() {
             <Segmented<RoleChoice>
               stretch
               value={myChoice}
-              onChange={role => emit('role', { role }).catch(e => Alert.alert('Oups', e.message))}
+              onChange={role => emit('role', { role }).catch(e => showDialog({ title: 'Oups', message: e.message }))}
               options={(['hunter', 'fugitive', 'random'] as const).map(v => ({ value: v, label: ROLE_LABEL[v] }))}
             />
           </View>

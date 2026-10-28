@@ -13,6 +13,9 @@ export interface Settings {
   tutorialSeen: boolean;
 }
 
+export interface DialogAction { label: string; kind?: 'primary' | 'danger' | 'cancel'; onPress?: () => void }
+export interface Dialog { title: string; message?: string; actions?: DialogAction[] }
+
 export interface State {
   ready: boolean;
   token: string | null;
@@ -23,13 +26,14 @@ export interface State {
   game: GameView | null;
   chat: ChatMessage[];
   unread: number;
+  dialog: Dialog | null;
 }
 
 // Défini au build (EXPO_PUBLIC_SERVER_URL). En dev : `adb reverse tcp:3000 tcp:3000` relie le téléphone au PC.
 export const DEFAULT_SERVER = process.env.EXPO_PUBLIC_SERVER_URL ?? 'http://localhost:3000';
 
 let state: State = {
-  ready: false, token: null, user: null, connected: false, lobby: null, game: null, chat: [], unread: 0,
+  ready: false, token: null, user: null, connected: false, lobby: null, game: null, chat: [], unread: 0, dialog: null,
   settings: { appearance: 'system', units: 'km', serverUrl: '', tutorialSeen: false },
 };
 const listeners = new Set<() => void>();
