@@ -1,0 +1,93 @@
+name: App mobile (APK + IPA)
+
+# Lancement manuel (onglet Actions → « Run workflow ») ou sur un tag v1.2.3.
+# Pas de déclenchement à chaque push : le build iOS coûte des minutes macOS (×10 sur un dépôt privé).
+on:
+  workflow_dispatch:
+    inputs:
+      server_url:
+        description: Adresse du serveur compilée dans l'app
+        default: https://nuc.exemple.eu
+      ios:
+        description: Construire aussi l'IPA (minutes macOS)
+        type: boolean
+        default: true
+  push:
+    tags: ['v*']
+
+env:
+  EXPO_PUBLIC_SERVER_URL: ${{ inputs.server_url || 'https://nuc.exemple.eu' }}
+  NODE_ENV: production
+
+permissions:
+  contents: write # pour joindre les fichiers à la Release sur un tag
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: npm ci
+      - name: Projet Android
+        working-directory: apps/mobile
+        run: npx expo prebuild --platform android --clean --no-install
+      - name: APK release (arm64)
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
+      - run: mv apps/mobile/android/app/build/outputs/apk/release/app-release.apk keep-runnin.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: keep-runnin-android
+          path: keep-runnin.apk
+      - if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: keep-runnin.apk
+
+  ios:
+    if: ${{ github.event_name == 'push' || inputs.ios }}
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Projet iOS
+        working-directory: apps/mobile
+        run: npx expo prebuild --platform ios --clean
+      # IPA non signée : Sideloadly (ou AltStore/SideStore) la signe avec l'Apple ID de l'utilisateur.
+      - name: Archive sans signature
+        working-directory: apps/mobile/ios
+        run: |
+          WS=$(ls -d *.xcworkspace | head -1)
+          SCHEME="${WS%.xcworkspace}"
+          xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/app.xcarchive" archive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+      - name: IPA
+        run: |
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$RUNNER_TEMP"/app.xcarchive/Products/Applications/*.app "$RUNNER_TEMP/ipa/Payload/"
+          (cd "$RUNNER_TEMP/ipa" && zip -qry "$GITHUB_WORKSPACE/keep-runnin.ipa" Payload)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: keep-runnin-ios
+          path: keep-runnin.ipa
+      - if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: keep-runnin.ipa
