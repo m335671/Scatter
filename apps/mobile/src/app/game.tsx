@@ -66,7 +66,8 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
   const zone = game.zone;
   const zoneShape = useMemo(() => circle(zone.center, zone.radiusM), [zone.center.lat, zone.center.lng, zone.radiusM]);
   // En spectateur (ou en fin de partie), la vue différée remplace le dernier ping : pas de doublon de marqueurs.
-  const others = game.spectating.length ? game.spectating : (game.ping?.players ?? []);
+  const live = game.outOfZone ?? [];
+  const others = game.spectating.length ? game.spectating : [...(game.ping?.players ?? []).filter(p => !live.some(l => l.id === p.id)), ...live];
   const players = toFeatures(game, others);
   const mPerPx0 = 78_271.5 * Math.cos((zone.center.lat * Math.PI) / 180);
 
@@ -134,7 +135,7 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
         {game.me.outOfZone && (
           <View style={{ marginTop: 8, backgroundColor: t.accent, borderRadius: radius.block, padding: 14 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: t.onAccent }}>Tu es hors de la zone !</Text>
-            <Text style={{ fontFamily: fonts.body, fontSize: 15, color: t.onAccent, marginTop: 2 }}>Au prochain ping, ta position exacte sera révélée aux chasseurs.</Text>
+            <Text style={{ fontFamily: fonts.body, fontSize: 15, color: t.onAccent, marginTop: 2 }}>Les chasseurs te voient en direct tant que tu es dehors.</Text>
           </View>
         )}
       </SafeAreaView>
@@ -210,7 +211,7 @@ function toFeatures(game: GameView, others: SeenPlayer[]): GeoJSON.FeatureCollec
       ...others.map(p => {
         const name = p.name.toUpperCase();
         if (p.caught) return feature(p, 'enemy', `${name} attrapé`);
-        return feature(p, p.exposed ? 'exposed' : 'enemy', `${name} ${ago(p)}`);
+        return feature(p, p.exposed ? 'exposed' : 'enemy', p.exposed ? `${name} hors zone · en direct` : `${name} ${ago(p)}`);
       }),
     ],
   };
@@ -242,7 +243,7 @@ function Legend({ game, others }: { game: GameView; others: SeenPlayer[] }) {
     <View pointerEvents="none" style={{ marginTop: 8, alignSelf: 'flex-start', maxWidth: '100%', backgroundColor: t.surface, borderRadius: radius.inner, paddingHorizontal: 12, paddingVertical: 8, gap: 4 }}>
       {hasTeam && item(<View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: t.accent, marginHorizontal: 1 }} />, 'Ton équipe, en direct')}
       {others.length > 0 && item(target(t.text), enemyLabel)}
-      {hasExposed && item(target(t.accent), 'Hors zone : position exacte, sans délai')}
+      {hasExposed && item(target(t.accent), 'Hors zone : visible en direct')}
       {others.length > 0 && item(<View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: t.text, opacity: 0.2 }} />, 'Halo : précision du GPS (visible en zoomant)')}
     </View>
   );

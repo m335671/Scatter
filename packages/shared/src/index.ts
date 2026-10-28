@@ -93,6 +93,7 @@ export interface GameView {
   team: SeenPlayer[];                        // coéquipiers en direct
   ping: { at: number; players: SeenPlayer[] } | null; // dernier ping de l'équipe adverse
   spectating: SeenPlayer[];                  // fugitif attrapé : tout le monde en différé
+  outOfZone: SeenPlayer[];                   // chasseurs : fugitifs hors zone, en direct
   winner: Role | null;
 }
 

@@ -275,6 +275,10 @@ export function view(g: Game, id: string): GameView | null {
       })
       : [];
   const fugitives = ps.filter(p => p.role === 'fugitive');
+  // Règle dure : un fugitif hors zone est visible en direct par les chasseurs tant qu'il y reste.
+  const outOfZone = me.role === 'hunter' && g.phase === 'hunt'
+    ? fugitives.flatMap(p => { const s = p.caughtAt === null && isOutOfZone(g, p) ? current(p) : null; return s ? [seen(p, s, true)] : []; })
+    : [];
   return {
     code: g.code, phase: g.phase, training: g.training, speed: g.speed, clock: g.clock,
     huntStart: huntStart(g), huntEnd: huntEnd(g), nextPingAt: g.nextPingAt,
@@ -295,6 +299,7 @@ export function view(g: Game, id: string): GameView | null {
       players: (me.role === 'hunter' ? g.lastPing.forHunters : g.lastPing.forFugitives).filter(p => g.players.get(p.id)?.caughtAt === null),
     },
     spectating,
+    outOfZone,
     winner: g.winner,
   };
 }

@@ -77,7 +77,7 @@ const steps: Step[] = [
     Scene: ({ p, g }) => <Lag p={p} g={g} />,
   },
   {
-    eyebrow: 'La zone rétrécit', title: 'La zone se resserre.', body: "Sortir de la zone, c'est être révélé sans délai au ping suivant.",
+    eyebrow: 'La zone rétrécit', title: 'La zone se resserre.', body: "Sortir de la zone, c'est être visible en direct par les chasseurs tant qu'on reste dehors.",
     cam: { zoom: 16, bearing: 10, pitch: 45 },
     Scene: ({ p, g }) => <Shrink p={p} g={g} />,
   },
@@ -294,7 +294,7 @@ function Shrink({ p, g }: StepProps) {
     <>
       <Zone g={g} scale={scale} />
       <Dot g={g} kind="target" label="SASHA 0:20" from={{ x: -0.3, y: 0.25 }} to={{ x: -0.3, y: 0.25 }} p={p} />
-      <Dot g={g} kind="exposed" label="TEO hors zone" from={out} to={out} p={p} appearAt={0.55} />
+      <Dot g={g} kind="exposed" label="TEO hors zone · en direct" from={out} to={out} p={p} appearAt={0.55} />
     </>
   );
 }

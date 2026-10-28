@@ -45,6 +45,12 @@ test('ping : un fugitif hors zone est exposé sans délai', () => {
   const p = view(g, 'h')!.ping!.players[0];
   assert.equal(p.exposed, true);
   assert.ok(view(g, 'f')!.me.outOfZone);
+  // Hors ping aussi : le chasseur le voit en direct.
+  updatePosition(g, 'f', { lat: C.lat + 0.011, lng: C.lng });
+  tick(g, 10_000);
+  assert.equal(view(g, 'h')!.outOfZone[0].lat, C.lat + 0.011);
+  updatePosition(g, 'f', C); // revenu dans la zone : plus visible
+  assert.equal(view(g, 'h')!.outOfZone.length, 0);
 });
 
 test('zone : 420 m → 150 m par paliers de 5 min, finale à 5 min de la fin', () => {
