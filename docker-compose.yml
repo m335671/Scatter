@@ -1,14 +1,14 @@
 # Keep Runni'n : serveur de jeu.
 # Déploiement : copier ce fichier sur le serveur, puis
 #   docker compose pull && docker compose up -d
-# Derrière NPMPlus : proxy host vers http://<ip>:${KR_PORT}, avec « Websockets Support » activé.
+# Derrière NPMPlus : proxy host vers http://<ip>:3022 (ou ${KR_PORT}), avec « Websockets Support » activé.
 services:
   keeprunnin:
     image: ghcr.io/m335671/keep-runni-n:latest
     container_name: keeprunnin
     restart: unless-stopped
     ports:
-      - "${KR_PORT:-3000}:3000"
+      - "${KR_PORT:-3022}:3000"
     volumes:
       - keeprunnin-data:/data   # comptes (SQLite)
       # Ou un dossier précis du serveur (supprimer alors le bloc « volumes: » en bas) :
