@@ -216,12 +216,6 @@ io.on('connection', (socket) => {
     broadcastState(x);
   });
 
-  on('report', C2S.report, ({ messageId }, g) => {
-    const x = need(g);
-    const msg = [...x.chat.hunter, ...x.chat.fugitive].find(m => m.id === messageId);
-    if (msg) db.addReport(user.id, msg.from, msg.text);
-  });
-
   on('training', C2S.training, (cmd, g) => {
     const x = host(g);
     if (!x.training) throw new GameError("Réservé au mode entraînement.");

@@ -59,7 +59,6 @@ export const C2S = {
   pos: LatLng.extend({ acc: z.number().min(0).max(10_000).optional() }),
   capture: z.object({ qr: z.string().max(200) }),
   chat: z.object({ text: z.string().trim().min(1).max(280) }),
-  report: z.object({ messageId: z.string().max(40) }),
   training: z.discriminatedUnion('action', [
     z.object({ action: z.literal('ping') }),
     z.object({ action: z.literal('catchNearest') }),

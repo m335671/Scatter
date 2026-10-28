@@ -8,7 +8,6 @@ export interface Settings {
   appearance: 'system' | 'light' | 'dark';
   units: 'km' | 'mi';
   serverUrl: string;
-  blocked: { id: string; name: string }[];
   /** Tutoriel vu au moins une fois (affiché automatiquement après l'installation). */
   tutorialSeen: boolean;
 }
@@ -29,7 +28,7 @@ const DEFAULT_SERVER = process.env.EXPO_PUBLIC_SERVER_URL ?? 'http://localhost:3
 
 let state: State = {
   ready: false, token: null, user: null, connected: false, lobby: null, game: null, chat: [], unread: 0,
-  settings: { appearance: 'system', units: 'km', serverUrl: DEFAULT_SERVER, blocked: [], tutorialSeen: false },
+  settings: { appearance: 'system', units: 'km', serverUrl: DEFAULT_SERVER, tutorialSeen: false },
 };
 const listeners = new Set<() => void>();
 

@@ -14,13 +14,6 @@ db.exec(`
     token_hash TEXT NOT NULL UNIQUE,
     created_at INTEGER NOT NULL
   );
-  CREATE TABLE IF NOT EXISTS reports (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    reporter TEXT NOT NULL,
-    reported TEXT,
-    text TEXT NOT NULL,
-    created_at INTEGER NOT NULL
-  );
 `);
 
 export interface User { id: string; name: string; username: string }
@@ -57,9 +50,4 @@ export function updateUser(id: string, patch: { name?: string; username?: string
   } catch {
     return false;
   }
-}
-
-export function addReport(reporter: string, reported: string | null, text: string) {
-  db.prepare('INSERT INTO reports (reporter, reported, text, created_at) VALUES (?, ?, ?, ?)')
-    .run(reporter, reported, text, Date.now());
 }

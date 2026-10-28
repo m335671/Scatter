@@ -57,14 +57,6 @@ export default function SettingsScreen() {
           : <Row title="Nom d'utilisateur" value={user ? `@${user.username}` : ''} onPress={() => { setDraft(user?.username ?? ''); setEdit('username'); }} />}
       </Group>
 
-      <Group label="Sécurité" footer="Pour bloquer quelqu'un, appuie longuement sur son message dans la radio. Touche un joueur ici pour le débloquer.">
-        {settings.blocked.length === 0
-          ? <Row title="Aucun joueur bloqué" />
-          : settings.blocked.map(b => (
-            <Row key={b.id} title={b.name} value="Débloquer" onPress={() => patch({ blocked: settings.blocked.filter(x => x.id !== b.id) })} />
-          ))}
-      </Group>
-
       <Group footer="La nuit, Sombre fatigue moins les yeux et risque moins de te trahir.">
         <Row title="Unités" right={<Segmented value={settings.units} onChange={units => patch({ units })} options={[{ value: 'km', label: 'km' }, { value: 'mi', label: 'mi' }]} />} />
         <Row title="Apparence" right={
