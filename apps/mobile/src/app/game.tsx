@@ -81,9 +81,12 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
         <NativeUserLocation />
         <GeoJSONSource id="players" data={players}>
           <Layer type="circle" id="players-dot" paint={{
-            'circle-radius': ['match', ['get', 'kind'], 'team', 7, 8],
+            // Petits points qui grossissent un peu avec le zoom (vue quartier → vue rue).
+            'circle-radius': ['interpolate', ['linear'], ['zoom'],
+              13, ['match', ['get', 'kind'], 'team', 2.5, 3],
+              18, ['match', ['get', 'kind'], 'team', 5, 6]],
             'circle-color': ['match', ['get', 'kind'], 'team', t.accent, t.bg],
-            'circle-stroke-width': ['match', ['get', 'kind'], 'team', 3, 4],
+            'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 13, 1.5, 18, 2.5],
             'circle-stroke-color': ['match', ['get', 'kind'], 'team', t.bg, 'exposed', t.accent, t.text],
             'circle-opacity': ['case', ['get', 'caught'], 0.4, 1],
             'circle-stroke-opacity': ['case', ['get', 'caught'], 0.4, 1],
@@ -92,15 +95,15 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
           <Layer type="symbol" id="players-label" layout={{
             'text-field': ['get', 'label'],
             'text-font': ['Noto Sans Bold'],
-            'text-size': 13,
+            'text-size': ['interpolate', ['linear'], ['zoom'], 13, 10, 18, 13],
             'text-variable-anchor': ['left', 'right', 'top', 'bottom'],
-            'text-radial-offset': 1.1,
+            'text-radial-offset': 0.8,
             'text-justify': 'auto',
             'text-padding': 2,
           }} paint={{
             'text-color': t.text,
             'text-halo-color': t.bg,
-            'text-halo-width': 2,
+            'text-halo-width': 1.5,
             'text-opacity': ['case', ['get', 'caught'], 0.5, 1],
           }} />
         </GeoJSONSource>

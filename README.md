@@ -15,10 +15,18 @@ npm test         # tests du moteur de jeu
 ```
 
 ### Déploiement (Docker)
+Chaque push sur `main` qui touche le serveur publie l'image `ghcr.io/m335671/keep-runni-n` (amd64 + arm64) via GitHub Actions, après avoir lancé les tests dans l'image. Un tag `v1.2.3` publie aussi `:1.2.3`.
+
+Sur le serveur, seul `docker-compose.yml` est nécessaire :
 ```sh
-docker compose up -d --build
+docker login ghcr.io -u m335671   # le dépôt est privé : jeton GitHub avec le droit read:packages
+docker compose pull && docker compose up -d
 curl http://localhost:3000/health
 ```
-Derrière un reverse proxy (NPMPlus / Nginx Proxy Manager) : proxy host → `http://<ip>:3000`, **activer « Websockets Support »**.
+Mise à jour : `docker compose pull && docker compose up -d`.
 
-Variables : `PORT` (3000), `DATA_DIR` (`/data`, volume `kr-data`).
+Derrière NPMPlus (ou Nginx Proxy Manager) : proxy host vers `http://<ip>:3000`, **activer « Websockets Support »**.
+
+Variables : `KR_PORT` (port publié, 3000), `TZ`. Les comptes sont dans le volume `keeprunnin-data`.
+
+Construire l'image en local : `docker build -t keeprunnin -f apps/server/Dockerfile .`
