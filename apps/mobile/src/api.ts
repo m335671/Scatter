@@ -46,7 +46,8 @@ export function connect() {
   });
   socket.on('lobby', (lobby: Lobby) => setState(s =>
     s.game && s.game.code !== lobby.code ? { lobby, game: null, chat: [], unread: { team: 0, all: 0 } } : { lobby }));
-  socket.on('state', (game: GameView) => setState({ game }));
+  // Seule la partie du salon actuel compte : un état d'une partie quittée (serveur pas à jour, message en retard) est ignoré.
+  socket.on('state', (game: GameView) => setState(s => (s.lobby?.code === game.code ? { game } : {})));
   socket.on('chat:history', (chat: ChatMessage[]) => setState({ chat }));
   socket.on('chat', (m: ChatMessage) => setState(s => ({ chat: [...s.chat, m].slice(-400), unread: { ...s.unread, [m.channel ?? 'team']: s.unread[m.channel ?? 'team'] + 1 } })));
 }
