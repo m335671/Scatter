@@ -39,8 +39,10 @@ export function connect() {
   const { token } = getState();
   if (!token) return;
   socket = io(base(), { auth: { token }, transports: ['websocket'] });
-  // Le serveur renvoie la partie en cours juste après la connexion : on repart de son état, pas d'un état périmé.
-  socket.on('connect', () => setState({ connected: true, lobby: null, game: null, chat: [], unread: { team: 0, all: 0 } }));
+  // On garde la partie affichée pendant une coupure (sinon l'écran de jeu renvoie à l'accueil) :
+  // à la connexion, le serveur renvoie la partie en cours, ou « nogame » s'il n'y en a plus.
+  socket.on('connect', () => setState({ connected: true }));
+  socket.on('nogame', () => setState({ lobby: null, game: null, chat: [], unread: { team: 0, all: 0 } }));
   socket.on('disconnect', () => setState({ connected: false }));
   socket.on('connect_error', (e) => {
     if (e.message === 'unauthorized') { socket?.close(); setState({ token: null, user: null }); }

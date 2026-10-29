@@ -10,6 +10,7 @@ import {
 import { addBots, moveBots } from './bots.ts';
 
 const PORT = Number(process.env.PORT ?? 3000);
+const TRAINING_GRACE_MS = 2 * 60_000;
 
 // ---------- Logs ----------
 // Une ligne par événement : « 2026-10-28T22:10:00.000Z [partie] lancée code=TACO42 joueurs=5 ».
@@ -160,13 +161,18 @@ io.on('connection', (socket) => {
   socket.join(`u:${user.id}`);
 
   const resume = games.get(userGame.get(user.id) ?? '');
-  if (resume) sendEverything(socket, resume, user.id);
+  // Le client garde son état pendant une coupure : on lui dit explicitement s'il n'a plus de partie.
+  if (resume) sendEverything(socket, resume, user.id); else socket.emit('nogame');
   log('connexion', 'connecté', { user: at(user), ip: clientIp(socket.handshake.headers, socket.handshake.address), reprise: resume?.code });
   socket.on('disconnect', reason => {
     log('connexion', 'déconnecté', { user: at(user), raison: reason, partie: userGame.get(user.id) });
-    // Un entraînement n'a qu'un joueur : s'il n'est plus connecté (app fermée), on le supprime.
-    const g = games.get(userGame.get(user.id) ?? '');
-    if (g?.training && !io.sockets.adapter.rooms.get(`u:${user.id}`)?.size) leaveCurrent(user.id);
+    // Un entraînement n'a qu'un joueur : s'il ne revient pas (app fermée), on le supprime.
+    // Délai de grâce pour une simple coupure réseau (tunnel, mode avion).
+    const code = userGame.get(user.id);
+    if (!games.get(code ?? '')?.training) return;
+    setTimeout(() => {
+      if (userGame.get(user.id) === code && !io.sockets.adapter.rooms.get(`u:${user.id}`)?.size) leaveCurrent(user.id);
+    }, TRAINING_GRACE_MS).unref();
   });
 
   /** Valide l'entrée avec zod, convertit les GameError en { error } pour le client. */
