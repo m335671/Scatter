@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { AccessibilityInfo, Animated, Modal, PanResponder, Pressable, ScrollView, Text, View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -424,16 +424,30 @@ function RoleReveal({ game }: { game: GameView }) {
 
 // ---------- Feuilles ----------
 
+/** Feuille du bas : se ferme en la tirant vers le bas (poignée et titre), en touchant le fond ou avec Retour. */
 function Sheet({ visible, onClose, title, children }: { visible: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
+  const drag = useRef(new Animated.Value(0)).current;
+  useEffect(() => { if (visible) drag.setValue(0); }, [visible]);
+  const pan = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_, g) => g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx),
+    onPanResponderMove: (_, g) => drag.setValue(Math.max(0, g.dy)),
+    onPanResponderRelease: (_, g) => {
+      if (g.dy > 110 || g.vy > 1.2) Animated.timing(drag, { toValue: 800, duration: 180, useNativeDriver: true }).start(onClose);
+      else Animated.spring(drag, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
+    },
+  }), [onClose]);
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} onPress={onClose} accessibilityLabel="Fermer" />
-      <View style={{ backgroundColor: t.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 22, paddingHorizontal: 16, paddingBottom: insets.bottom + 16, maxHeight: '85%' }}>
-        <Text style={{ fontFamily: fonts.displayBlack, fontSize: 26, color: t.text, marginBottom: 8 }}>{title}</Text>
+      <Animated.View style={{ backgroundColor: t.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 16, paddingBottom: insets.bottom + 16, maxHeight: '85%', transform: [{ translateY: drag }] }}>
+        <View {...pan.panHandlers} style={{ paddingTop: 10, paddingBottom: 8 }}>
+          <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: t.surface2, marginBottom: 14 }} />
+          <Text style={{ fontFamily: fonts.displayBlack, fontSize: 26, color: t.text }}>{title}</Text>
+        </View>
         <ScrollView contentContainerStyle={{ gap: 12 }}>{children}</ScrollView>
-      </View>
+      </Animated.View>
     </Modal>
   );
 }
