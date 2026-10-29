@@ -43,3 +43,14 @@ Sous Windows :
 - chemins de plus de 260 caractères : installer CMake 3.31.6 via le SDK Manager et ajouter `cmake.dir=<sdk>/cmake/3.31.6` dans `android/local.properties` (à refaire après chaque `prebuild --clean`).
 
 L'APK release est signé avec la clé de debug : suffisant pour l'installer à la main, une vraie clé sera nécessaire pour le Play Store.
+
+## Publier une version (APK + IPA)
+```sh
+git tag v0.2.0 && git push origin v0.2.0
+```
+Le workflow « App mobile » compile l'APK (Linux) et l'IPA non signée (macOS), met la version du tag dans l'app et publie les deux fichiers dans une **Release GitHub** (`keep-runnin-0.2.0.apk` / `.ipa`). Un build manuel (onglet Actions → Run workflow) ne crée pas de release : les fichiers sont dans « Artifacts ».
+
+- Android : installer l'APK directement (sources inconnues autorisées).
+- iPhone : installer l'IPA avec Sideloadly (Apple ID gratuit, 7 jours, iOS 16.4+, mode développeur).
+
+Coût : environ 100 minutes macOS décomptées par release (quota gratuit : 2 000 min/mois sur un dépôt privé, illimité en public).
