@@ -53,6 +53,16 @@ test('ping : un fugitif hors zone est exposé sans délai', () => {
   assert.equal(view(g, 'h')!.outOfZone.length, 0);
 });
 
+test('zone : la précision GPS donne le bénéfice du doute, plafonné à 40 m', () => {
+  const g = setup();
+  tick(g, 2.5 * MIN);
+  const edge = (m: number) => ({ lat: C.lat + (zoneRadius(g.rules, g.clock) + m) / 111_320, lng: C.lng });
+  updatePosition(g, 'f', { ...edge(25), acc: 30 });
+  assert.equal(view(g, 'f')!.me.outOfZone, false);
+  updatePosition(g, 'f', { ...edge(60), acc: 500 }); // une précision énorme ne protège pas
+  assert.equal(view(g, 'f')!.me.outOfZone, true);
+});
+
 test('zone : 420 m → 150 m par paliers de 5 min, finale à 5 min de la fin', () => {
   const r = defaultRules(C);
   assert.equal(zoneRadius(r, 0), 420);

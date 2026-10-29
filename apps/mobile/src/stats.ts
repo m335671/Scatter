@@ -50,11 +50,13 @@ export function useRecords(): GameRecord[] {
 // ---------- Trajet de la manche en cours ----------
 
 const MIN_STEP_M = 8;     // ignore le bruit du GPS
+const MAX_ACC_M = 30;     // relevé trop imprécis : ne compte pas dans le trajet
 const MAX_POINTS = 600;   // ~1 point par 8 m : largement assez pour 30 min de course
 let track: { code: string; points: LatLng[]; distance: number } | null = null;
 
 /** Appelé à chaque position envoyée au serveur pendant une manche. */
-export function trackPosition(code: string, p: LatLng) {
+export function trackPosition(code: string, p: LatLng, acc?: number) {
+  if (acc !== undefined && acc > MAX_ACC_M) return;
   if (!track || track.code !== code) track = { code, points: [], distance: 0 };
   const last = track.points.at(-1);
   if (last) {

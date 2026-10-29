@@ -140,11 +140,13 @@ export function positionAt(p: Player, t: number): Sample | null {
 }
 
 const current = (p: Player) => p.history.at(-1) ?? null;
+const ZONE_TOLERANCE_M = 40;
 
 export function isOutOfZone(g: Game, p: Player): boolean {
   const pos = current(p);
   if (!g.rules.zone.enabled || !pos) return false;
-  return distanceM(pos, g.rules.zone.center) > zoneRadius(g.rules, g.clock);
+  // Bénéfice du doute : la précision GPS (plafonnée) est retirée, un fugitif au bord n'est pas exposé à tort.
+  return distanceM(pos, g.rules.zone.center) - Math.min(pos.acc ?? 0, ZONE_TOLERANCE_M) > zoneRadius(g.rules, g.clock);
 }
 
 const seen = (p: Player, s: Sample, exposed?: boolean): SeenPlayer => ({
