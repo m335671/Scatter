@@ -195,7 +195,8 @@ function end(g: Game, winner: Role) {
   g.phase = 'ended';
   g.winner = winner;
   g.nextPingAt = null;
-  const msg = winner === 'hunter' ? 'Tous les fugitifs sont attrapés. Les chasseurs gagnent !' : 'Temps écoulé. Les fugitifs gagnent !';
+  const msg = winner === 'hunter' ? 'Tous les fugitifs sont attrapés. Les chasseurs gagnent !'
+    : g.clock < huntEnd(g) ? 'Manche terminée. Les fugitifs gagnent !' : 'Temps écoulé. Les fugitifs gagnent !';
   system(g, 'hunter', msg);
   system(g, 'fugitive', msg);
   system(g, 'all', msg);
