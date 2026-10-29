@@ -43,6 +43,9 @@ export default function GameScreen() {
   const [qr, setQr] = useState(false);
 
   useEffect(() => { if (game?.phase === 'ended') recordGame(game); }, [game?.phase, game?.code]);
+  // Sortie de zone : le bandeau ne suffit pas téléphone en poche, on fait vibrer.
+  const out = !!game?.me.outOfZone;
+  useEffect(() => { if (out) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {}); }, [out]);
 
   if (!game) return <Redirect href="/" />;
 
