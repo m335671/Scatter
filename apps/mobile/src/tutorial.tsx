@@ -310,7 +310,7 @@ function Shrink({ p, g }: StepProps) {
     <>
       <Zone g={g} scale={scale} />
       <Dot g={g} kind="target" label="SASHA 0:20" from={{ x: -0.3, y: 0.25 }} to={{ x: -0.3, y: 0.25 }} p={p} />
-      <Dot g={g} kind="exposed" label="TEO hors zone · éliminé dans 0:42" from={out} to={out} p={p} appearAt={0.55} />
+      <Dot g={g} kind="exposed" label="TEO hors zone · en direct · 0:42" from={out} to={out} p={p} appearAt={0.55} />
     </>
   );
 }

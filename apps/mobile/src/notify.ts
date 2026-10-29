@@ -40,7 +40,7 @@ export function notifyState(prev: GameView | null, next: GameView) {
   if (me.eliminateAt !== null) {
     const left = me.eliminateAt - next.clock;
     const before = prev.me.eliminateAt === null ? Infinity : prev.me.eliminateAt - prev.clock;
-    if (before === Infinity) notify('Tu es hors zone !', `Reviens dans la zone : tu seras éliminé dans ${fmtClock(left)}.`, 'zone');
+    if (before === Infinity) notify('Tu es hors zone !', `Reviens dans la zone : tu seras éliminé dans ${fmtClock(left)}. Les chasseurs te voient en direct.`, 'zone');
     else if (before > 30_000 && left <= 30_000) notify('Plus que 30 s hors zone', 'Reviens tout de suite dans la zone, sinon tu es éliminé.', 'zone');
     return;
   }

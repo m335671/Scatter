@@ -92,7 +92,8 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
             <Layer type="line" id="zone-line" paint={{ 'line-color': t.accent, 'line-width': 2 }} />
           </GeoJSONSource>
         )}
-        <NativeUserLocation />
+        {/* « heading » : flèche de la boussole sur les deux plateformes (iOS n'affiche rien par défaut). */}
+        <NativeUserLocation mode="heading" />
         <GeoJSONSource id="players" data={players}>
           {/* Halo de précision GPS autour d'une position signalée : la vraie position est dans ce cercle. */}
           <Layer type="circle" id="players-acc" filter={['all', ['!=', ['get', 'kind'], 'team'], ['>', ['get', 'acc'], 0]]} paint={{
