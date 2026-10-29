@@ -22,6 +22,8 @@ export interface Player {
   secret: string;
   history: Sample[];
   target?: LatLng; // bots
+  /** A quitté la partie en cours de manche. */
+  left?: boolean;
 }
 
 export interface Game {
@@ -70,9 +72,21 @@ export function join(g: Game, u: UserRef, opts: { isBot?: boolean; choice?: Role
 }
 
 export function leave(g: Game, id: string) {
-  // Pendant une manche, on garde le joueur (ses positions servent encore aux autres). Avant ou après, il part vraiment.
+  const p = g.players.get(id);
+  if (!p) return;
   if (g.phase === 'lobby' || g.phase === 'ended') g.players.delete(id);
-  if (g.hostId === id) g.hostId = [...g.players.values()].find(p => !p.isBot)?.id ?? '';
+  else if (!p.left) {
+    // En pleine manche : annoncé à tous ; un fugitif qui part compte comme sorti du jeu.
+    p.left = true;
+    const msg = `${p.name} a quitté la partie.`;
+    system(g, 'hunter', msg);
+    system(g, 'fugitive', msg);
+    system(g, 'all', msg);
+    if (p.role === 'fugitive' && p.caughtAt === null) p.caughtAt = g.clock;
+    if (!aliveFugitives(g).length) end(g, 'hunter');
+    else if (![...g.players.values()].some(q => q.role === 'hunter' && !q.left)) end(g, 'fugitive');
+  }
+  if (g.hostId === id) g.hostId = [...g.players.values()].find(q => !q.isBot && !q.left)?.id ?? '';
 }
 
 export const huntStart = (g: Game) => g.rules.headStartMin * MIN;
@@ -259,7 +273,7 @@ export function view(g: Game, id: string): GameView | null {
   if (!me?.role) return null;
   const ps = [...g.players.values()];
   const team = ps.flatMap(p => {
-    const s = p.role === me.role ? current(p) : null;
+    const s = p.role === me.role && !p.left ? current(p) : null;
     return s ? [seen(p, s)] : [];
   });
   // Fin de partie : tout le monde, position actuelle. Attrapé : l'équipe adverse, avec le retard réglé.

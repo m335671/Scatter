@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, View } from 'react-native';
+import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { emit } from '../api';
 import { askLocation } from '../location';
 import { useTheme } from '../theme';
-import { BackHeader, Button, Field, Screen, T } from '../ui';
+import { BackHeader, Button, Field, Screen, T, KeyboardSpacer } from '../ui';
 
 export default function Join() {
   const t = useTheme();
@@ -29,7 +29,6 @@ export default function Join() {
 
   return (
     <Screen>
-      <KeyboardAvoidingView style={{ flex: 1, gap: 12 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <BackHeader />
         <T kind="title" style={{ marginTop: 16 }}>Rejoindre une partie</T>
         <T kind="dim">Demande le code à l'hôte. Il est affiché en haut de son salon.</T>
@@ -42,7 +41,7 @@ export default function Join() {
         {error ? <T style={{ color: t.accentText }}>{error}</T> : null}
         <View style={{ flex: 1 }} />
         <Button title="Rejoindre" onPress={join} loading={busy} disabled={code.length !== 6} />
-      </KeyboardAvoidingView>
+      <KeyboardSpacer />
     </Screen>
   );
 }

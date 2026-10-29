@@ -96,7 +96,7 @@ const steps: Step[] = [
     cam: { zoom: 15.4, bearing: -8, pitch: 30 },
     Scene: ({ p }) => (
       <Animated.View style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center', opacity: p.interpolate({ inputRange: [0, 0.2], outputRange: [0, 1], extrapolate: 'clamp' }), transform: [{ scale: p.interpolate({ inputRange: [0, 0.25], outputRange: [0.85, 1], extrapolate: 'clamp' }) }] }}>
-        <Text style={{ fontFamily: fonts.hero, fontSize: 120, color: INK, marginTop: -120 }}>Gagné.</Text>
+        <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.hero, fontSize: 120, color: INK, marginTop: -120, paddingHorizontal: 24 }}>Gagné.</Text>
       </Animated.View>
     ),
   },

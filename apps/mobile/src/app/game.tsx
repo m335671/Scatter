@@ -49,6 +49,7 @@ export default function GameScreen() {
         : <SafeAreaView edges={['top']} style={{ flex: 1 }}><Radio game={game} /></SafeAreaView>}
       <TabBar tab={tab} onTab={setTab} onMore={() => setMore(true)} />
       <PingFlash game={game} />
+      <RoleReveal game={game} />
       <MoreSheet game={game} visible={more} onClose={() => setMore(false)} onQr={() => { setMore(false); setQr(true); }} />
       <QrSheet game={game} visible={qr && !!game.me.qr} onClose={() => setQr(false)} />
     </View>
@@ -272,7 +273,7 @@ function Hud({ game }: { game: GameView }) {
       <View style={{ flexDirection: 'row' }}>
         <View style={{ flex: 1, padding: 16, borderRightWidth: 1, borderRightColor: t.line }}>
           <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: t.textDim }}>{mainLabel}</Text>
-          <Text style={{ fontFamily: fonts.displayBlack, fontSize: 42, color: t.text, fontVariant: ['tabular-nums'] }}>{mainValue}</Text>
+          <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.displayBlack, fontSize: 42, color: t.text, fontVariant: ['tabular-nums'] }}>{mainValue}</Text>
         </View>
         <View style={{ flex: 1, padding: 16, gap: 10 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
@@ -372,9 +373,50 @@ function PingFlash({ game }: { game: GameView }) {
       <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: '#FFB4A6', letterSpacing: 2 }}>
         {game.me.role === 'hunter' ? `${n} FUGITIF${n > 1 ? 'S' : ''} REPÉRÉ${n > 1 ? 'S' : ''}` : 'LES CHASSEURS SAVENT'}
       </Text>
-      <Text style={{ fontFamily: fonts.displayBlack, fontSize: 96, color: t.onAccent, marginTop: 4 }}>Ping !</Text>
+      <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.displayBlack, fontSize: 96, color: t.onAccent, marginTop: 4 }}>Ping !</Text>
       <Text style={{ fontFamily: fonts.medium, fontSize: 17, color: '#FFD9D1', marginTop: 4 }}>
         {game.me.role === 'hunter' ? 'Positions de il y a 1 min.' : 'Ta position d’il y a 1 min est sur leur carte.'}
+      </Text>
+    </Animated.View>
+  );
+}
+
+// ---------- Révélation du rôle ----------
+
+/** Parties dont le rôle a déjà été révélé (une fois par partie, même si l'écran est rouvert). */
+const revealed = new Set<string>();
+
+function RoleReveal({ game }: { game: GameView }) {
+  const t = useTheme();
+  const [show, setShow] = useState(() => game.phase !== 'ended' && !revealed.has(game.code));
+  const p = useRef(new Animated.Value(0)).current;
+  const hunter = game.me.role === 'hunter';
+
+  useEffect(() => {
+    if (!show) return;
+    revealed.add(game.code);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    AccessibilityInfo.isReduceMotionEnabled().then(reduce => {
+      Animated.sequence([
+        Animated.timing(p, { toValue: 1, duration: reduce ? 0 : 450, useNativeDriver: true }),
+        Animated.delay(1800),
+        Animated.timing(p, { toValue: 2, duration: reduce ? 0 : 400, useNativeDriver: true }),
+      ]).start(() => setShow(false));
+    });
+  }, []);
+
+  if (!show) return null;
+  const opacity = p.interpolate({ inputRange: [0, 0.3, 1, 1.6, 2], outputRange: [0, 1, 1, 1, 0] });
+  const scale = p.interpolate({ inputRange: [0, 1, 2], outputRange: [0.7, 1, 1.08] });
+  const fg = hunter ? t.onAccent : t.text;
+  return (
+    <Animated.View style={{ position: 'absolute', inset: 0, opacity, backgroundColor: hunter ? t.accent : t.bg, justifyContent: 'center', padding: 24 }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: fg, opacity: 0.85, letterSpacing: 2 }}>TU ES</Text>
+      <Animated.Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.hero, fontSize: 120, lineHeight: 124, color: hunter ? fg : t.accent, transform: [{ scale }] }}>
+        {hunter ? 'CHASSEUR' : 'FUGITIF'}
+      </Animated.Text>
+      <Text style={{ fontFamily: fonts.display, fontSize: 18, lineHeight: 24, color: fg, marginTop: 8 }}>
+        {hunter ? 'Attrape tous les fugitifs avant la fin du temps.' : 'Ne te fais pas attraper jusqu\'à la fin.'}
       </Text>
     </Animated.View>
   );
@@ -388,8 +430,7 @@ function Sheet({ visible, onClose, title, children }: { visible: boolean; onClos
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} onPress={onClose} accessibilityLabel="Fermer" />
-      <View style={{ backgroundColor: t.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 10, paddingHorizontal: 16, paddingBottom: insets.bottom + 16, maxHeight: '85%' }}>
-        <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: t.surface2, marginBottom: 14 }} />
+      <View style={{ backgroundColor: t.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 22, paddingHorizontal: 16, paddingBottom: insets.bottom + 16, maxHeight: '85%' }}>
         <Text style={{ fontFamily: fonts.displayBlack, fontSize: 26, color: t.text, marginBottom: 8 }}>{title}</Text>
         <ScrollView contentContainerStyle={{ gap: 12 }}>{children}</ScrollView>
       </View>

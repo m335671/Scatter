@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { CaretLeftIcon, CheckIcon } from 'phosphor-react-native';
 import { register, usernameAvailable } from '../api';
 import { askLocation } from '../location';
 import { useStore } from '../store';
 import { fonts, radius, useTheme } from '../theme';
-import { Button, Field, Screen, Steps, T } from '../ui';
+import { Button, Field, Screen, Steps, T, KeyboardSpacer } from '../ui';
 
 const TOTAL = 3;
 const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9_]/g, '').slice(0, 20);
@@ -63,7 +63,6 @@ export default function Onboarding() {
 
   return (
     <Screen>
-      <KeyboardAvoidingView style={{ flex: 1, gap: 12 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {header}
         {step === 1 && (
           <>
@@ -114,7 +113,7 @@ export default function Onboarding() {
           disabled={(step === 1 && !name.trim()) || (step === 2 && available !== true)}
         />
         {step === 3 && <Button kind="ghost" title="Plus tard" onPress={() => router.replace('/')} />}
-      </KeyboardAvoidingView>
+      <KeyboardSpacer />
     </Screen>
   );
 }

@@ -1,11 +1,11 @@
 import { type ComponentRef, useEffect, useRef, useState } from 'react';
-import { Dimensions, Keyboard, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { PaperPlaneRightIcon } from 'phosphor-react-native';
 import type { Channel, GameView } from '@kr/shared';
 import { emit } from './api';
 import { setState, useStore } from './store';
 import { fonts, radius, useTheme } from './theme';
-import { fmtClock, showDialog } from './ui';
+import { fmtClock, showDialog, useKeyboardHeight } from './ui';
 
 const QUICK: Record<'hunter' | 'fugitive' | 'all', string[]> = {
   hunter: ["J'en vois un !", 'Surveillez le canal', 'Vous êtes où ?'],
@@ -17,22 +17,6 @@ const QUICK: Record<'hunter' | 'fugitive' | 'all', string[]> = {
 const TAB_SPACE = 104;
 
 const ago = (ms: number) => (ms < 60_000 ? "à l'instant" : `il y a ${Math.floor(ms / 60_000)} min`);
-
-/**
- * Hauteur du clavier affiché. Android en plein écran (edge-to-edge) ne redimensionne plus la fenêtre :
- * on remonte la saisie nous-mêmes.
- */
-function useKeyboardHeight() {
-  const [h, setH] = useState(0);
-  useEffect(() => {
-    // Distance réelle entre le haut du clavier et le bas de l'écran (la hauteur rapportée oublie la barre de navigation).
-    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', e =>
-      setH(Math.max(e.endCoordinates.height, Dimensions.get('screen').height - e.endCoordinates.screenY)));
-    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setH(0));
-    return () => { show.remove(); hide.remove(); };
-  }, []);
-  return h;
-}
 
 export function Radio({ game }: { game: GameView }) {
   const t = useTheme();
@@ -95,7 +79,7 @@ export function Radio({ game }: { game: GameView }) {
       </View>
 
       <ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 10, flexGrow: 1, justifyContent: 'flex-end' }}
-        keyboardShouldPersistTaps="handled" onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}>
+        keyboardDismissMode="on-drag" onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}>
         {messages.length === 0 && (
           <Text style={{ fontFamily: fonts.body, fontSize: 15, color: t.textDim, textAlign: 'center' }}>
             {channel === 'team' ? `Seuls les ${teamName} entendent ce canal.` : 'Ce canal est entendu par les deux équipes. Attention à ce que tu dis.'}

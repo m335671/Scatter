@@ -77,6 +77,13 @@ test('capture par QR : bon secret, mauvais secret, pendant l\'avance', () => {
   assert.equal(g.winner, 'hunter');
 });
 
+test('départ en pleine manche : annoncé, et le dernier fugitif qui part termine la partie', () => {
+  const g = setup();
+  leave(g, 'f');
+  assert.ok(g.chat.all.some(m => m.text === 'Fanny a quitté la partie.'));
+  assert.equal(g.winner, 'hunter');
+});
+
 test('fin au temps écoulé : victoire des fugitifs', () => {
   const g = setup();
   updatePosition(g, 'f', C);

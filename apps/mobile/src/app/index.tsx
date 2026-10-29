@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GearIcon } from 'phosphor-react-native';
@@ -19,6 +19,10 @@ export default function Home() {
   const router = useRouter();
   const user = useStore(s => s.user);
   const tutorialSeen = useStore(s => s.settings.tutorialSeen);
+  // Petits écrans (iPhone 8, SE) : le grand « Salut, » se réduit pour ne rien chevaucher.
+  const { width, height } = useWindowDimensions();
+  const hero = Math.min(132, width * 0.33, height * 0.14);
+  const small = height < 740;
   const permsChecked = useStore(s => s.permsChecked);
 
   // À chaque lancement : s'il manque une permission, on montre l'écran qui les liste.
@@ -75,12 +79,12 @@ export default function Home() {
           </Pressable>
         )}
 
-        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-          <Text style={{ fontFamily: fonts.hero, fontSize: 132, lineHeight: 124, color: INK, letterSpacing: -2 }}>Salut,</Text>
-          <Text style={{ fontFamily: fonts.hero, fontSize: 132, lineHeight: 132, color: INK, letterSpacing: -2 }} numberOfLines={1} adjustsFontSizeToFit>
+        <View style={{ flex: 1, justifyContent: 'flex-end', overflow: 'hidden' }}>
+          <Text style={{ fontFamily: fonts.hero, fontSize: hero, lineHeight: hero * 0.95, color: INK, letterSpacing: -2 }} numberOfLines={1}>Salut,</Text>
+          <Text style={{ fontFamily: fonts.hero, fontSize: hero, lineHeight: hero, color: INK, letterSpacing: -2 }} numberOfLines={1} adjustsFontSizeToFit>
             {user.name}.
           </Text>
-          <Text style={{ fontFamily: fonts.display, fontSize: 21, lineHeight: 27, color: INK, marginTop: 12, marginBottom: 28 }}>
+          <Text style={{ fontFamily: fonts.display, fontSize: small ? 17 : 21, lineHeight: small ? 22 : 27, color: INK, marginTop: 12, marginBottom: small ? 16 : 28 }}>
             Crée une partie ou récupère le code d'un ami.
           </Text>
         </View>

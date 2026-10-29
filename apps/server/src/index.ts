@@ -101,7 +101,7 @@ function newCode(): string {
 }
 
 const humans = (g: Game, team?: Role) =>
-  [...g.players.values()].filter(p => !p.isBot && (!team || p.role === team));
+  [...g.players.values()].filter(p => !p.isBot && !p.left && (!team || p.role === team));
 
 function broadcastLobby(g: Game) {
   for (const p of humans(g)) io.to(`u:${p.id}`).emit('lobby', lobbyView(g));

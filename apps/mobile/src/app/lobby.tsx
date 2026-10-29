@@ -70,7 +70,7 @@ export default function LobbyScreen() {
               </Pressable>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 4 }}>
-              <Text selectable style={{ fontFamily: fonts.displayBlack, fontSize: 56, color: t.text, letterSpacing: 1 }}>{lobby.code}</Text>
+              <Text selectable numberOfLines={1} adjustsFontSizeToFit style={{ flexShrink: 1, fontFamily: fonts.displayBlack, fontSize: 56, color: t.text, letterSpacing: 1 }}>{lobby.code}</Text>
               {isHost && (
                 <View style={{ backgroundColor: t.accentSoft, borderRadius: radius.inner, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 12 }}>
                   <Text style={{ fontFamily: fonts.semibold, color: t.accentText }}>Hôte</Text>

@@ -1,10 +1,10 @@
 // Composants de base : une seule source pour les couleurs, typos et arrondis.
-import { type ReactNode } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View,
+  ActivityIndicator, Dimensions, Keyboard, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View,
   type PressableProps, type StyleProp, type TextInputProps, type TextStyle, type ViewStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CaretLeftIcon, CaretRightIcon } from 'phosphor-react-native';
 import { useRouter } from 'expo-router';
 import { fonts, radius, useTheme } from './theme';
@@ -12,9 +12,10 @@ import { setState, useStore, type Dialog } from './store';
 
 export function Screen({ children, scroll, style }: { children: ReactNode; scroll?: boolean; style?: StyleProp<ViewStyle> }) {
   const t = useTheme();
+  // Toucher hors d'un champ ou faire défiler ferme le clavier (iOS n'a pas de geste pour ça).
   const inner = scroll
-    ? <ScrollView contentContainerStyle={[{ padding: 16, paddingBottom: 40, gap: 12 }, style]} keyboardShouldPersistTaps="handled">{children}</ScrollView>
-    : <View style={[{ flex: 1, padding: 16, gap: 12 }, style]}>{children}</View>;
+    ? <ScrollView contentContainerStyle={[{ padding: 16, paddingBottom: 40, gap: 12 }, style]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">{children}</ScrollView>
+    : <Pressable accessible={false} onPress={Keyboard.dismiss} style={[{ flex: 1, padding: 16, gap: 12 }, style]}>{children}</Pressable>;
   return <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }}>{inner}</SafeAreaView>;
 }
 
@@ -218,4 +219,26 @@ export function DialogHost() {
       </Pressable>
     </Modal>
   );
+}
+
+/**
+ * Hauteur du clavier affiché. Android en plein écran et iOS ne redimensionnent pas la fenêtre :
+ * chaque écran remonte son contenu lui-même.
+ */
+export function useKeyboardHeight() {
+  const [h, setH] = useState(0);
+  useEffect(() => {
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', e =>
+      setH(Math.max(e.endCoordinates.height, Dimensions.get('screen').height - e.endCoordinates.screenY)));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setH(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+  return h;
+}
+
+/** Espace vide de la hauteur du clavier : à mettre en bas d'un écran avec un champ de saisie. */
+export function KeyboardSpacer() {
+  const kb = useKeyboardHeight();
+  const insets = useSafeAreaInsets();
+  return <View style={{ height: Math.max(0, kb - insets.bottom) }} />;
 }
