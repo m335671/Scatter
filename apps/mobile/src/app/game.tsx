@@ -431,7 +431,10 @@ function Sheet({ visible, onClose, title, children }: { visible: boolean; onClos
   const drag = useRef(new Animated.Value(0)).current;
   useEffect(() => { if (visible) drag.setValue(0); }, [visible]);
   const pan = useMemo(() => PanResponder.create({
+    // La zone poignée + titre ne contient rien de cliquable : elle capte le geste dès le toucher.
+    onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: (_, g) => g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx),
+    onPanResponderTerminationRequest: () => false,
     onPanResponderMove: (_, g) => drag.setValue(Math.max(0, g.dy)),
     onPanResponderRelease: (_, g) => {
       if (g.dy > 110 || g.vy > 1.2) Animated.timing(drag, { toValue: 800, duration: 180, useNativeDriver: true }).start(onClose);
