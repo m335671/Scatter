@@ -8,7 +8,12 @@ export const LatLng = z.object({
 });
 export type LatLng = z.infer<typeof LatLng>;
 
+export const GameMode = z.enum(['classic', 'zombie']);
+export type GameMode = z.infer<typeof GameMode>;
+
 export const Rules = z.object({
+  /** zombie : un seul chasseur au départ, chaque fugitif attrapé devient chasseur. */
+  mode: GameMode.default('classic'),
   durationMin: z.number().int().min(5).max(180),
   pingEveryMin: z.number().int().min(1).max(30),
   headStartMin: z.number().int().min(0).max(30),
@@ -25,6 +30,7 @@ export const Rules = z.object({
 export type Rules = z.infer<typeof Rules>;
 
 export const defaultRules = (center: LatLng): Rules => ({
+  mode: 'classic',
   durationMin: 30,
   pingEveryMin: 2,
   headStartMin: 3,
@@ -38,6 +44,11 @@ export const PING_DELAY_MS = 60_000;
 /** La zone atteint sa taille finale à cette durée de la fin. */
 export const FINAL_ZONE_BEFORE_END_MS = 5 * 60_000;
 export const MIN = 60_000;
+/** Un fugitif resté hors zone aussi longtemps est éliminé. */
+export const OUT_OF_ZONE_LIMIT_MS = 60_000;
+/** Alerte « bord de zone » à cette distance du bord, et « la zone va rétrécir » à ce délai du rétrécissement. */
+export const EDGE_WARN_M = 30;
+export const SHRINK_WARN_MS = 60_000;
 
 // ---------- Messages client → serveur (frontière de confiance) ----------
 
@@ -80,6 +91,7 @@ export interface SeenPlayer { id: string; name: string; role: Role; lat: number;
 export interface GameView {
   code: string;
   phase: Phase;
+  mode: GameMode;
   training: boolean;
   speed: number;
   clock: number;      // horloge de jeu (ms depuis le lancement)
@@ -87,8 +99,13 @@ export interface GameView {
   huntEnd: number;
   nextPingAt: number | null;
   zone: { enabled: boolean; center: LatLng; radiusM: number; nextShrinkAt: number | null };
-  /** captures : fugitifs attrapés par ce joueur ; caughtAt : heure de jeu de sa capture (fugitif). */
-  me: { id: string; role: Role; caught: boolean; caughtAt: number | null; captures: number; outOfZone: boolean; qr: string | null };
+  /** captures : fugitifs attrapés par ce joueur ; caughtAt : heure de jeu de sa capture (fugitif).
+   *  eliminated : sorti du jeu pour être resté hors zone ; eliminateAt : heure de jeu de l'élimination s'il ne rentre pas.
+   *  zoneAlert : fugitif encore dans la zone mais bientôt dehors (bord proche, ou rétrécissement imminent), m = marge en mètres. */
+  me: {
+    id: string; role: Role; caught: boolean; caughtAt: number | null; eliminated: boolean; captures: number;
+    outOfZone: boolean; eliminateAt: number | null; zoneAlert: { kind: 'edge' | 'shrink'; m: number } | null; qr: string | null;
+  };
   fugitivesLeft: number;
   fugitivesTotal: number;
   team: SeenPlayer[];                        // coéquipiers en direct

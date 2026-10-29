@@ -248,7 +248,7 @@ io.on('connection', (socket) => {
     const team = (r: Role) => [...x.players.values()].filter(p => p.role === r).map(p => (p.isBot ? p.name : at(p))).join(',');
     log('partie', x.training ? 'entraînement lancé' : 'lancée', {
       code: x.code, chasseurs: team('hunter'), fugitifs: team('fugitive'), duree: `${x.rules.durationMin}min`,
-      avance: `${x.rules.headStartMin}min`, pings: `${x.rules.pingEveryMin}min`, zone: x.rules.zone.enabled ? `${x.rules.zone.startRadiusM}m` : 'non',
+      mode: x.rules.mode, avance: `${x.rules.headStartMin}min`, pings: `${x.rules.pingEveryMin}min`, zone: x.rules.zone.enabled ? `${x.rules.zone.startRadiusM}m` : 'non',
     });
     broadcastLobby(x);
     for (const p of humans(x)) io.to(`u:${p.id}`).emit('chat:history', history(x, p.role!));
@@ -262,10 +262,11 @@ io.on('connection', (socket) => {
 
   on('capture', C2S.capture, ({ qr }, g) => {
     const x = need(g);
-    capture(x, user.id, qr);
-    const target = [...x.players.values()].find(p => p.role === 'fugitive' && p.caughtAt === x.clock);
-    log('partie', 'capture', { code: x.code, chasseur: at(user), fugitif: target ? at(target) : '?', restants: fugitivesLeft(x) });
+    const target = capture(x, user.id, qr);
+    log('partie', 'capture', { code: x.code, chasseur: at(user), fugitif: at(target), restants: fugitivesLeft(x) });
     broadcastState(x);
+    // Zombie : le fugitif devenu chasseur reçoit la radio de sa nouvelle équipe (après le broadcast, sinon doublons).
+    if (target.role === 'hunter') io.to(`u:${target.id}`).emit('chat:history', history(x, 'hunter'));
   });
 
   on('chat', C2S.chat, ({ text, channel }, g) => {

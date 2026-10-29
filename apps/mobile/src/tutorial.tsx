@@ -77,7 +77,7 @@ const steps: Step[] = [
     Scene: ({ p, g }) => <Lag p={p} g={g} />,
   },
   {
-    eyebrow: 'La zone rétrécit', title: 'La zone se resserre.', body: "Sortir de la zone, c'est être visible en direct par les chasseurs tant qu'on reste dehors.",
+    eyebrow: 'La zone rétrécit', title: 'Reste dans la zone.', body: "Dehors, les chasseurs te voient en direct, et après 1 min tu es éliminé. Ton téléphone te prévient quand tu approches du bord.",
     cam: { zoom: 16, bearing: 10, pitch: 45 },
     Scene: ({ p, g }) => <Shrink p={p} g={g} />,
   },
@@ -90,6 +90,22 @@ const steps: Step[] = [
     eyebrow: 'La radio', title: 'Deux canaux pour parler.', body: "« Équipe » : seuls tes coéquipiers t'entendent. « Tous » : les deux équipes, pour chambrer ou bluffer.",
     cam: { zoom: 15.8, bearing: 4, pitch: 35 },
     Scene: ({ p, g }) => <RadioScene p={p} g={g} />,
+  },
+  {
+    eyebrow: 'Mode zombie', title: 'Un chasseur contre tous.', body: "En mode zombie, un seul chasseur au départ. Chaque fugitif attrapé devient chasseur à son tour.",
+    cam: { zoom: 16, bearing: -6, pitch: 40 },
+    Scene: ({ p, g }) => {
+      const nina = { x: -0.3, y: -0.2 };
+      return (
+        <>
+          <Zone g={g} />
+          <Dot g={g} kind="team" label="Leo" from={{ x: 0.2, y: 0.3 }} to={{ x: -0.2, y: -0.1 }} p={p} />
+          <Dot g={g} kind="fugitive" label="Nina" from={nina} to={nina} p={p} fadeOut />
+          <Dot g={g} kind="team" label="Nina" from={nina} to={nina} p={p} appearAt={0.55} />
+          {FUGITIVES.slice(1).map(f => <Dot key={f.name} g={g} kind="fugitive" label={f.name} from={f} to={f} p={p} />)}
+        </>
+      );
+    },
   },
   {
     eyebrow: 'La fin', title: "Tiens jusqu'au bout.", body: "Les chasseurs gagnent s'ils attrapent tout le monde. Sinon, les fugitifs encore libres l'emportent.",
@@ -294,7 +310,7 @@ function Shrink({ p, g }: StepProps) {
     <>
       <Zone g={g} scale={scale} />
       <Dot g={g} kind="target" label="SASHA 0:20" from={{ x: -0.3, y: 0.25 }} to={{ x: -0.3, y: 0.25 }} p={p} />
-      <Dot g={g} kind="exposed" label="TEO hors zone · en direct" from={out} to={out} p={p} appearAt={0.55} />
+      <Dot g={g} kind="exposed" label="TEO hors zone · éliminé dans 0:42" from={out} to={out} p={p} appearAt={0.55} />
     </>
   );
 }

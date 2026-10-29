@@ -46,6 +46,8 @@ export default function GameScreen() {
   // Sortie de zone : le bandeau ne suffit pas téléphone en poche, on fait vibrer.
   const out = !!game?.me.outOfZone;
   useEffect(() => { if (out) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {}); }, [out]);
+  const alert = game?.me.zoneAlert?.kind;
+  useEffect(() => { if (alert) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}); }, [alert]);
 
   if (!game) return <Redirect href="/" />;
 
@@ -56,7 +58,8 @@ export default function GameScreen() {
         : <SafeAreaView edges={['top']} style={{ flex: 1 }}><Radio game={game} /></SafeAreaView>}
       <TabBar tab={tab} onTab={setTab} onMore={() => setMore(true)} />
       <PingFlash game={game} />
-      <RoleReveal game={game} />
+      {/* key : en zombie, le fugitif attrapé devient chasseur et revoit la révélation. */}
+      <RoleReveal key={game.me.role} game={game} />
       <MoreSheet game={game} visible={more} onClose={() => setMore(false)} onQr={() => { setMore(false); setQr(true); }} />
       <QrSheet game={game} visible={qr && !!game.me.qr} onClose={() => setQr(false)} />
     </View>
@@ -140,12 +143,7 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
       <SafeAreaView edges={['top']} style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 12 }} pointerEvents="box-none">
         {game.phase === 'ended' ? <EndBanner game={game} /> : <Hud game={game} />}
         <Legend game={game} others={others} />
-        {game.me.outOfZone && (
-          <View style={{ marginTop: 8, backgroundColor: t.accent, borderRadius: radius.block, padding: 14 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: t.onAccent }}>Tu es hors de la zone !</Text>
-            <Text style={{ fontFamily: fonts.body, fontSize: 15, color: t.onAccent, marginTop: 2 }}>Les chasseurs te voient en direct tant que tu es dehors.</Text>
-          </View>
-        )}
+        <ZoneWarning game={game} />
         {game.phase !== 'ended' && !game.me.caught && <GpsWarning />}
       </SafeAreaView>
 
@@ -187,7 +185,7 @@ function PhaseBanner({ game, t }: { game: GameView; t: Theme }) {
     title = game.me.role === 'hunter' ? 'Les fugitifs se cachent' : 'Cache-toi !';
     sub = `${game.me.role === 'hunter' ? 'Départ' : 'Les chasseurs partent'} dans ${fmtClock(game.huntStart - game.clock)}`;
   } else if (game.me.caught) {
-    title = 'Tu as été attrapé';
+    title = game.me.eliminated ? 'Éliminé : resté hors zone' : 'Tu as été attrapé';
     sub = 'Tu suis la partie en spectateur.';
   } else {
     title = game.me.role === 'hunter' ? 'Chasse en cours' : 'Ne te fais pas prendre';
@@ -269,8 +267,9 @@ function Hud({ game }: { game: GameView }) {
   const mainValue = fmtClock((headstart ? game.huntStart : game.huntEnd) - game.clock);
   const toPing = game.nextPingAt !== null ? game.nextPingAt - game.clock : null;
   const pingFrac = toPing === null ? 0 : 1 - Math.min(1, toPing / (headstart ? game.huntStart : pingEvery));
+  // Deux lignes : sur un iPhone étroit, « 420 m · rétrécit dans 04:59 » était coupé.
   const zoneLine = !game.zone.enabled ? 'Pas de zone'
-    : `${fmtDistance(game.zone.radiusM, units)}${game.zone.nextShrinkAt !== null ? ` · rétrécit dans ${fmtClock(game.zone.nextShrinkAt - game.clock)}` : ' · taille finale'}`;
+    : `Zone ${fmtDistance(game.zone.radiusM, units)}\n${game.zone.nextShrinkAt !== null ? `Rétrécit dans ${fmtClock(game.zone.nextShrinkAt - game.clock)}` : 'Taille finale'}`;
   const bar = (frac: number) => (
     <View style={{ height: 8, borderRadius: 4, backgroundColor: t.surface2, overflow: 'hidden' }}>
       <View style={{ width: `${Math.round(frac * 100)}%`, height: '100%', backgroundColor: t.text, borderRadius: 4 }} />
@@ -284,12 +283,12 @@ function Hud({ game }: { game: GameView }) {
           <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.displayBlack, fontSize: 42, color: t.text, fontVariant: ['tabular-nums'] }}>{mainValue}</Text>
         </View>
         <View style={{ flex: 1, padding: 16, gap: 10 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: t.textDim }}>Prochain ping</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 6 }}>
+            <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: fonts.medium, fontSize: 15, color: t.textDim }}>Prochain ping</Text>
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: t.text, fontVariant: ['tabular-nums'] }}>{toPing === null ? '--:--' : fmtClock(toPing)}</Text>
           </View>
           {bar(pingFrac)}
-          <Text style={{ fontFamily: fonts.body, fontSize: 13, color: t.textDim }} numberOfLines={1}>{zoneLine}</Text>
+          <Text style={{ fontFamily: fonts.body, fontSize: 13, lineHeight: 17, color: t.textDim, fontVariant: ['tabular-nums'] }}>{zoneLine}</Text>
         </View>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: t.line }}>
@@ -297,6 +296,36 @@ function Hud({ game }: { game: GameView }) {
         <View style={{ flex: 1 }}>{bar(game.fugitivesTotal ? game.fugitivesLeft / game.fugitivesTotal : 0)}</View>
         <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: t.text }}>{game.fugitivesLeft} sur {game.fugitivesTotal}</Text>
       </View>
+    </View>
+  );
+}
+
+/** Hors zone : compte à rebours avant l'élimination. Encore dedans : bord proche, ou rétrécissement qui va le laisser dehors. */
+function ZoneWarning({ game }: { game: GameView }) {
+  const t = useTheme();
+  const { me } = game;
+  if (game.phase === 'ended' || me.caught) return null;
+  if (me.eliminateAt !== null) {
+    const left = me.eliminateAt - game.clock;
+    return (
+      <View accessibilityRole="alert" style={{ marginTop: 8, backgroundColor: t.accent, borderRadius: radius.block, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: t.onAccent }}>Hors zone : reviens vite !</Text>
+          <Text style={{ fontFamily: fonts.body, fontSize: 15, color: t.onAccent, marginTop: 2 }}>Tu seras éliminé si tu restes dehors. Les chasseurs te voient en direct.</Text>
+        </View>
+        <Text style={{ fontFamily: fonts.displayBlack, fontSize: 34, color: t.onAccent, fontVariant: ['tabular-nums'] }}>{fmtClock(left)}</Text>
+      </View>
+    );
+  }
+  const a = me.zoneAlert;
+  if (!a) return null;
+  const [title, sub] = a.kind === 'shrink' && game.zone.nextShrinkAt !== null
+    ? [`La zone rétrécit dans ${fmtClock(game.zone.nextShrinkAt - game.clock)}`, `Tu seras dehors : rapproche-toi du centre d'au moins ${a.m} m.`]
+    : ['Bord de la zone', `Plus que ${a.m} m avant d'en sortir.`];
+  return (
+    <View accessibilityRole="alert" style={{ marginTop: 8, backgroundColor: t.surface, borderRadius: radius.block, padding: 14, borderLeftWidth: 6, borderLeftColor: t.accent }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: t.text, fontVariant: ['tabular-nums'] }}>{title}</Text>
+      <Text style={{ fontFamily: fonts.body, fontSize: 15, color: t.textDim, marginTop: 2 }}>{sub}</Text>
     </View>
   );
 }
@@ -412,18 +441,22 @@ function PingFlash({ game }: { game: GameView }) {
 
 // ---------- Révélation du rôle ----------
 
-/** Parties dont le rôle a déjà été révélé (une fois par partie, même si l'écran est rouvert). */
+/** Rôles déjà révélés, par partie (une fois par rôle, même si l'écran est rouvert). */
 const revealed = new Set<string>();
 
 function RoleReveal({ game }: { game: GameView }) {
   const t = useTheme();
-  const [show, setShow] = useState(() => game.phase !== 'ended' && !revealed.has(game.code));
+  const key = `${game.code}:${game.me.role}`;
+  const [show, setShow] = useState(() => game.phase !== 'ended' && !revealed.has(key));
   const p = useRef(new Animated.Value(0)).current;
   const hunter = game.me.role === 'hunter';
+  const zombie = game.mode === 'zombie';
+  // Zombie : on devient chasseur en cours de partie en se faisant attraper.
+  const converted = zombie && hunter && game.fugitivesLeft < game.fugitivesTotal;
 
   useEffect(() => {
     if (!show) return;
-    revealed.add(game.code);
+    revealed.add(key);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     AccessibilityInfo.isReduceMotionEnabled().then(reduce => {
       Animated.sequence([
@@ -440,12 +473,15 @@ function RoleReveal({ game }: { game: GameView }) {
   const fg = hunter ? t.onAccent : t.text;
   return (
     <Animated.View style={{ position: 'absolute', inset: 0, opacity, backgroundColor: hunter ? t.accent : t.bg, justifyContent: 'center', padding: 24 }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: fg, opacity: 0.85, letterSpacing: 2 }}>TU ES</Text>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: fg, opacity: 0.85, letterSpacing: 2 }}>{converted ? 'CONTAMINÉ. TU ES' : 'TU ES'}</Text>
       <Animated.Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.hero, fontSize: 120, lineHeight: 124, color: hunter ? fg : t.accent, transform: [{ scale }] }}>
         {hunter ? 'CHASSEUR' : 'FUGITIF'}
       </Animated.Text>
       <Text style={{ fontFamily: fonts.display, fontSize: 18, lineHeight: 24, color: fg, marginTop: 8 }}>
-        {hunter ? 'Attrape tous les fugitifs avant la fin du temps.' : 'Ne te fais pas attraper jusqu\'à la fin.'}
+        {converted ? 'Aide les chasseurs à attraper les derniers fugitifs.'
+          : zombie && hunter ? 'Seul contre tous. Chaque fugitif attrapé rejoint ton équipe.'
+          : zombie ? 'Un fugitif attrapé devient chasseur. Tiens jusqu\'à la fin.'
+          : hunter ? 'Attrape tous les fugitifs avant la fin du temps.' : 'Ne te fais pas attraper jusqu\'à la fin.'}
       </Text>
     </Animated.View>
   );

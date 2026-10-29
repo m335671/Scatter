@@ -145,3 +145,54 @@ test('entraînement : les bots bougent dans la zone', () => {
   assert.notDeepEqual(bot.history.at(-1), before);
   assert.equal(view(g, 'me')!.fugitivesTotal, 4);
 });
+
+test('zone : éliminé après 1 min dehors, compteur remis à zéro en rentrant, chasseurs prévenus', () => {
+  const g = setup();
+  tick(g, 3 * MIN);
+  const out = { lat: C.lat + 0.01, lng: C.lng };
+  updatePosition(g, 'f', out);
+  tick(g, 1000);
+  assert.equal(view(g, 'f')!.me.eliminateAt, g.clock + MIN);
+  assert.ok(g.chat.hunter.at(-1)!.text.includes('sorti de la zone'));
+  tick(g, 40_000);
+  updatePosition(g, 'f', C); // rentre à temps
+  tick(g, 1000);
+  assert.equal(view(g, 'f')!.me.eliminateAt, null);
+  updatePosition(g, 'f', out);
+  tick(g, 1000);
+  tick(g, 59_000);
+  assert.equal(g.players.get('f')!.caughtAt, null);
+  tick(g, 1000);
+  assert.equal(view(g, 'f')!.me.eliminated, true);
+  assert.equal(g.winner, 'hunter');
+});
+
+test('zone : alerte au bord et avant un rétrécissement qui laisserait dehors', () => {
+  const g = setup();
+  tick(g, 3 * MIN + 30_000); // 1er rétrécissement (420 → 366 m) dans 4 min 30
+  const at = (m: number) => ({ lat: C.lat + m / 111_320, lng: C.lng });
+  updatePosition(g, 'f', at(400));
+  assert.equal(view(g, 'f')!.me.zoneAlert?.kind, 'edge');
+  updatePosition(g, 'f', at(380));
+  assert.equal(view(g, 'f')!.me.zoneAlert, null);
+  tick(g, 4 * MIN); // plus que 30 s avant le rétrécissement
+  assert.equal(view(g, 'f')!.me.zoneAlert?.kind, 'shrink');
+});
+
+test('zombie : un seul chasseur, le fugitif attrapé change d\'équipe', () => {
+  const g = createGame('ZOMB11', { id: 'a', name: 'A', username: 'a' }, { ...defaultRules(C), mode: 'zombie' });
+  for (const id of ['b', 'c']) join(g, { id, name: id.toUpperCase(), username: id });
+  g.players.get('b')!.choice = 'hunter';
+  start(g);
+  assert.deepEqual([...g.players.values()].map(p => p.role), ['fugitive', 'hunter', 'fugitive']);
+  tick(g, 3 * MIN);
+  capture(g, 'b', qrFor(g, g.players.get('a')!));
+  const a = view(g, 'a')!;
+  assert.equal(a.me.role, 'hunter');
+  assert.equal(a.me.caught, false);
+  assert.equal(a.fugitivesLeft, 1);
+  assert.equal(a.fugitivesTotal, 2);
+  assert.equal(a.mode, 'zombie');
+  capture(g, 'a', qrFor(g, g.players.get('c')!)); // le converti chasse à son tour
+  assert.equal(g.winner, 'hunter');
+});

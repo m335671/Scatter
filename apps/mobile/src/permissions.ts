@@ -3,10 +3,11 @@ import { Linking, Platform } from 'react-native';
 import * as Location from 'expo-location';
 import { Camera } from 'expo-camera';
 import * as Battery from 'expo-battery';
+import * as Notifications from 'expo-notifications';
 import * as IntentLauncher from 'expo-intent-launcher';
 import Constants from 'expo-constants';
 
-export type PermKey = 'location' | 'background' | 'camera' | 'battery';
+export type PermKey = 'location' | 'background' | 'camera' | 'notifications' | 'battery';
 export type PermStatus = 'granted' | 'ask' | 'blocked'; // blocked = refusée définitivement, il faut passer par les réglages
 
 export interface Perm { key: PermKey; title: string; why: string; status: PermStatus }
@@ -21,21 +22,23 @@ const TEXT: Record<PermKey, { title: string; why: string }> = {
     why: 'Continuer à envoyer ta position quand le téléphone est dans ta poche.',
   },
   camera: { title: 'Caméra', why: 'Scanner le QR code d\'un fugitif pour l\'attraper.' },
+  notifications: { title: 'Notifications', why: 'Messages radio, pings et alertes de zone quand le téléphone est dans ta poche.' },
   battery: { title: 'Batterie sans restriction', why: 'Empêcher Android de couper l\'app en arrière-plan pendant une partie.' },
 };
 
 /** Android uniquement : l'optimisation de batterie peut tuer le suivi GPS écran éteint. iOS n'a pas d'équivalent. */
-const KEYS: PermKey[] = Platform.OS === 'android' ? ['location', 'background', 'camera', 'battery'] : ['location', 'background', 'camera'];
+const KEYS: PermKey[] = Platform.OS === 'android' ? ['location', 'background', 'camera', 'notifications', 'battery'] : ['location', 'background', 'camera', 'notifications'];
 
 export async function checkAll(): Promise<Perm[]> {
-  const [fg, bg, cam, optimized] = await Promise.all([
+  const [fg, bg, cam, notif, optimized] = await Promise.all([
     Location.getForegroundPermissionsAsync(),
     Location.getBackgroundPermissionsAsync(),
     Camera.getCameraPermissionsAsync(),
+    Notifications.getPermissionsAsync(),
     Platform.OS === 'android' ? Battery.isBatteryOptimizationEnabledAsync().catch(() => false) : Promise.resolve(false),
   ]);
   const s: Record<PermKey, PermStatus> = {
-    location: status(fg), background: status(bg), camera: status(cam),
+    location: status(fg), background: status(bg), camera: status(cam), notifications: status(notif),
     battery: optimized ? 'ask' : 'granted',
   };
   return KEYS.map(key => ({ key, ...TEXT[key], status: s[key] }));
@@ -54,6 +57,7 @@ export async function request(key: PermKey, current: PermStatus) {
       await Location.requestBackgroundPermissionsAsync();
       break;
     case 'camera': await Camera.requestCameraPermissionsAsync(); break;
+    case 'notifications': await Notifications.requestPermissionsAsync(); break;
   }
 }
 

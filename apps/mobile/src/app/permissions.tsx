@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AppState, Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { BatteryChargingIcon, CameraIcon, CheckIcon, MapPinIcon, NavigationArrowIcon } from 'phosphor-react-native';
+import { BatteryChargingIcon, BellIcon, CameraIcon, CheckIcon, MapPinIcon, NavigationArrowIcon } from 'phosphor-react-native';
 import { type Perm, type PermKey, allGranted, checkAll, request } from '../permissions';
 import { setState } from '../store';
 import { fonts, radius, useTheme } from '../theme';
 import { Button, Screen, T } from '../ui';
 
-const ICON: Record<PermKey, typeof MapPinIcon> = { location: MapPinIcon, background: NavigationArrowIcon, camera: CameraIcon, battery: BatteryChargingIcon };
+const ICON: Record<PermKey, typeof MapPinIcon> = { location: MapPinIcon, background: NavigationArrowIcon, camera: CameraIcon, notifications: BellIcon, battery: BatteryChargingIcon };
 
 export default function Permissions() {
   const t = useTheme();
