@@ -3,19 +3,16 @@ import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { CaretLeftIcon, CheckIcon } from 'phosphor-react-native';
 import { register, usernameAvailable } from '../api';
-import { askLocation } from '../location';
-import { useStore } from '../store';
 import { fonts, radius, useTheme } from '../theme';
 import { Button, Field, Screen, Steps, T, KeyboardSpacer } from '../ui';
 
-const TOTAL = 3;
+const TOTAL = 2;
 const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9_]/g, '').slice(0, 20);
 
 export default function Onboarding() {
   const t = useTheme();
   const router = useRouter();
-  const hasAccount = useStore(s => !!s.token);
-  const [step, setStep] = useState(hasAccount ? 3 : 1);
+  const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [available, setAvailable] = useState<boolean | null>(null);
@@ -41,16 +38,14 @@ export default function Onboarding() {
       setBusy(true);
       try {
         await register(name.trim(), username);
-        setStep(3);
+        // Les permissions sont demandées une seule fois, après le tutoriel (écran « Avant de jouer »).
+        router.replace('/');
       } catch (e) {
         setError((e as Error).message);
       } finally {
         setBusy(false);
       }
-      return;
     }
-    await askLocation().catch(() => {});
-    router.replace('/');
   }
 
   const header = (
@@ -93,26 +88,14 @@ export default function Onboarding() {
             {available === false && <T style={{ color: t.accentText, fontFamily: fonts.semibold }}>@{username} est déjà pris.</T>}
           </>
         )}
-        {step === 3 && (
-          <>
-            <T kind="title" style={{ marginTop: 24 }}>Ta position, même écran éteint</T>
-            <T kind="dim">
-              Pendant une manche, ton téléphone reste dans ta poche. Choisis « Toujours autoriser » pour que ta position continue d'être envoyée.
-            </T>
-            <T kind="dim">
-              Elle n'est partagée que pendant une manche, avec ton équipe en direct et avec l'équipe adverse au moment des pings.
-            </T>
-          </>
-        )}
         <View style={{ flex: 1 }} />
         {error ? <T style={{ color: t.accentText, textAlign: 'center' }}>{error}</T> : null}
         <Button
-          title={step === 3 ? 'Autoriser la position' : 'Continuer'}
+          title="Continuer"
           onPress={next}
           loading={busy}
           disabled={(step === 1 && !name.trim()) || (step === 2 && available !== true)}
         />
-        {step === 3 && <Button kind="ghost" title="Plus tard" onPress={() => router.replace('/')} />}
       <KeyboardSpacer />
     </Screen>
   );
