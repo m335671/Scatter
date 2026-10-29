@@ -2,8 +2,11 @@
 import { Linking, Platform } from 'react-native';
 import * as Location from 'expo-location';
 import { Camera } from 'expo-camera';
+import * as Battery from 'expo-battery';
+import * as IntentLauncher from 'expo-intent-launcher';
+import Constants from 'expo-constants';
 
-export type PermKey = 'location' | 'background' | 'camera';
+export type PermKey = 'location' | 'background' | 'camera' | 'battery';
 export type PermStatus = 'granted' | 'ask' | 'blocked'; // blocked = refusée définitivement, il faut passer par les réglages
 
 export interface Perm { key: PermKey; title: string; why: string; status: PermStatus }
@@ -18,21 +21,30 @@ const TEXT: Record<PermKey, { title: string; why: string }> = {
     why: 'Continuer à envoyer ta position quand le téléphone est dans ta poche.',
   },
   camera: { title: 'Caméra', why: 'Scanner le QR code d\'un fugitif pour l\'attraper.' },
+  battery: { title: 'Batterie sans restriction', why: 'Empêcher Android de couper l\'app en arrière-plan pendant une partie.' },
 };
 
+/** Android uniquement : l'optimisation de batterie peut tuer le suivi GPS écran éteint. iOS n'a pas d'équivalent. */
+const KEYS: PermKey[] = Platform.OS === 'android' ? ['location', 'background', 'camera', 'battery'] : ['location', 'background', 'camera'];
+
 export async function checkAll(): Promise<Perm[]> {
-  const [fg, bg, cam] = await Promise.all([
+  const [fg, bg, cam, optimized] = await Promise.all([
     Location.getForegroundPermissionsAsync(),
     Location.getBackgroundPermissionsAsync(),
     Camera.getCameraPermissionsAsync(),
+    Platform.OS === 'android' ? Battery.isBatteryOptimizationEnabledAsync().catch(() => false) : Promise.resolve(false),
   ]);
-  const s: Record<PermKey, PermStatus> = { location: status(fg), background: status(bg), camera: status(cam) };
-  return (Object.keys(TEXT) as PermKey[]).map(key => ({ key, ...TEXT[key], status: s[key] }));
+  const s: Record<PermKey, PermStatus> = {
+    location: status(fg), background: status(bg), camera: status(cam),
+    battery: optimized ? 'ask' : 'granted',
+  };
+  return KEYS.map(key => ({ key, ...TEXT[key], status: s[key] }));
 }
 
 /** Demande une permission. Si elle est bloquée, ouvre les réglages de l'app. */
 export async function request(key: PermKey, current: PermStatus) {
   if (current === 'blocked') return Linking.openSettings();
+  if (key === 'battery') return requestBattery();
   switch (key) {
     case 'location': await Location.requestForegroundPermissionsAsync(); break;
     // La position « toujours » exige d'abord la position « pendant l'utilisation ».
@@ -42,6 +54,16 @@ export async function request(key: PermKey, current: PermStatus) {
       await Location.requestBackgroundPermissionsAsync();
       break;
     case 'camera': await Camera.requestCameraPermissionsAsync(); break;
+  }
+}
+
+/** Demande système « ne pas optimiser » ; certains fabricants la bloquent : on ouvre alors la liste des réglages. */
+async function requestBattery() {
+  const pkg = Constants.expoConfig?.android?.package ?? 'com.m335671.keeprunnin';
+  try {
+    await IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, { data: `package:${pkg}` });
+  } catch {
+    await IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.IGNORE_BATTERY_OPTIMIZATION_SETTINGS).catch(() => Linking.openSettings());
   }
 }
 
