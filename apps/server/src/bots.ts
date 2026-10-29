@@ -34,9 +34,10 @@ export function moveBots(g: Game, gameDtMs: number, rng = Math.random) {
   const radius = zoneRadius(g.rules, g.clock) * 0.9;
   for (const p of g.players.values()) {
     if (!p.isBot || p.caughtAt !== null) continue;
-    if (p.role === 'hunter' && g.phase === 'headstart') continue; // les chasseurs attendent
     const pos = positionAt(p, g.clock);
     if (!pos) continue;
+    // Les chasseurs attendent pendant l'avance, mais envoient leur position comme un vrai téléphone (sinon « hors ligne »).
+    if (p.role === 'hunter' && g.phase === 'headstart') { updatePosition(g, p.id, { lat: pos.lat, lng: pos.lng, acc: pos.acc }); continue; }
     if (!p.target || distanceM(pos, p.target) < 5 || distanceM(p.target, g.rules.zone.center) > radius) {
       p.target = randomPointIn(g.rules.zone.center, radius, rng);
     }
