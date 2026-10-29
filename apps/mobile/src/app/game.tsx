@@ -8,6 +8,7 @@ import { Camera, GeoJSONSource, Layer, Map, NativeUserLocation, type CameraRef }
 import { BroadcastIcon, CrosshairIcon, DotsThreeIcon, MapTrifoldIcon, QrCodeIcon, ScanIcon } from 'phosphor-react-native';
 import type { GameView, LatLng, SeenPlayer } from '@kr/shared';
 import { emit, leaveGame } from '../api';
+import { useGpsStatus } from '../location';
 import { Radio } from '../radio';
 import { recordGame } from '../stats';
 import { setState, useStore } from '../store';
@@ -142,6 +143,7 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
             <Text style={{ fontFamily: fonts.body, fontSize: 15, color: t.onAccent, marginTop: 2 }}>Les chasseurs te voient en direct tant que tu es dehors.</Text>
           </View>
         )}
+        {game.phase !== 'ended' && !game.me.caught && <GpsWarning />}
       </SafeAreaView>
 
       <View pointerEvents="box-none" style={{ position: 'absolute', left: 12, right: 12, bottom: Math.max(insets.bottom, 12) + TAB_H + 10, gap: 12 }}>
@@ -292,6 +294,27 @@ function Hud({ game }: { game: GameView }) {
         <View style={{ flex: 1 }}>{bar(game.fugitivesTotal ? game.fugitivesLeft / game.fugitivesTotal : 0)}</View>
         <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: t.text }}>{game.fugitivesLeft} sur {game.fugitivesTotal}</Text>
       </View>
+    </View>
+  );
+}
+
+/** Prévient le joueur quand sa position n'arrive plus (ou mal) au serveur : sinon il joue invisible sans le savoir. */
+function GpsWarning() {
+  const t = useTheme();
+  const gps = useGpsStatus();
+  const connected = useStore(s => s.connected);
+  const msg = !connected
+    ? ['Pas de connexion au serveur', "Ta position n'est plus partagée. Reconnexion automatique dès que le réseau revient."]
+    : gps.kind === 'lost'
+      ? ['Pas de position GPS', `Rien reçu depuis ${gps.sinceS} s : les autres ne te voient plus bouger. Vérifie que la localisation est activée, et va à découvert.`]
+      : gps.kind === 'weak'
+        ? [`Signal GPS faible (± ${gps.acc} m)`, "Ta position peut être décalée. Évite l'intérieur des bâtiments et les sous-bois."]
+        : null;
+  if (!msg) return null;
+  return (
+    <View accessibilityRole="alert" style={{ marginTop: 8, backgroundColor: t.surface, borderRadius: radius.block, padding: 14, borderLeftWidth: 6, borderLeftColor: t.accent }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: t.text }}>{msg[0]}</Text>
+      <Text style={{ fontFamily: fonts.body, fontSize: 15, color: t.textDim, marginTop: 2 }}>{msg[1]}</Text>
     </View>
   );
 }

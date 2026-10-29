@@ -1,4 +1,5 @@
 // Suivi GPS en arrière-plan pendant une partie : le téléphone est dans la poche.
+import { useEffect, useState } from 'react';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { ensureConnected, sendPosition } from './api';
@@ -8,12 +9,16 @@ const MAX_AGE_MS = 30_000;   // position en cache (dernière connue) : trop viei
 const BAD_ACC_M = 100;       // relevé par antenne / Wi-Fi : peut placer le joueur à plusieurs centaines de mètres
 const BAD_ACC_GRACE_MS = 20_000;
 let lastGoodAt = 0;
+/** Dernier relevé reçu, même rejeté : sert au voyant GPS du HUD. */
+let lastFix = { at: 0, acc: undefined as number | undefined };
+let trackingSince = 0;
 
 /** Filtre les relevés trompeurs. Un relevé imprécis passe quand même si on n'a rien de mieux depuis 20 s (sinon le joueur disparaît). */
 function send(loc: Location.LocationObject) {
   const now = Date.now();
   if (now - loc.timestamp > MAX_AGE_MS) return;
   const acc = loc.coords.accuracy ?? undefined;
+  lastFix = { at: now, acc };
   if (acc !== undefined && acc > BAD_ACC_M && now - lastGoodAt < BAD_ACC_GRACE_MS) return;
   if (acc === undefined || acc <= BAD_ACC_M) lastGoodAt = now;
   sendPosition(loc.coords.latitude, loc.coords.longitude, acc);
@@ -44,6 +49,7 @@ export async function currentPosition() {
 let foregroundSub: Location.LocationSubscription | null = null;
 
 export async function startTracking() {
+  trackingSince = Date.now();
   if (await Location.hasStartedLocationUpdatesAsync(TASK).catch(() => false)) return;
   const bg = await Location.getBackgroundPermissionsAsync();
   if (bg.granted) {
@@ -85,4 +91,21 @@ export async function stopTracking() {
   if (await Location.hasStartedLocationUpdatesAsync(TASK).catch(() => false)) {
     await Location.stopLocationUpdatesAsync(TASK);
   }
+}
+
+const LOST_MS = 20_000;
+const WEAK_ACC_M = 50;
+export type GpsStatus = { kind: 'ok' } | { kind: 'weak'; acc: number } | { kind: 'lost'; sinceS: number };
+
+/** État du GPS pour le joueur lui-même, réévalué toutes les 2 s. */
+export function useGpsStatus(): GpsStatus {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 2000);
+    return () => clearInterval(id);
+  }, []);
+  const ref = Math.max(lastFix.at, trackingSince);
+  if (ref && now - ref > LOST_MS) return { kind: 'lost', sinceS: Math.round((now - (lastFix.at || trackingSince)) / 1000) };
+  if (lastFix.acc !== undefined && lastFix.acc > WEAK_ACC_M) return { kind: 'weak', acc: Math.round(lastFix.acc) };
+  return { kind: 'ok' };
 }
