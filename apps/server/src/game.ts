@@ -24,6 +24,7 @@ export interface Player {
   target?: LatLng; // bots
   /** A quitté la partie en cours de manche. */
   left?: boolean;
+  captures?: number;
 }
 
 export interface Game {
@@ -225,6 +226,7 @@ export function capture(g: Game, hunterId: string, qr: string) {
 
 export function catchFugitive(g: Game, hunter: Player, target: Player) {
   target.caughtAt = g.clock;
+  hunter.captures = (hunter.captures ?? 0) + 1;
   const left = aliveFugitives(g).length;
   system(g, 'hunter', `${hunter.name} a attrapé ${target.name}. Il en reste ${left}.`);
   system(g, 'fugitive', `${target.name} s'est fait attraper. Il en reste ${left}.`);
@@ -301,7 +303,7 @@ export function view(g: Game, id: string): GameView | null {
       radiusM: zoneRadius(g.rules, g.clock), nextShrinkAt: nextShrinkAt(g.rules, g.clock),
     },
     me: {
-      id: me.id, role: me.role, caught: me.caughtAt !== null, outOfZone: me.role === 'fugitive' && isOutOfZone(g, me),
+      id: me.id, role: me.role, caught: me.caughtAt !== null, caughtAt: me.caughtAt, captures: me.captures ?? 0, outOfZone: me.role === 'fugitive' && isOutOfZone(g, me),
       qr: me.role === 'fugitive' && me.caughtAt === null ? qrFor(g, me) : null,
     },
     fugitivesLeft: fugitives.filter(p => p.caughtAt === null).length,

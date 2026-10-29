@@ -72,6 +72,8 @@ test('capture par QR : bon secret, mauvais secret, pendant l\'avance', () => {
   assert.throws(() => capture(g, 'f', qrFor(g, f)), GameError);
   assert.equal(view(g, 'h')!.ping!.players.length, 1); // vu au ping de fin d'avance
   capture(g, 'h', qrFor(g, f));
+  assert.equal(view(g, 'h')!.me.captures, 1);
+  assert.equal(view(g, 'f')!.me.caughtAt, g.clock);
   assert.equal(view(g, 'h')!.ping!.players.length, 0); // attrapé : retiré du ping
   assert.equal(g.phase, 'ended');
   assert.equal(g.winner, 'hunter');

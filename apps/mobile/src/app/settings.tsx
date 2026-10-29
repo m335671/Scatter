@@ -5,6 +5,7 @@ import { connect, updateMe } from '../api';
 import { DEFAULT_SERVER, setState, useStore, type Settings } from '../store';
 import { fonts, radius, useTheme } from '../theme';
 import { Group, Row, Screen, Segmented, showDialog } from '../ui';
+import { clearStats, exportStats } from '../stats';
 
 export default function SettingsScreen() {
   const t = useTheme();
@@ -64,6 +65,14 @@ export default function SettingsScreen() {
           <Segmented value={settings.appearance} onChange={appearance => patch({ appearance })}
             options={[{ value: 'system', label: 'Auto' }, { value: 'light', label: 'Clair' }, { value: 'dark', label: 'Sombre' }]} />
         } />
+      </Group>
+
+      <Group label="Stats" footer="Tes stats restent sur ce téléphone. L'export crée un fichier JSON que tu peux envoyer où tu veux.">
+        <Row title="Exporter mes stats" onPress={() => exportStats().catch(e => showDialog({ title: 'Export impossible', message: (e as Error).message }))} />
+        <Row title="Effacer mes stats" danger onPress={() => showDialog({
+          title: 'Effacer tes stats ?', message: 'Toutes tes parties enregistrées sur ce téléphone seront supprimées.',
+          actions: [{ label: 'Effacer', kind: 'danger', onPress: clearStats }, { label: 'Annuler', kind: 'cancel' }],
+        })} />
       </Group>
 
       <Group label="Serveur" footer={connected ? 'Connecté.' : 'Non connecté. Keep Runni\'n est open source : tu peux héberger ton propre serveur.'}>

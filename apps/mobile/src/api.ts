@@ -1,6 +1,7 @@
 import { io, type Socket } from 'socket.io-client';
 import type { ChatMessage, GameView, Lobby } from '@kr/shared';
 import { DEFAULT_SERVER, getState, setState, type User } from './store';
+import { trackPosition } from './stats';
 
 const base = () => (getState().settings.serverUrl || DEFAULT_SERVER).replace(/\/$/, '');
 
@@ -65,7 +66,11 @@ export function emit<T = object>(ev: string, data: unknown = {}): Promise<T> {
 }
 
 /** Envoi sans accusé, utilisé par la tâche GPS. */
-export const sendPosition = (lat: number, lng: number, acc?: number) => socket?.emit('pos', { lat, lng, acc });
+export function sendPosition(lat: number, lng: number, acc?: number) {
+  socket?.emit('pos', { lat, lng, acc });
+  const g = getState().game;
+  if (g && (g.phase === 'headstart' || g.phase === 'hunt')) trackPosition(g.code, { lat, lng });
+}
 
 export async function leaveGame() {
   await emit('leave').catch(() => {});

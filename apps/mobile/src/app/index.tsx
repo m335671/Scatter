@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { GearIcon } from 'phosphor-react-native';
+import { ChartBarIcon, GearIcon } from 'phosphor-react-native';
 import { defaultRules } from '@kr/shared';
 import { emit } from '../api';
 import { askLocation, currentPosition } from '../location';
@@ -62,10 +62,16 @@ export default function Home() {
             <Mark size={38} color={INK} />
             <Text style={{ fontFamily: fonts.hero, fontSize: 40, color: INK, letterSpacing: -0.5 }} accessibilityRole="header">KEEP RUNNI'N</Text>
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Réglages" onPress={() => router.push('/settings')}
-            style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}>
-            <GearIcon size={24} color={INK} weight="bold" />
-          </Pressable>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Stats" onPress={() => router.push('/stats')}
+              style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}>
+              <ChartBarIcon size={24} color={INK} weight="bold" />
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Réglages" onPress={() => router.push('/settings')}
+              style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}>
+              <GearIcon size={24} color={INK} weight="bold" />
+            </Pressable>
+          </View>
         </View>
 
         {/* Seules les vraies parties, en cours ou en salon, sont proposées : pas les entraînements ni les parties finies. */}

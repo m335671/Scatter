@@ -24,7 +24,10 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 1
+      "versionCode": 1,
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -45,8 +48,8 @@
         "expo-camera",
         {
           "cameraPermission": "La caméra sert à scanner le QR code d'un fugitif pour l'attraper.",
-          "microphonePermission": "Le micro sert à envoyer des messages vocaux dans la radio.",
-          "recordAudioAndroid": true
+          "microphonePermission": false,
+          "recordAudioAndroid": false
         }
       ],
       [
@@ -57,7 +60,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#121111"
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": false

@@ -9,6 +9,7 @@ import { BroadcastIcon, CrosshairIcon, DotsThreeIcon, MapTrifoldIcon, QrCodeIcon
 import type { GameView, LatLng, SeenPlayer } from '@kr/shared';
 import { emit, leaveGame } from '../api';
 import { Radio } from '../radio';
+import { recordGame } from '../stats';
 import { setState, useStore } from '../store';
 import { fonts, radius, useTheme, type Theme } from '../theme';
 import { Group, Row, Segmented, fmtClock, fmtDistance, showDialog } from '../ui';
@@ -39,6 +40,8 @@ export default function GameScreen() {
   const [tab, setTab] = useState<'map' | 'radio'>('map');
   const [more, setMore] = useState(false);
   const [qr, setQr] = useState(false);
+
+  useEffect(() => { if (game?.phase === 'ended') recordGame(game); }, [game?.phase, game?.code]);
 
   if (!game) return <Redirect href="/" />;
 

@@ -87,7 +87,8 @@ export interface GameView {
   huntEnd: number;
   nextPingAt: number | null;
   zone: { enabled: boolean; center: LatLng; radiusM: number; nextShrinkAt: number | null };
-  me: { id: string; role: Role; caught: boolean; outOfZone: boolean; qr: string | null };
+  /** captures : fugitifs attrapés par ce joueur ; caughtAt : heure de jeu de sa capture (fugitif). */
+  me: { id: string; role: Role; caught: boolean; caughtAt: number | null; captures: number; outOfZone: boolean; qr: string | null };
   fugitivesLeft: number;
   fugitivesTotal: number;
   team: SeenPlayer[];                        // coéquipiers en direct

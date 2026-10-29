@@ -3,7 +3,7 @@ import { Linking, Platform } from 'react-native';
 import * as Location from 'expo-location';
 import { Camera } from 'expo-camera';
 
-export type PermKey = 'location' | 'background' | 'camera' | 'microphone';
+export type PermKey = 'location' | 'background' | 'camera';
 export type PermStatus = 'granted' | 'ask' | 'blocked'; // blocked = refusée définitivement, il faut passer par les réglages
 
 export interface Perm { key: PermKey; title: string; why: string; status: PermStatus }
@@ -18,17 +18,15 @@ const TEXT: Record<PermKey, { title: string; why: string }> = {
     why: 'Continuer à envoyer ta position quand le téléphone est dans ta poche.',
   },
   camera: { title: 'Caméra', why: 'Scanner le QR code d\'un fugitif pour l\'attraper.' },
-  microphone: { title: 'Micro', why: 'Envoyer des messages vocaux dans la radio.' },
 };
 
 export async function checkAll(): Promise<Perm[]> {
-  const [fg, bg, cam, mic] = await Promise.all([
+  const [fg, bg, cam] = await Promise.all([
     Location.getForegroundPermissionsAsync(),
     Location.getBackgroundPermissionsAsync(),
     Camera.getCameraPermissionsAsync(),
-    Camera.getMicrophonePermissionsAsync(),
   ]);
-  const s: Record<PermKey, PermStatus> = { location: status(fg), background: status(bg), camera: status(cam), microphone: status(mic) };
+  const s: Record<PermKey, PermStatus> = { location: status(fg), background: status(bg), camera: status(cam) };
   return (Object.keys(TEXT) as PermKey[]).map(key => ({ key, ...TEXT[key], status: s[key] }));
 }
 
@@ -44,7 +42,6 @@ export async function request(key: PermKey, current: PermStatus) {
       await Location.requestBackgroundPermissionsAsync();
       break;
     case 'camera': await Camera.requestCameraPermissionsAsync(); break;
-    case 'microphone': await Camera.requestMicrophonePermissionsAsync(); break;
   }
 }
 

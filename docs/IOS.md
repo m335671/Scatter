@@ -32,7 +32,7 @@ Dans Xcode :
 |---|---|---|
 | Position en arrière-plan | iOS demande d'abord « Pendant l'utilisation », puis propose « Toujours » plus tard. | `isIosBackgroundLocationEnabled` (mode `location` en arrière-plan), textes des demandes, `pausesUpdatesAutomatically: false`, profil « Fitness ». L'écran Permissions propose de passer à « Toujours ». **À vérifier : position envoyée écran verrouillé.** |
 | Indicateur bleu de localisation | iOS affiche une pastille bleue pendant le suivi. | Voulu (`showsBackgroundLocationIndicator`), c'est la règle d'Apple. |
-| Textes des permissions | Sans texte, iOS fait planter l'app à la demande. | Position, caméra et micro ont leur texte (plugins `expo-location` et `expo-camera`). |
+| Textes des permissions | Sans texte, iOS fait planter l'app à la demande. | Position et caméra ont leur texte (plugins `expo-location` et `expo-camera`). Le micro n'est pas utilisé. |
 | Permission refusée | iOS ne redemande jamais une permission refusée. | L'écran Permissions bascule sur « Réglages » (`Linking.openSettings`). |
 | Clavier de la radio | Comportement différent d'Android. | Écoute de `keyboardWillShow` sur iOS. À vérifier. |
 | En-têtes et encoches | iOS 26 change le rendu des en-têtes. | L'app n'utilise pas les en-têtes natifs, et les zones sûres sont gérées. |
