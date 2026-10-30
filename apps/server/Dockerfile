@@ -1,6 +1,6 @@
 FROM node:22-alpine
 LABEL org.opencontainers.image.source="https://github.com/m335671/Keep-Runni-n" \
-      org.opencontainers.image.description="Keep Runni'n game server" \
+      org.opencontainers.image.description="Scatter game server" \
       org.opencontainers.image.licenses="MIT"
 WORKDIR /app
 RUN mkdir /data && chown node /data

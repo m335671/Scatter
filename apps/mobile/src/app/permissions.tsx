@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AppState, Pressable, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { BatteryChargingIcon, BellIcon, CameraIcon, CheckIcon, MapPinIcon, NavigationArrowIcon } from 'phosphor-react-native';
 import { type Perm, type PermKey, allGranted, checkAll, request } from '../permissions';
 import { setState } from '../store';
@@ -12,6 +12,8 @@ const ICON: Record<PermKey, typeof MapPinIcon> = { location: MapPinIcon, backgro
 export default function Permissions() {
   const t = useTheme();
   const router = useRouter();
+  // auto : ouvert au lancement parce qu'il manque un accès. Ouvert depuis le profil, l'écran reste affiché.
+  const { auto } = useLocalSearchParams<{ auto?: string }>();
   const [perms, setPerms] = useState<Perm[] | null>(null);
 
   const refresh = useCallback(() => { checkAll().then(setPerms).catch(() => {}); }, []);
@@ -28,12 +30,12 @@ export default function Permissions() {
   };
 
   // Tout est accordé : on repart directement.
-  useEffect(() => { if (perms && allGranted(perms)) done(); }, [perms]);
+  useEffect(() => { if (auto && perms && allGranted(perms)) done(); }, [perms]);
 
   return (
     <Screen scroll>
       <T kind="title" style={{ marginTop: 24 }}>Avant de jouer</T>
-      <T kind="dim">Keep Runni'n a besoin de ces accès pour fonctionner pendant une partie. Rien n'est partagé en dehors des manches.</T>
+      <T kind="dim">Scatter a besoin de ces accès pour fonctionner pendant une partie. Rien n'est partagé en dehors des manches.</T>
       <View style={{ gap: 10, marginTop: 8 }}>
         {perms?.map(p => {
           const Icon = ICON[p.key];

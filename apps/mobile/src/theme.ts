@@ -1,39 +1,41 @@
 import { useColorScheme } from 'react-native';
 import { useStore } from './store';
 
-const accent = '#EE2E14';
-
-const light = {
-  dark: false,
-  bg: '#F2F2F2',
-  surface: '#E8E6E4',
-  surface2: '#DCD9D6',
-  text: '#161414',
-  textDim: '#67625E',
-  line: '#D3CFCB',
-  accent,
-  accentText: '#C62410', // rouge lisible sur fond clair pour les liens
-  accentSoft: 'rgba(238,46,20,0.12)',
-  onAccent: '#FFF7F4',
-  mapStyle: 'https://tiles.openfreemap.org/styles/positron',
-};
-
-const dark: typeof light = {
+// DA « Topo » : vert forêt, accent lime. L'accent est une couleur de fond (texte foncé dessus) ;
+// `accentText` est sa version lisible en texte. `danger` signale hors zone, erreurs et actions destructives.
+const dark = {
   dark: true,
-  bg: '#121111',
-  surface: '#1E1D1C',
-  surface2: '#2A2827',
-  text: '#F2F0EE',
-  textDim: '#9A9591',
-  line: '#2F2D2B',
-  accent,
-  accentText: '#FF6A4D',
-  accentSoft: 'rgba(238,46,20,0.18)',
-  onAccent: '#FFF7F4',
-  mapStyle: 'https://tiles.openfreemap.org/styles/dark',
+  bg: '#0F1712',
+  surface: '#15201A',
+  surface2: '#1E2C23',
+  text: '#E8EEE4',
+  textDim: '#9DB09F',
+  line: '#2C3B2F',
+  accent: '#D4FF3A',
+  accentText: '#D4FF3A',
+  accentSoft: 'rgba(212,255,58,0.14)',
+  onAccent: '#0F1712',
+  danger: '#FF7A59',
+  onDanger: '#1A0A05',
 };
 
-export type Theme = typeof light;
+const light: typeof dark = {
+  dark: false,
+  bg: '#EEF1E8',
+  surface: '#FFFFFF',
+  surface2: '#E2E7DA',
+  text: '#16241B',
+  textDim: '#5E6B60',
+  line: '#D5DBCC',
+  accent: '#C6EF2E',
+  accentText: '#3B6B14',
+  accentSoft: 'rgba(198,239,46,0.30)',
+  onAccent: '#16241B',
+  danger: '#C2410C',
+  onDanger: '#FFF4EE',
+};
+
+export type Theme = typeof dark;
 
 export function useTheme(): Theme {
   const system = useColorScheme();
@@ -43,24 +45,27 @@ export function useTheme(): Theme {
 }
 
 export const fonts = {
-  hero: 'ArchivoExtraCondensed-Black',
-  display: 'ArchivoExpanded-ExtraBold',
-  displayBlack: 'ArchivoExpanded-Black',
-  body: 'Archivo-Regular',
-  medium: 'Archivo-Medium',
-  semibold: 'Archivo-SemiBold',
-  bold: 'Archivo-Bold',
+  hero: 'BricolageCondensed-ExtraBold',
+  display: 'Bricolage-Bold',
+  displayBlack: 'Bricolage-ExtraBold',
+  body: 'Bricolage-Regular',
+  medium: 'Bricolage-Medium',
+  semibold: 'Bricolage-SemiBold',
+  bold: 'Bricolage-Bold',
+  mono: 'JetBrainsMono-SemiBold',
+  monoMedium: 'JetBrainsMono-Medium',
 };
 
 export const fontFiles = {
-  [fonts.hero]: require('../assets/fonts/ArchivoExtraCondensed-Black.ttf'),
-  [fonts.display]: require('../assets/fonts/ArchivoExpanded-ExtraBold.ttf'),
-  [fonts.displayBlack]: require('../assets/fonts/ArchivoExpanded-Black.ttf'),
-  [fonts.body]: require('../assets/fonts/Archivo-Regular.ttf'),
-  [fonts.medium]: require('../assets/fonts/Archivo-Medium.ttf'),
-  [fonts.semibold]: require('../assets/fonts/Archivo-SemiBold.ttf'),
-  [fonts.bold]: require('../assets/fonts/Archivo-Bold.ttf'),
+  [fonts.hero]: require('../assets/fonts/BricolageCondensed-ExtraBold.ttf'),
+  [fonts.displayBlack]: require('../assets/fonts/Bricolage-ExtraBold.ttf'),
+  [fonts.body]: require('../assets/fonts/Bricolage-Regular.ttf'),
+  [fonts.medium]: require('../assets/fonts/Bricolage-Medium.ttf'),
+  [fonts.semibold]: require('../assets/fonts/Bricolage-SemiBold.ttf'),
+  [fonts.bold]: require('../assets/fonts/Bricolage-Bold.ttf'),
+  [fonts.mono]: require('../assets/fonts/JetBrainsMono-SemiBold.ttf'),
+  [fonts.monoMedium]: require('../assets/fonts/JetBrainsMono-Medium.ttf'),
 };
 
-/** Une seule échelle d'arrondis : 20 pour les blocs, 14 pour les éléments internes. */
-export const radius = { block: 20, inner: 14 };
+/** Une seule échelle d'arrondis : 18 pour les blocs, 12 pour les éléments internes, pilule pour les boutons. */
+export const radius = { block: 18, inner: 12, pill: 999 };

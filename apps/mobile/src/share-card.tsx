@@ -8,13 +8,16 @@ import type { GameRecord } from './stats';
 import { fonts, radius } from './theme';
 import { fmtClock, fmtDistance } from './ui';
 
-const RED = '#EE2E14';
-const INK = '#FFF7F4';
-const PANEL = '#F2EFEC';
-const DARK = '#161414';
+// Toujours aux couleurs sombres de l'app, quel que soit le thème : l'image partagée reste reconnaissable.
+const LIME = '#D4FF3A';
+const INK = '#E8EEE4';
+const DIM = '#9DB09F';
+const BG = '#0F1712';
+const PANEL = '#15201A';
+const LINE = '#2C3B2F';
 
 /** Projette le trajet (et la zone) dans un carré de `size` px, nord en haut. */
-function project(track: LatLng[], zone: GameRecord['zone'], size: number, pad: number) {
+export function project(track: LatLng[], zone: GameRecord['zone'], size: number, pad: number) {
   const pts = [...track];
   if (zone) {
     const dLat = zone.radiusM / 111_320, dLng = zone.radiusM / (111_320 * Math.cos((zone.center.lat * Math.PI) / 180));
@@ -49,31 +52,31 @@ export const ShareCard = forwardRef<ComponentRef<typeof View>, { record: GameRec
       : `${r.captures} capture${r.captures > 1 ? 's' : ''}.`;
     const stat = (value: string, unit: string, label: string) => (
       <View style={{ flex: 1 }}>
-        <Text style={{ fontFamily: fonts.displayBlack, fontSize: 26, color: INK }} numberOfLines={1} adjustsFontSizeToFit>
+        <Text style={{ fontFamily: fonts.mono, fontSize: 24, color: INK }} numberOfLines={1} adjustsFontSizeToFit>
           {value}<Text style={{ fontSize: 14 }}>{unit}</Text>
         </Text>
-        <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: INK, opacity: 0.85 }}>{label}</Text>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: DIM }}>{label}</Text>
       </View>
     );
     const dist = fmtDistance(r.distanceM, units).split(' ');
 
     return (
-      <View ref={ref} collapsable={false} style={{ width, backgroundColor: RED, borderRadius: radius.block + 8, padding: 20, gap: 16 }}>
+      <View ref={ref} collapsable={false} style={{ width, backgroundColor: BG, borderRadius: radius.block + 8, padding: 20, gap: 16, borderWidth: 1, borderColor: LINE }}>
         <View style={{ width: mapSize, height: mapSize, backgroundColor: PANEL, borderRadius: radius.block, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
           {p ? (
             <Svg width={mapSize} height={mapSize}>
-              {zc && r.zone && <Circle cx={zc.x} cy={zc.y} r={r.zone.radiusM * p.scale} fill="rgba(238,46,20,0.08)" stroke={RED} strokeWidth={2} />}
-              {hasTrack && <Path d={d} fill="none" stroke={DARK} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" />}
-              {start && <Circle cx={start.x} cy={start.y} r={6} fill={PANEL} stroke={DARK} strokeWidth={3} />}
-              {end && <Circle cx={end.x} cy={end.y} r={7} fill={RED} stroke={DARK} strokeWidth={3} />}
+              {zc && r.zone && <Circle cx={zc.x} cy={zc.y} r={r.zone.radiusM * p.scale} fill="rgba(212,255,58,0.06)" stroke={DIM} strokeWidth={2} strokeDasharray="6 5" />}
+              {hasTrack && <Path d={d} fill="none" stroke={LIME} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" />}
+              {start && <Circle cx={start.x} cy={start.y} r={6} fill={PANEL} stroke={INK} strokeWidth={3} />}
+              {end && <Circle cx={end.x} cy={end.y} r={7} fill={LIME} stroke={BG} strokeWidth={3} />}
             </Svg>
           ) : (
-            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: '#8A8480' }}>Pas de trajet enregistré</Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: DIM }}>Pas de trajet enregistré</Text>
           )}
         </View>
         <View style={{ gap: 2 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: INK }} numberOfLines={1}>{name} · {role} · {date}{r.training ? ' · Entraînement' : ''}</Text>
-          <Text style={{ fontFamily: fonts.displayBlack, fontSize: 30, lineHeight: 36, color: INK }} numberOfLines={1} adjustsFontSizeToFit>{headline}</Text>
+          <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: DIM }} numberOfLines={1}>{name} · {role} · {date}{r.training ? ' · Entraînement' : ''}</Text>
+          <Text style={{ fontFamily: fonts.hero, fontSize: 34, lineHeight: 38, letterSpacing: -1, color: INK }} numberOfLines={1} adjustsFontSizeToFit>{headline}</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 10 }}>
           {stat(dist[0], ` ${dist[1] ?? ''}`, 'parcourus')}
@@ -81,8 +84,8 @@ export const ShareCard = forwardRef<ComponentRef<typeof View>, { record: GameRec
           {stat(r.won ? 'Gagné' : 'Perdu', '', `en ${role.toLowerCase()}`)}
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-          <Mark size={24} color={INK} />
-          <Text style={{ fontFamily: fonts.hero, fontSize: 22, color: INK }}>KEEP RUNNI'N</Text>
+          <Mark size={24} color={INK} dot={LIME} />
+          <Text style={{ fontFamily: fonts.hero, fontSize: 22, color: INK, letterSpacing: -0.5 }}>scatter</Text>
         </View>
       </View>
     );

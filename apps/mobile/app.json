@@ -1,30 +1,30 @@
 {
   "expo": {
-    "name": "Keep Runni'n",
-    "slug": "keep-runnin",
-    "scheme": "keeprunnin",
-    "version": "0.4.0",
+    "name": "Scatter",
+    "slug": "scatter",
+    "scheme": "scatter",
+    "version": "0.5.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "backgroundColor": "#121111",
+    "backgroundColor": "#0F1712",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.m335671.keeprunnin",
-      "buildNumber": "4",
+      "bundleIdentifier": "com.m335671.scatter",
+      "buildNumber": "5",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "com.m335671.keeprunnin",
+      "package": "com.m335671.scatter",
       "adaptiveIcon": {
-        "backgroundColor": "#161414",
+        "backgroundColor": "#0F1712",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 4,
+      "versionCode": 5,
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
       ],
@@ -50,7 +50,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "La caméra sert à scanner le QR code d'un fugitif pour l'attraper.",
+          "cameraPermission": "La caméra sert à scanner les QR codes : celui d'un salon pour le rejoindre, celui d'un fugitif pour l'attraper.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
@@ -61,7 +61,7 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 160,
           "resizeMode": "contain",
-          "backgroundColor": "#121111"
+          "backgroundColor": "#0F1712"
         }
       ],
       "expo-sharing",
@@ -69,7 +69,7 @@
         "expo-notifications",
         {
           "icon": "./assets/android-icon-monochrome.png",
-          "color": "#EE2E14",
+          "color": "#D4FF3A",
           "enableRemoteNotifications": false
         }
       ]

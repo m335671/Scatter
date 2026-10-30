@@ -7,7 +7,7 @@ on:
     inputs:
       server_url:
         description: Adresse du serveur compilée dans l'app
-        default: https://nuc.exemple.eu
+        default: https://ton-serveur.example
       ios:
         description: Construire aussi l'IPA (minutes macOS)
         type: boolean
@@ -16,7 +16,7 @@ on:
     tags: ['v*']
 
 env:
-  EXPO_PUBLIC_SERVER_URL: ${{ inputs.server_url || 'https://nuc.exemple.eu' }}
+  EXPO_PUBLIC_SERVER_URL: ${{ inputs.server_url || 'https://ton-serveur.example' }}
   NODE_ENV: production
   # Tag v1.2.3 → version 1.2.3 dans l'app et dans le nom des fichiers. Lancement manuel → « dev ».
   VERSION: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'dev' }}
@@ -48,15 +48,15 @@ jobs:
       - name: APK release (arm64)
         working-directory: apps/mobile/android
         run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
-      - run: mv apps/mobile/android/app/build/outputs/apk/release/app-release.apk keep-runnin-$VERSION.apk
+      - run: mv apps/mobile/android/app/build/outputs/apk/release/app-release.apk scatter-$VERSION.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: keep-runnin-android
-          path: keep-runnin-*.apk
+          name: scatter-android
+          path: scatter-*.apk
       - if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: keep-runnin-*.apk
+          files: scatter-*.apk
 
   ios:
     if: ${{ github.event_name == 'push' || inputs.ios }}
@@ -92,12 +92,12 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/ipa/Payload"
           cp -R "$RUNNER_TEMP"/app.xcarchive/Products/Applications/*.app "$RUNNER_TEMP/ipa/Payload/"
-          (cd "$RUNNER_TEMP/ipa" && zip -qry "$GITHUB_WORKSPACE/keep-runnin-$VERSION.ipa" Payload)
+          (cd "$RUNNER_TEMP/ipa" && zip -qry "$GITHUB_WORKSPACE/scatter-$VERSION.ipa" Payload)
       - uses: actions/upload-artifact@v4
         with:
-          name: keep-runnin-ios
-          path: keep-runnin-*.ipa
+          name: scatter-ios
+          path: scatter-*.ipa
       - if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: keep-runnin-*.ipa
+          files: scatter-*.ipa

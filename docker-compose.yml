@@ -1,4 +1,4 @@
-# Keep Runni'n : serveur de jeu.
+# Scatter (ex Keep Runni'n) : serveur de jeu.
 # Déploiement : copier ce fichier sur le serveur, puis
 #   docker compose pull && docker compose up -d
 # Derrière NPMPlus : proxy host vers http://<ip>:3022 (ou ${KR_PORT}), avec « Websockets Support » activé.

@@ -2,12 +2,13 @@
 import { useSyncExternalStore } from 'react';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { distanceM, type GameView, type LatLng, type Role } from '@kr/shared';
+import { distanceM, type GameMode, type GameView, type LatLng, type Role } from '@kr/shared';
 
 export interface GameRecord {
   code: string;
   date: number;            // Date.now() de fin
   training: boolean;
+  mode?: GameMode;         // absent des parties enregistrées avant la v0.5
   role: Role;
   won: boolean;
   caught: boolean;
@@ -81,6 +82,7 @@ export function recordGame(game: GameView) {
     code: game.code,
     date: Date.now(),
     training: game.training,
+    mode: game.mode,
     role: game.me.role,
     won: game.winner === game.me.role,
     caught: game.me.caught,
@@ -104,10 +106,10 @@ export function clearStats() {
 /** Exporte les stats en fichier JSON via la feuille de partage du téléphone. */
 export async function exportStats() {
   load();
-  const f = new File(Paths.cache, `keep-runnin-stats-${new Date().toISOString().slice(0, 10)}.json`);
+  const f = new File(Paths.cache, `scatter-stats-${new Date().toISOString().slice(0, 10)}.json`);
   if (f.exists) f.delete();
   f.create();
-  f.writeSync(JSON.stringify({ app: "Keep Runni'n", exportedAt: new Date().toISOString(), games: records }, null, 2));
+  f.writeSync(JSON.stringify({ app: 'Scatter', exportedAt: new Date().toISOString(), games: records }, null, 2));
   await Sharing.shareAsync(f.uri, { mimeType: 'application/json', dialogTitle: 'Exporter mes stats' });
 }
 

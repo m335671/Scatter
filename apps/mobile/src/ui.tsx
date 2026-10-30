@@ -5,7 +5,7 @@ import {
   type PressableProps, type StyleProp, type TextInputProps, type TextStyle, type ViewStyle,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CaretLeftIcon, CaretRightIcon } from 'phosphor-react-native';
+import { ArrowRightIcon, CaretLeftIcon, CaretRightIcon } from 'phosphor-react-native';
 import { useRouter } from 'expo-router';
 import { fonts, radius, useTheme } from './theme';
 import { setState, useStore, type Dialog } from './store';
@@ -19,43 +19,52 @@ export function Screen({ children, scroll, style }: { children: ReactNode; scrol
   return <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }}>{inner}</SafeAreaView>;
 }
 
-type TextKind = 'hero' | 'title' | 'h2' | 'body' | 'dim' | 'label' | 'small';
+type TextKind = 'hero' | 'title' | 'h2' | 'body' | 'dim' | 'label' | 'small' | 'eyebrow' | 'mono';
 
 export function T({ kind = 'body', style, children, ...rest }: { kind?: TextKind; style?: StyleProp<TextStyle>; children: ReactNode; numberOfLines?: number; selectable?: boolean }) {
   const t = useTheme();
   const k: Record<TextKind, TextStyle> = {
-    hero: { fontFamily: fonts.hero, fontSize: 112, lineHeight: 104, color: t.text, letterSpacing: -1 },
-    title: { fontFamily: fonts.displayBlack, fontSize: 34, lineHeight: 38, color: t.text, letterSpacing: -0.5 },
+    hero: { fontFamily: fonts.hero, fontSize: 52, lineHeight: 54, color: t.text, letterSpacing: -1 },
+    title: { fontFamily: fonts.hero, fontSize: 36, lineHeight: 40, color: t.text, letterSpacing: -0.2 },
     h2: { fontFamily: fonts.display, fontSize: 22, lineHeight: 26, color: t.text },
     body: { fontFamily: fonts.body, fontSize: 17, lineHeight: 23, color: t.text },
     dim: { fontFamily: fonts.body, fontSize: 16, lineHeight: 22, color: t.textDim },
     label: { fontFamily: fonts.medium, fontSize: 14, color: t.textDim },
     small: { fontFamily: fonts.medium, fontSize: 13, color: t.textDim },
+    eyebrow: { fontFamily: fonts.monoMedium, fontSize: 12, letterSpacing: 1, color: t.textDim },
+    mono: { fontFamily: fonts.mono, fontSize: 24, color: t.text },
   };
   return <Text style={[k[kind], style]} {...rest}>{children}</Text>;
 }
 
-export function Button({ title, onPress, kind = 'primary', loading, disabled, style }: {
-  title: string; onPress?: () => void; kind?: 'primary' | 'secondary' | 'ghost' | 'danger'; loading?: boolean; disabled?: boolean; style?: StyleProp<ViewStyle>;
+/** Bouton pilule. `arrow` : flèche dans sa propre pastille, calée à droite. */
+export function Button({ title, onPress, kind = 'primary', loading, disabled, style, arrow }: {
+  title: string; onPress?: () => void; kind?: 'primary' | 'secondary' | 'ghost' | 'danger'; loading?: boolean; disabled?: boolean; style?: StyleProp<ViewStyle>; arrow?: boolean;
 }) {
   const t = useTheme();
-  const bg = { primary: t.accent, secondary: t.surface, ghost: 'transparent', danger: t.surface }[kind];
-  const fg = { primary: t.onAccent, secondary: t.text, ghost: t.textDim, danger: t.accentText }[kind];
+  const bg = { primary: t.accent, secondary: t.surface, ghost: 'transparent', danger: t.danger }[kind];
+  const fg = { primary: t.onAccent, secondary: t.text, ghost: t.textDim, danger: t.onDanger }[kind];
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
       disabled={disabled || loading}
       style={({ pressed }) => [
-        { backgroundColor: bg, borderRadius: radius.block, height: 60, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
+        { backgroundColor: bg, borderRadius: radius.pill, height: 58, alignItems: 'center', justifyContent: arrow ? 'space-between' : 'center', flexDirection: 'row', paddingLeft: arrow ? 22 : 20, paddingRight: arrow ? 7 : 20 },
+        kind === 'secondary' && { borderWidth: 1, borderColor: t.line },
         (disabled && !loading) && { opacity: 0.4 },
         pressed && { transform: [{ scale: 0.98 }], opacity: 0.9 },
         style,
       ]}
     >
       {loading
-        ? <ActivityIndicator color={fg} />
-        : <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: fg }} numberOfLines={1}>{title}</Text>}
+        ? <ActivityIndicator color={fg} style={{ flex: 1 }} />
+        : <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: fg, flexShrink: 1 }} numberOfLines={1}>{title}</Text>}
+      {arrow && !loading && (
+        <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: kind === 'primary' ? t.onAccent : t.accent, alignItems: 'center', justifyContent: 'center' }}>
+          <ArrowRightIcon size={20} color={kind === 'primary' ? t.accent : t.onAccent} weight="bold" />
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -65,11 +74,13 @@ export function BackHeader({ title, right }: { title?: string; right?: ReactNode
   const router = useRouter();
   return (
     <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Retour" hitSlop={12} onPress={() => router.canGoBack() ? router.back() : router.replace('/')} style={{ flexDirection: 'row', alignItems: 'center', gap: 2, minWidth: 90 }}>
-        <CaretLeftIcon size={24} color={t.accentText} weight="bold" />
-        <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: t.accentText }}>Retour</Text>
-      </Pressable>
-      {title ? <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: t.text }}>{title}</Text> : null}
+      <View style={{ minWidth: 90 }}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Retour" hitSlop={8} onPress={() => router.canGoBack() ? router.back() : router.replace('/')}
+          style={({ pressed }) => ({ width: 44, height: 44, borderRadius: 22, backgroundColor: t.surface, borderWidth: 1, borderColor: t.line, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] })}>
+          <CaretLeftIcon size={20} color={t.text} weight="bold" />
+        </Pressable>
+      </View>
+      {title ? <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, letterSpacing: 1, color: t.textDim }}>{title.toUpperCase()}</Text> : null}
       <View style={{ minWidth: 90, alignItems: 'flex-end' }}>{right}</View>
     </View>
   );
@@ -82,7 +93,7 @@ export function Group({ children, label, footer }: { children: ReactNode; label?
   return (
     <View style={{ gap: 8 }}>
       {label ? <T kind="label" style={{ marginLeft: 4, marginTop: 8 }}>{label}</T> : null}
-      <View style={{ backgroundColor: t.surface, borderRadius: radius.block, overflow: 'hidden' }}>
+      <View style={{ backgroundColor: t.surface, borderRadius: radius.block, overflow: 'hidden', borderWidth: t.dark ? 1 : 0, borderColor: t.line }}>
         {items.map((c, i) => (
           <View key={i}>
             {i > 0 && <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: t.line, marginLeft: 16 }} />}
@@ -103,7 +114,7 @@ export function Row({ title, sub, value, right, onPress, danger }: {
     <Pressable onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined}
       style={({ pressed }) => [{ minHeight: 60, paddingVertical: 12, paddingRight: 16, paddingLeft: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }, pressed && { backgroundColor: t.surface2 }]}>
       <View style={{ flex: 1, minWidth: 90 }}>
-        <Text style={{ fontFamily: fonts.body, fontSize: 17, color: danger ? t.accentText : t.text }}>{title}</Text>
+        <Text style={{ fontFamily: danger ? fonts.semibold : fonts.body, fontSize: 17, color: danger ? t.danger : t.text }}>{title}</Text>
         {sub ? <Text style={{ fontFamily: fonts.body, fontSize: 15, color: t.textDim, marginTop: 2 }}>{sub}</Text> : null}
       </View>
       {value ? <Text style={{ fontFamily: fonts.body, fontSize: 17, color: t.textDim }} numberOfLines={1}>{value}</Text> : null}
@@ -151,14 +162,14 @@ export function Stepper({ onMinus, onPlus, disabled }: { onMinus: () => void; on
 
 export function Toggle({ value, onChange, disabled }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   const t = useTheme();
-  return <Switch value={value} onValueChange={onChange} disabled={disabled} trackColor={{ true: t.accent, false: t.surface2 }} thumbColor={t.onAccent} />;
+  return <Switch value={value} onValueChange={onChange} disabled={disabled} trackColor={{ true: t.accent, false: t.surface2 }} thumbColor={value ? t.onAccent : t.textDim} />;
 }
 
 export function Field(props: TextInputProps & { prefix?: string; ok?: boolean; error?: boolean; right?: ReactNode }) {
   const t = useTheme();
   const { prefix, ok, error, right, style, ...rest } = props;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 2, borderColor: error ? t.accent : ok ? t.textDim : t.accent, borderRadius: radius.block, backgroundColor: t.surface, paddingHorizontal: 18, height: 72 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 2, borderColor: error ? t.danger : ok ? t.line : t.accent, borderRadius: radius.block, backgroundColor: t.surface, paddingHorizontal: 18, height: 72 }}>
       {prefix ? <Text style={{ fontFamily: fonts.displayBlack, fontSize: 26, color: t.textDim }}>{prefix}</Text> : null}
       <TextInput
         placeholderTextColor={t.textDim}
@@ -204,13 +215,13 @@ export function DialogHost() {
   return (
     <Modal visible={!!d} transparent animationType="fade" onRequestClose={close} statusBarTranslucent>
       <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24 }} onPress={close} accessibilityLabel="Fermer">
-        <Pressable style={{ backgroundColor: t.bg, borderRadius: radius.block + 4, padding: 22, gap: 10 }} onPress={() => {}} accessibilityRole="alert">
-          <Text style={{ fontFamily: fonts.displayBlack, fontSize: 22, lineHeight: 27, color: t.text }}>{d?.title}</Text>
+        <Pressable style={{ backgroundColor: t.bg, borderRadius: radius.block + 6, padding: 22, gap: 10, borderWidth: 1, borderColor: t.line }} onPress={() => {}} accessibilityRole="alert">
+          <Text style={{ fontFamily: fonts.hero, fontSize: 26, lineHeight: 29, color: t.text, letterSpacing: -0.5 }}>{d?.title}</Text>
           {d?.message ? <Text style={{ fontFamily: fonts.body, fontSize: 16, lineHeight: 22, color: t.textDim }}>{d.message}</Text> : null}
           <View style={{ gap: 10, marginTop: 10 }}>
             {actions.map(a => (
               <Button key={a.label} title={a.label}
-                kind={a.kind === 'cancel' ? 'secondary' : a.kind === 'danger' ? 'primary' : 'primary'}
+                kind={a.kind === 'cancel' ? 'secondary' : a.kind === 'danger' ? 'danger' : 'primary'}
                 style={a.kind === 'cancel' ? undefined : { height: 54 }}
                 onPress={() => { close(); a.onPress?.(); }} />
             ))}

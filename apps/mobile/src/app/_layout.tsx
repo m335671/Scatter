@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { connect } from '../api';
 import { startTracking, stopTracking } from '../location';
+import { preloadMapStyles } from '../map-style';
 import { loadPersisted, useStore } from '../store';
 import { fontFiles, useTheme } from '../theme';
 import { DialogHost } from '../ui';
@@ -17,7 +18,7 @@ export default function RootLayout() {
   const token = useStore(s => s.token);
   const phase = useStore(s => s.game?.phase);
 
-  useEffect(() => { loadPersisted(); }, []);
+  useEffect(() => { loadPersisted(); preloadMapStyles(); }, []);
   useEffect(() => { if (ready && token) connect(); }, [ready, token]);
 
   // On partage sa position uniquement pendant une manche.

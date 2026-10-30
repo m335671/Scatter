@@ -10,30 +10,18 @@ import type { GameView, LatLng, SeenPlayer } from '@kr/shared';
 import { emit, leaveGame } from '../api';
 import { useGpsStatus } from '../location';
 import { Radio } from '../radio';
+import { useMapStyle } from '../map-style';
 import { recordGame } from '../stats';
 import { setState, useStore } from '../store';
 import { fonts, radius, useTheme, type Theme } from '../theme';
 import { Group, Row, Segmented, fmtClock, fmtDistance, showDialog } from '../ui';
-
-/** Polygone approchant un cercle de `r` mètres (64 côtés). */
-function circle(c: LatLng, r: number): GeoJSON.Feature<GeoJSON.Polygon> {
-  const coords: [number, number][] = [];
-  for (let i = 0; i <= 64; i++) {
-    const a = (i / 64) * 2 * Math.PI;
-    coords.push([
-      c.lng + (r * Math.sin(a)) / (111_320 * Math.cos((c.lat * Math.PI) / 180)),
-      c.lat + (r * Math.cos(a)) / 111_320,
-    ]);
-  }
-  return { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [coords] } };
-}
+import { circle, zoomFor } from '../zone';
 
 /** Hauteur fixe de la barre d'onglets flottante : le reste de l'écran se cale dessus. */
 const TAB_H = 76;
 /** Au-delà, la position d'un coéquipier n'est plus considérée comme « en direct ». */
 const STALE_MS = 10_000;
 
-const zoomFor = (radiusM: number) => 16 - Math.log2(Math.max(radiusM, 80) / 160);
 
 export default function GameScreen() {
   const t = useTheme();
@@ -73,6 +61,7 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
   const router = useRouter();
   const camera = useRef<CameraRef>(null);
   const insets = useSafeAreaInsets();
+  const mapStyle = useMapStyle(t.dark);
   const last = useStore(s => s.chat.at(-1));
   const zone = game.zone;
   const zoneShape = useMemo(() => circle(zone.center, zone.radiusM), [zone.center.lat, zone.center.lng, zone.radiusM]);
@@ -84,12 +73,13 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
 
   return (
     <View style={{ flex: 1 }}>
-      <Map style={{ flex: 1 }} mapStyle={t.mapStyle} logo={false} compass={false} attribution attributionPosition={{ top: 230, left: 12 }}>
+      <Map style={{ flex: 1 }} mapStyle={mapStyle} logo={false} compass={false} attribution attributionPosition={{ top: 230, left: 12 }}>
         <Camera ref={camera} initialViewState={{ center: [zone.center.lng, zone.center.lat], zoom: zoomFor(zone.radiusM) }} />
         {zone.enabled && (
           <GeoJSONSource id="zone" data={zoneShape}>
-            <Layer type="fill" id="zone-fill" paint={{ 'fill-color': t.accent, 'fill-opacity': t.dark ? 0.08 : 0.06 }} />
-            <Layer type="line" id="zone-line" paint={{ 'line-color': t.accent, 'line-width': 2 }} />
+            <Layer type="fill" id="zone-fill" paint={{ 'fill-color': t.accent, 'fill-opacity': t.dark ? 0.07 : 0.16 }} />
+            <Layer type="line" id="zone-halo" paint={{ 'line-color': t.accent, 'line-width': 10, 'line-opacity': t.dark ? 0.18 : 0.5 }} />
+            <Layer type="line" id="zone-line" paint={{ 'line-color': t.dark ? t.accent : t.text, 'line-width': 2.5, 'line-dasharray': [3, 2] }} />
           </GeoJSONSource>
         )}
         {/* « heading » : flèche de la boussole sur les deux plateformes (iOS n'affiche rien par défaut). */}
@@ -101,13 +91,13 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
             'circle-radius': ['interpolate', ['exponential', 2], ['zoom'],
               10, ['*', ['get', 'acc'], 2 ** 10 / mPerPx0],
               20, ['*', ['get', 'acc'], 2 ** 20 / mPerPx0]],
-            'circle-color': ['match', ['get', 'kind'], 'exposed', t.accent, t.text],
+            'circle-color': ['match', ['get', 'kind'], 'exposed', t.danger, t.text],
             'circle-opacity': ['case', ['get', 'caught'], 0.04, 0.12],
             'circle-stroke-width': 1,
-            'circle-stroke-color': ['match', ['get', 'kind'], 'exposed', t.accent, t.text],
+            'circle-stroke-color': ['match', ['get', 'kind'], 'exposed', t.danger, t.text],
             'circle-stroke-opacity': ['case', ['get', 'caught'], 0.1, 0.35],
           }} />
-          {/* Coéquipier = point plein rouge. Position signalée = cible (anneau + point central exact). */}
+          {/* Coéquipier = point plein lime. Position signalée = cible (anneau + point central exact). */}
           <Layer type="circle" id="players-dot" paint={{
             'circle-radius': ['interpolate', ['linear'], ['zoom'],
               13, ['match', ['get', 'kind'], 'team', 3, 4.5],
@@ -115,12 +105,12 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
             'circle-color': t.accent,
             'circle-opacity': ['match', ['get', 'kind'], 'team', ['case', ['get', 'caught'], 0.4, 1], 0],
             'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 13, 1.5, 18, 2.5],
-            'circle-stroke-color': ['match', ['get', 'kind'], 'team', t.bg, 'exposed', t.accent, t.text],
+            'circle-stroke-color': ['match', ['get', 'kind'], 'team', t.dark ? t.bg : t.text, 'exposed', t.danger, t.text],
             'circle-stroke-opacity': ['case', ['get', 'caught'], 0.4, 1],
           }} />
           <Layer type="circle" id="players-center" filter={['!=', ['get', 'kind'], 'team']} paint={{
             'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 1.5, 18, 2.5],
-            'circle-color': ['match', ['get', 'kind'], 'exposed', t.accent, t.text],
+            'circle-color': ['match', ['get', 'kind'], 'exposed', t.danger, t.text],
             'circle-opacity': ['case', ['get', 'caught'], 0.4, 1],
           }} />
           {/* MapLibre place chaque étiquette du côté libre (gauche, droite, haut, bas) : pas de chevauchement. */}
@@ -133,7 +123,7 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
             'text-justify': 'auto',
             'text-padding': 2,
           }} paint={{
-            'text-color': ['match', ['get', 'kind'], 'exposed', t.accentText, t.text],
+            'text-color': ['match', ['get', 'kind'], 'exposed', t.danger, t.text],
             'text-halo-color': t.bg,
             'text-halo-width': 1.5,
             'text-opacity': ['case', ['get', 'caught'], 0.5, 1],
@@ -251,7 +241,7 @@ function Legend({ game, others }: { game: GameView; others: SeenPlayer[] }) {
     <View pointerEvents="none" style={{ marginTop: 8, alignSelf: 'flex-start', maxWidth: '100%', backgroundColor: t.surface, borderRadius: radius.inner, paddingHorizontal: 12, paddingVertical: 8, gap: 4 }}>
       {hasTeam && item(<View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: t.accent, marginHorizontal: 1 }} />, 'Ton équipe, en direct')}
       {others.length > 0 && item(target(t.text), enemyLabel)}
-      {hasExposed && item(target(t.accent), 'Hors zone : visible en direct')}
+      {hasExposed && item(target(t.danger), 'Hors zone : visible en direct')}
       {others.length > 0 && item(<View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: t.text, opacity: 0.2 }} />, 'Halo : précision du GPS (visible en zoomant)')}
     </View>
   );
@@ -273,20 +263,20 @@ function Hud({ game }: { game: GameView }) {
     : `Zone ${fmtDistance(game.zone.radiusM, units)}\n${game.zone.nextShrinkAt !== null ? `Rétrécit dans ${fmtClock(game.zone.nextShrinkAt - game.clock)}` : 'Taille finale'}`;
   const bar = (frac: number) => (
     <View style={{ height: 8, borderRadius: 4, backgroundColor: t.surface2, overflow: 'hidden' }}>
-      <View style={{ width: `${Math.round(frac * 100)}%`, height: '100%', backgroundColor: t.text, borderRadius: 4 }} />
+      <View style={{ width: `${Math.round(frac * 100)}%`, height: '100%', backgroundColor: t.dark ? t.accent : t.text, borderRadius: 4 }} />
     </View>
   );
   return (
-    <View style={{ backgroundColor: t.surface, borderRadius: radius.block + 4, overflow: 'hidden' }}>
+    <View style={{ backgroundColor: t.surface, borderRadius: radius.block + 6, borderWidth: 1, borderColor: t.line, overflow: 'hidden' }}>
       <View style={{ flexDirection: 'row' }}>
         <View style={{ flex: 1, padding: 16, borderRightWidth: 1, borderRightColor: t.line }}>
           <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: t.textDim }}>{mainLabel}</Text>
-          <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.displayBlack, fontSize: 42, color: t.text, fontVariant: ['tabular-nums'] }}>{mainValue}</Text>
+          <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.mono, fontSize: 38, color: t.text, marginTop: 2 }}>{mainValue}</Text>
         </View>
         <View style={{ flex: 1, padding: 16, gap: 10 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 6 }}>
             <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: fonts.medium, fontSize: 15, color: t.textDim }}>Prochain ping</Text>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: t.text, fontVariant: ['tabular-nums'] }}>{toPing === null ? '--:--' : fmtClock(toPing)}</Text>
+            <Text style={{ fontFamily: fonts.mono, fontSize: 15, color: t.accentText }}>{toPing === null ? '--:--' : fmtClock(toPing)}</Text>
           </View>
           {bar(pingFrac)}
           <Text style={{ fontFamily: fonts.body, fontSize: 13, lineHeight: 17, color: t.textDim, fontVariant: ['tabular-nums'] }}>{zoneLine}</Text>
@@ -295,7 +285,7 @@ function Hud({ game }: { game: GameView }) {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: t.line }}>
         <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: t.textDim }}>Fugitifs restants</Text>
         <View style={{ flex: 1 }}>{bar(game.fugitivesTotal ? game.fugitivesLeft / game.fugitivesTotal : 0)}</View>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: t.text }}>{game.fugitivesLeft} sur {game.fugitivesTotal}</Text>
+        <Text style={{ fontFamily: fonts.mono, fontSize: 16, color: t.text }}>{game.fugitivesLeft}/{game.fugitivesTotal}</Text>
       </View>
     </View>
   );
@@ -309,12 +299,12 @@ function ZoneWarning({ game }: { game: GameView }) {
   if (me.eliminateAt !== null) {
     const left = me.eliminateAt - game.clock;
     return (
-      <View accessibilityRole="alert" style={{ marginTop: 8, backgroundColor: t.accent, borderRadius: radius.block, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <View accessibilityRole="alert" style={{ marginTop: 8, backgroundColor: t.danger, borderRadius: radius.block, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: t.onAccent }}>Hors zone : reviens vite !</Text>
-          <Text style={{ fontFamily: fonts.body, fontSize: 15, color: t.onAccent, marginTop: 2 }}>Tu seras éliminé si tu restes dehors. Les chasseurs te voient en direct.</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: t.onDanger }}>Hors zone : reviens vite !</Text>
+          <Text style={{ fontFamily: fonts.body, fontSize: 15, color: t.onDanger, marginTop: 2 }}>Tu seras éliminé si tu restes dehors. Les chasseurs te voient en direct.</Text>
         </View>
-        <Text style={{ fontFamily: fonts.displayBlack, fontSize: 34, color: t.onAccent, fontVariant: ['tabular-nums'] }}>{fmtClock(left)}</Text>
+        <Text style={{ fontFamily: fonts.mono, fontSize: 30, color: t.onDanger }}>{fmtClock(left)}</Text>
       </View>
     );
   }
@@ -324,7 +314,7 @@ function ZoneWarning({ game }: { game: GameView }) {
     ? [`La zone rétrécit dans ${fmtClock(game.zone.nextShrinkAt - game.clock)}`, `Tu seras dehors : rapproche-toi du centre d'au moins ${a.m} m.`]
     : ['Bord de la zone', `Plus que ${a.m} m avant d'en sortir.`];
   return (
-    <View accessibilityRole="alert" style={{ marginTop: 8, backgroundColor: t.surface, borderRadius: radius.block, padding: 14, borderLeftWidth: 6, borderLeftColor: t.accent }}>
+    <View accessibilityRole="alert" style={{ marginTop: 8, backgroundColor: t.surface, borderRadius: radius.block, padding: 14, borderLeftWidth: 6, borderLeftColor: t.danger }}>
       <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: t.text, fontVariant: ['tabular-nums'] }}>{title}</Text>
       <Text style={{ fontFamily: fonts.body, fontSize: 15, color: t.textDim, marginTop: 2 }}>{sub}</Text>
     </View>
@@ -345,7 +335,7 @@ function GpsWarning() {
         : null;
   if (!msg) return null;
   return (
-    <View accessibilityRole="alert" style={{ marginTop: 8, backgroundColor: t.surface, borderRadius: radius.block, padding: 14, borderLeftWidth: 6, borderLeftColor: t.accent }}>
+    <View accessibilityRole="alert" style={{ marginTop: 8, backgroundColor: t.surface, borderRadius: radius.block, padding: 14, borderLeftWidth: 6, borderLeftColor: t.danger }}>
       <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: t.text }}>{msg[0]}</Text>
       <Text style={{ fontFamily: fonts.body, fontSize: 15, color: t.textDim, marginTop: 2 }}>{msg[1]}</Text>
     </View>
@@ -428,12 +418,12 @@ function PingFlash({ game }: { game: GameView }) {
 
   const n = game.ping?.players.length ?? 0;
   return (
-    <Animated.View pointerEvents="none" style={{ position: 'absolute', inset: 0, opacity, backgroundColor: 'rgba(110,18,8,0.88)', justifyContent: 'center', padding: 24 }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: '#FFB4A6', letterSpacing: 2 }}>
+    <Animated.View pointerEvents="none" style={{ position: 'absolute', inset: 0, opacity, backgroundColor: t.accent, justifyContent: 'center', padding: 24 }}>
+      <Text style={{ fontFamily: fonts.mono, fontSize: 16, color: t.onAccent, opacity: 0.75, letterSpacing: 2 }}>
         {game.me.role === 'hunter' ? `${n} FUGITIF${n > 1 ? 'S' : ''} REPÉRÉ${n > 1 ? 'S' : ''}` : 'LES CHASSEURS SAVENT'}
       </Text>
-      <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.displayBlack, fontSize: 96, color: t.onAccent, marginTop: 4 }}>Ping !</Text>
-      <Text style={{ fontFamily: fonts.medium, fontSize: 17, color: '#FFD9D1', marginTop: 4 }}>
+      <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.hero, fontSize: 110, lineHeight: 112, letterSpacing: -1.5, color: t.onAccent, marginTop: 4 }}>Ping !</Text>
+      <Text style={{ fontFamily: fonts.medium, fontSize: 17, color: t.onAccent, marginTop: 4 }}>
         {game.me.role === 'hunter' ? 'Positions de il y a 1 min.' : 'Ta position d’il y a 1 min est sur leur carte.'}
       </Text>
     </Animated.View>
@@ -475,7 +465,7 @@ function RoleReveal({ game }: { game: GameView }) {
   return (
     <Animated.View style={{ position: 'absolute', inset: 0, opacity, backgroundColor: hunter ? t.accent : t.bg, justifyContent: 'center', padding: 24 }}>
       <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: fg, opacity: 0.85, letterSpacing: 2 }}>{converted ? 'CONTAMINÉ. TU ES' : 'TU ES'}</Text>
-      <Animated.Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.hero, fontSize: 120, lineHeight: 124, color: hunter ? fg : t.accent, transform: [{ scale }] }}>
+      <Animated.Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.hero, fontSize: 120, lineHeight: 124, color: hunter ? fg : t.accentText, letterSpacing: -1.5, transform: [{ scale }] }}>
         {hunter ? 'CHASSEUR' : 'FUGITIF'}
       </Animated.Text>
       <Text style={{ fontFamily: fonts.display, fontSize: 18, lineHeight: 24, color: fg, marginTop: 8 }}>
@@ -513,7 +503,7 @@ function Sheet({ visible, onClose, title, children }: { visible: boolean; onClos
       <Animated.View style={{ backgroundColor: t.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 16, paddingBottom: insets.bottom + 16, maxHeight: '85%', transform: [{ translateY: drag }] }}>
         <View {...pan.panHandlers} style={{ paddingTop: 10, paddingBottom: 8 }}>
           <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: t.surface2, marginBottom: 14 }} />
-          <Text style={{ fontFamily: fonts.displayBlack, fontSize: 26, color: t.text }}>{title}</Text>
+          <Text style={{ fontFamily: fonts.hero, fontSize: 30, color: t.text }}>{title}</Text>
         </View>
         <ScrollView contentContainerStyle={{ gap: 12 }}>{children}</ScrollView>
       </Animated.View>
@@ -609,8 +599,8 @@ function EndBanner({ game }: { game: GameView }) {
           <Text style={{ fontFamily: fonts.display, fontSize: 16, color: fg }}>{game.winner === 'hunter' ? 'Victoire des chasseurs' : 'Victoire des fugitifs'}</Text>
         </View>
         <Pressable accessibilityRole="button" onPress={async () => { await leaveGame(); router.replace('/'); }}
-          style={({ pressed }) => ({ height: 48, paddingHorizontal: 18, borderRadius: radius.inner, justifyContent: 'center', backgroundColor: won ? t.onAccent : t.accent, opacity: pressed ? 0.85 : 1 })}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: won ? '#161414' : t.onAccent }}>Quitter</Text>
+          style={({ pressed }) => ({ height: 48, paddingHorizontal: 20, borderRadius: radius.pill, justifyContent: 'center', backgroundColor: won ? t.onAccent : t.accent, opacity: pressed ? 0.85 : 1 })}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: won ? t.accent : t.onAccent }}>Quitter</Text>
         </Pressable>
       </View>
     </View>

@@ -63,7 +63,7 @@ export async function request(key: PermKey, current: PermStatus) {
 
 /** Demande système « ne pas optimiser » ; certains fabricants la bloquent : on ouvre alors la liste des réglages. */
 async function requestBattery() {
-  const pkg = Constants.expoConfig?.android?.package ?? 'com.m335671.keeprunnin';
+  const pkg = Constants.expoConfig?.android?.package ?? 'com.m335671.scatter';
   try {
     await IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, { data: `package:${pkg}` });
   } catch {

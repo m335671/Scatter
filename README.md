@@ -34,7 +34,7 @@ Construire l'image en local : `docker build -t keeprunnin -f apps/server/Dockerf
 ## App Android (APK)
 ```sh
 cd apps/mobile
-EXPO_PUBLIC_SERVER_URL=https://nuc.exemple.eu npx expo prebuild --platform android --clean
+EXPO_PUBLIC_SERVER_URL=https://ton-serveur.example npx expo prebuild --platform android --clean
 cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a
 # → android/app/build/outputs/apk/release/app-release.apk
 ```

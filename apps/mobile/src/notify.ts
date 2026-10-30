@@ -28,7 +28,7 @@ function notify(title: string, body: string, id?: string) {
 
 export function notifyChat(m: ChatMessage, myId: string | undefined) {
   if (m.from === myId) return;
-  notify(m.system ? "Keep Runni'n" : `${m.fromName}${m.channel === 'all' ? ' · radio globale' : ''}`, m.text);
+  notify(m.system ? 'Scatter' : `${m.fromName}${m.channel === 'all' ? ' · radio globale' : ''}`, m.text);
 }
 
 let lastEdgeAt = 0;

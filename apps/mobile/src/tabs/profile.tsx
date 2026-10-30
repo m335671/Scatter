@@ -1,13 +1,16 @@
+// Onglet Profil : compte, préférences, données locales, serveur.
 import { useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { ScrollView, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
 import { connect, updateMe } from '../api';
+import { clearStats } from '../stats';
 import { DEFAULT_SERVER, setState, useStore, type Settings } from '../store';
 import { fonts, radius, useTheme } from '../theme';
-import { Group, Row, Screen, Segmented, showDialog } from '../ui';
-import { clearStats, exportStats } from '../stats';
+import { Group, Row, Segmented, showDialog } from '../ui';
+import { LocalDataNotice } from './activity';
 
-export default function SettingsScreen() {
+export function ProfileTab() {
   const t = useTheme();
   const router = useRouter();
   const user = useStore(s => s.user);
@@ -26,7 +29,7 @@ export default function SettingsScreen() {
       await updateMe(edit === 'name' ? { name: draft.trim() } : { username: draft.trim().toLowerCase() });
       setEdit(null);
     } catch (e) {
-      showDialog({ title: 'Oups', message: (e as Error).message });
+      showDialog({ title: 'Modification impossible', message: (e as Error).message });
     }
   }
 
@@ -44,12 +47,21 @@ export default function SettingsScreen() {
   );
 
   return (
-    <Screen scroll>
-      <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: t.text }}>Réglages</Text>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={{ position: 'absolute', right: 0 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: t.accentText }}>OK</Text>
-        </Pressable>
+    <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32, gap: 12 }} keyboardShouldPersistTaps="handled">
+      <Text accessibilityRole="header" style={{ fontFamily: fonts.hero, fontSize: 52, lineHeight: 52, letterSpacing: -1, color: t.text, marginHorizontal: 4 }}>Profil</Text>
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: t.surface, borderWidth: 1, borderColor: t.line, borderRadius: radius.block, padding: 14 }}>
+        <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: t.dark ? t.surface2 : t.text, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontFamily: fonts.hero, fontSize: 26, color: t.accent }}>{user?.name.slice(0, 1).toUpperCase()}</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: t.text }} numberOfLines={1}>{user?.name}</Text>
+          <Text style={{ fontFamily: fonts.monoMedium, fontSize: 13, color: t.textDim }}>@{user?.username}</Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: connected ? t.accent : t.danger }} />
+          <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11, color: t.textDim }}>{connected ? 'EN LIGNE' : 'HORS LIGNE'}</Text>
+        </View>
       </View>
 
       <Group label="Compte">
@@ -59,7 +71,7 @@ export default function SettingsScreen() {
           : <Row title="Nom d'utilisateur" value={user ? `@${user.username}` : ''} onPress={() => { setDraft(user?.username ?? ''); setEdit('username'); }} />}
       </Group>
 
-      <Group footer="La nuit, Sombre fatigue moins les yeux et risque moins de te trahir.">
+      <Group label="Préférences" footer="La nuit, Sombre fatigue moins les yeux et risque moins de te trahir.">
         <Row title="Unités" right={<Segmented value={settings.units} onChange={units => patch({ units })} options={[{ value: 'km', label: 'km' }, { value: 'mi', label: 'mi' }]} />} />
         <Row title="Apparence" right={
           <Segmented value={settings.appearance} onChange={appearance => patch({ appearance })}
@@ -67,19 +79,27 @@ export default function SettingsScreen() {
         } />
       </Group>
 
-      <Group label="Stats" footer="Tes stats restent sur ce téléphone. L'export crée un fichier JSON que tu peux envoyer où tu veux.">
-        <Row title="Exporter mes stats" onPress={() => exportStats().catch(e => showDialog({ title: 'Export impossible', message: (e as Error).message }))} />
+      <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: t.textDim, marginLeft: 4, marginTop: 8 }}>Tes données</Text>
+      <LocalDataNotice />
+      <Group>
         <Row title="Effacer mes stats" danger onPress={() => showDialog({
-          title: 'Effacer tes stats ?', message: 'Toutes tes parties enregistrées sur ce téléphone seront supprimées.',
+          title: 'Effacer tes stats ?', message: 'Toutes tes parties enregistrées sur ce téléphone seront supprimées. Exporte-les avant si tu veux les garder.',
           actions: [{ label: 'Effacer', kind: 'danger', onPress: clearStats }, { label: 'Annuler', kind: 'cancel' }],
         })} />
       </Group>
 
-      <Group label="Serveur" footer={connected ? 'Connecté.' : 'Non connecté. Keep Runni\'n est open source : tu peux héberger ton propre serveur.'}>
-        {input(server, setServer, saveServer, { autoFocus: false, keyboardType: 'url', placeholder: 'https://keeprunnin.exemple.fr', returnKeyType: 'done' })}
+      <Group label="Aide">
+        <Row title="Comment ça marche" onPress={() => router.push('/tutorial')} />
+        <Row title="Autorisations" sub="Position, caméra, notifications, batterie" onPress={() => router.push('/permissions')} />
+      </Group>
+
+      <Group label="Serveur" footer={connected ? 'Connecté.' : 'Non connecté. Scatter est open source : tu peux héberger ton propre serveur.'}>
+        {input(server, setServer, saveServer, { autoFocus: false, keyboardType: 'url', placeholder: 'https://scatter.exemple.fr', returnKeyType: 'done' })}
         {server.trim() !== (settings.serverUrl || DEFAULT_SERVER) && <Row title="Enregistrer l'adresse" onPress={saveServer} />}
         {!!settings.serverUrl && <Row title="Revenir au serveur officiel" onPress={() => { setServer(DEFAULT_SERVER); patch({ serverUrl: '' }); connect(); }} />}
       </Group>
-    </Screen>
+
+      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: t.textDim, textAlign: 'center', marginTop: 8 }}>SCATTER · v{Constants.expoConfig?.version}</Text>
+    </ScrollView>
   );
 }

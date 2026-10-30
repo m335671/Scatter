@@ -17,7 +17,7 @@ L'app est écrite pour iOS et Android, mais iOS n'a jamais été compilé ni tes
 git clone https://github.com/m335671/Keep-Runni-n.git && cd Keep-Runni-n
 npm install
 cd apps/mobile
-EXPO_PUBLIC_SERVER_URL=https://nuc.exemple.eu npx expo prebuild --platform ios --clean
+EXPO_PUBLIC_SERVER_URL=https://ton-serveur.example npx expo prebuild --platform ios --clean
 open ios/KeepRunnin.xcworkspace
 ```
 Dans Xcode :

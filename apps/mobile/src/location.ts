@@ -64,9 +64,9 @@ export async function startTracking() {
         pausesUpdatesAutomatically: false,
         activityType: Location.ActivityType.Fitness,
         foregroundService: {
-          notificationTitle: "Keep Runni'n",
+          notificationTitle: 'Scatter',
           notificationBody: 'Partie en cours. Ta position est partagée avec le serveur de jeu.',
-          notificationColor: '#EE2E14',
+          notificationColor: '#D4FF3A',
         },
       });
       foregroundSub?.remove();

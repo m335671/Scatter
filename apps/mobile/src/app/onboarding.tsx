@@ -82,14 +82,14 @@ export default function Onboarding() {
             <Field
               prefix="@" value={username} onChangeText={s => setUsername(slug(s))} autoFocus autoCapitalize="none" autoCorrect={false}
               ok={available === true} error={available === false}
-              right={available ? <CheckIcon size={26} color={t.accent} weight="bold" /> : null}
+              right={available ? <CheckIcon size={26} color={t.accentText} weight="bold" /> : null}
             />
             {available === true && <T style={{ fontFamily: fonts.semibold }}>@{username} est à toi.</T>}
-            {available === false && <T style={{ color: t.accentText, fontFamily: fonts.semibold }}>@{username} est déjà pris.</T>}
+            {available === false && <T style={{ color: t.danger, fontFamily: fonts.semibold }}>@{username} est déjà pris.</T>}
           </>
         )}
         <View style={{ flex: 1 }} />
-        {error ? <T style={{ color: t.accentText, textAlign: 'center' }}>{error}</T> : null}
+        {error ? <T style={{ color: t.danger, textAlign: 'center' }}>{error}</T> : null}
         <Button
           title="Continuer"
           onPress={next}
