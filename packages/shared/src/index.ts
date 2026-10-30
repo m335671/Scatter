@@ -52,6 +52,8 @@ export const PING_DELAY_MS = 60_000;
 /** La zone atteint sa taille finale à cette durée de la fin. */
 export const FINAL_ZONE_BEFORE_END_MS = 5 * 60_000;
 export const MIN = 60_000;
+/** Décompte « 3, 2, 1, GO » commun à tous au lancement : l'horloge de la partie reste figée pendant ce temps. */
+export const START_COUNTDOWN_MS = 4000;
 /** Un fugitif resté hors zone aussi longtemps est éliminé. */
 export const OUT_OF_ZONE_LIMIT_MS = 60_000;
 /** Alerte « bord de zone » à cette distance du bord, et « la zone va rétrécir » à ce délai du rétrécissement. */
@@ -106,6 +108,8 @@ export interface GameView {
   training: boolean;
   speed: number;
   clock: number;      // horloge de jeu (ms depuis le lancement)
+  /** Temps réel restant avant le vrai départ (décompte de lancement), 0 ensuite. */
+  startsInMs: number;
   huntStart: number;
   huntEnd: number;
   nextPingAt: number | null;

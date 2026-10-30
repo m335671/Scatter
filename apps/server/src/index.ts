@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { Server, type Socket } from 'socket.io';
 import type { z } from 'zod';
-import { C2S, Register, UpdateMe, Username, type Role } from '@kr/shared';
+import { C2S, START_COUNTDOWN_MS, Register, UpdateMe, Username, type Role } from '@kr/shared';
 import * as db from './db.ts';
 import {
   type Game, GameError, capture, createGame, endNow, join, leave, lobbyView, ping, say, start,
@@ -254,6 +254,7 @@ io.on('connection', (socket) => {
     const x = host(g);
     if (x.training) addBots(x);
     start(x);
+    x.startAt = Date.now() + START_COUNTDOWN_MS;
     lastSeen.set(x.code, { phase: x.phase, pingAt: null });
     const team = (r: Role) => [...x.players.values()].filter(p => p.role === r).map(p => (p.isBot ? p.name : at(p))).join(',');
     log('partie', x.training ? 'entraînement lancé' : 'lancée', {
@@ -339,8 +340,16 @@ setInterval(() => {
         continue;
       }
     }
+    // Décompte de lancement : rien ne bouge, puis on ne compte que le temps écoulé après le départ.
+    let step = dt;
+    if (g.startAt) {
+      const over = Date.now() - g.startAt;
+      if (over < 0) continue;
+      g.startAt = undefined;
+      step = Math.min(dt, over);
+    }
     const before = g.clock;
-    tick(g, dt);
+    tick(g, step);
     if (g.training) moveBots(g, g.clock - before);
     logChanges(g);
     broadcastState(g);

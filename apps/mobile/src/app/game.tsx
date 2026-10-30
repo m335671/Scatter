@@ -29,6 +29,8 @@ export default function GameScreen() {
   const [tab, setTab] = useState<'map' | 'radio'>('map');
   const [more, setMore] = useState(false);
   const [qr, setQr] = useState(false);
+  // Décompte de lancement envoyé par le serveur : même instant de départ pour tout le monde.
+  const [counting, setCounting] = useState(() => (game?.startsInMs ?? 0) > 0);
 
   useEffect(() => { if (game?.phase === 'ended') recordGame(game); }, [game?.phase, game?.code]);
   // Sortie de zone : le bandeau ne suffit pas téléphone en poche, on fait vibrer.
@@ -47,7 +49,9 @@ export default function GameScreen() {
       <TabBar tab={tab} onTab={setTab} onMore={() => setMore(true)} />
       <PingFlash game={game} />
       {/* key : en zombie, le fugitif attrapé devient chasseur et revoit la révélation. */}
-      <RoleReveal key={game.me.role} game={game} />
+      {counting
+        ? <StartCountdown ms={game.startsInMs} onDone={() => setCounting(false)} />
+        : <RoleReveal key={game.me.role} game={game} />}
       <MoreSheet game={game} visible={more} onClose={() => setMore(false)} onQr={() => { setMore(false); setQr(true); }} />
       <QrSheet game={game} visible={qr && !!game.me.qr} onClose={() => setQr(false)} />
     </View>
@@ -427,6 +431,49 @@ function PingFlash({ game }: { game: GameView }) {
         {game.me.role === 'hunter' ? 'Positions de il y a 1 min.' : 'Ta position d’il y a 1 min est sur leur carte.'}
       </Text>
     </Animated.View>
+  );
+}
+
+// ---------- Décompte de lancement ----------
+
+const countLabel = (left: number) => (left > 3000 ? '3' : left > 2000 ? '2' : left > 1000 ? '1' : 'GO');
+
+/** « 3, 2, 1, GO » plein écran, calé sur le temps restant donné par le serveur, puis la révélation du rôle. */
+function StartCountdown({ ms, onDone }: { ms: number; onDone: () => void }) {
+  const t = useTheme();
+  const end = useRef(Date.now() + ms).current;
+  const [label, setLabel] = useState(() => countLabel(ms));
+  const scale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const left = end - Date.now();
+      if (left <= 0) { clearInterval(id); onDone(); return; }
+      setLabel(countLabel(left));
+    }, 50);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const go = label === 'GO';
+    (go ? Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success) : Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)).catch(() => {});
+    AccessibilityInfo.isReduceMotionEnabled().then(reduce => {
+      if (reduce) return;
+      scale.setValue(1.5);
+      Animated.spring(scale, { toValue: 1, friction: 6, tension: 120, useNativeDriver: true }).start();
+    });
+    AccessibilityInfo.announceForAccessibility(go ? "C'est parti" : label);
+  }, [label]);
+
+  const go = label === 'GO';
+  return (
+    <View style={{ position: 'absolute', inset: 0, backgroundColor: go ? t.accent : t.bg, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 14, letterSpacing: 2, color: go ? t.onAccent : t.textDim, opacity: go ? 0.7 : 1 }}>LA PARTIE COMMENCE</Text>
+      <Animated.Text numberOfLines={1} adjustsFontSizeToFit
+        style={{ fontFamily: fonts.hero, fontSize: go ? 200 : 260, lineHeight: go ? 210 : 270, color: go ? t.onAccent : t.accentText, transform: [{ scale }], paddingHorizontal: 24 }}>
+        {label}
+      </Animated.Text>
+    </View>
   );
 }
 

@@ -54,6 +54,8 @@ export interface Game {
   seq: number;
   /** Bots bavards : dernier ping commenté à la radio. */
   botsPingAt?: number;
+  /** Heure réelle (Date.now) du vrai départ : avant, décompte de lancement et horloge figée. */
+  startAt?: number;
 }
 
 export interface UserRef { id: string; name: string; username: string }
@@ -378,6 +380,7 @@ export function view(g: Game, id: string): GameView | null {
     ? fugitives.flatMap(p => { const s = p.caughtAt === null && isOutOfZone(g, p) ? current(p) : null; return s ? [seen(p, s, true)] : []; })
     : [];
   return {
+    startsInMs: g.startAt ? Math.max(0, g.startAt - Date.now()) : 0,
     code: g.code, phase: g.phase, mode: isZombie(g) ? 'zombie' : 'classic', training: g.training, speed: g.speed, clock: g.clock,
     huntStart: huntStart(g), huntEnd: huntEnd(g), nextPingAt: g.nextPingAt,
     zone: {

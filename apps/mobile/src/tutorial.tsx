@@ -22,9 +22,11 @@ const CARD = 'rgba(21,32,26,0.95)';
 const CENTER: [number, number] = [4.8335, 45.7605];
 
 type Geo = { w: number; h: number; cx: number; cy: number; r: number };
+type Pt = { x: number; y: number };
 type StepProps = { p: Animated.Value; g: Geo };
 
-interface Step { eyebrow: string; title: string; body: string; cam: { zoom: number; bearing: number; pitch: number }; Scene: (props: StepProps) => ReactNode }
+/** tag : titre affiché sur la scène, au-dessus de la zone ; title + body : une ligne chacun, en bas. */
+interface Step { tag: string; title: string; body: string; cam: { zoom: number; bearing: number; pitch: number }; Scene: (props: StepProps) => ReactNode }
 
 // Positions finales des fugitifs, en fraction du rayon de la zone.
 const FUGITIVES = [
@@ -37,85 +39,82 @@ const HUNTERS = [
   { name: 'Leo', x: -0.12, y: 0.05 },
   { name: 'Ana', x: 0.12, y: -0.08 },
 ];
+const huntPos = (h: Pt, i: number) => ({ x: h.x * 4 + (i ? 0.1 : -0.1), y: h.y * 5 });
 
 const steps: Step[] = [
   {
-    eyebrow: 'La zone', title: "L'hôte trace la zone.", body: "Tout le monde joue à l'intérieur, dans de vraies rues.",
+    tag: 'ZONE DE JEU', title: 'Une zone, de vraies rues.', body: "L'hôte la place autour de lui.",
     cam: { zoom: 15.6, bearing: -12, pitch: 35 },
-    Scene: ({ p, g }) => <Zone g={g} scale={p.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0.2, 1, 1], extrapolate: 'clamp' })} opacity={p.interpolate({ inputRange: [0, 0.15], outputRange: [0, 1], extrapolate: 'clamp' })} />,
-  },
-  {
-    eyebrow: "L'avance", title: "Les fugitifs ont 3 min d'avance.", body: 'Les chasseurs patientent pendant que les fugitifs se dispersent et se cachent.',
-    cam: { zoom: 15.8, bearing: -4, pitch: 40 },
     Scene: ({ p, g }) => (
       <>
-        <Zone g={g} />
-        <Hud label="Avance" from={180} p={p} right="Prochain ping" sub="Révèle tous les fugitifs" />
-        {FUGITIVES.map(f => <Dot key={f.name} g={g} kind="fugitive" label={f.name} from={{ x: 0, y: 0 }} to={f} p={p} />)}
+        <Zone g={g} scale={p.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0.2, 1, 1], extrapolate: 'clamp' })} opacity={p.interpolate({ inputRange: [0, 0.15], outputRange: [0, 1], extrapolate: 'clamp' })} />
+        <Radius g={g} p={p} />
       </>
     ),
   },
   {
-    eyebrow: 'La chasse', title: 'Puis les chasseurs sont lâchés.', body: "Chacun voit son équipe en direct sur la carte, mais pas l'équipe adverse.",
+    tag: "3 MIN D'AVANCE", title: 'Les fugitifs partent devant.', body: 'Les chasseurs attendent au centre.',
+    cam: { zoom: 15.8, bearing: -4, pitch: 40 },
+    Scene: ({ p, g }) => (
+      <>
+        <Zone g={g} />
+        {FUGITIVES.map(f => <Dot key={f.name} g={g} kind="fugitive" label={f.name} from={{ x: 0, y: 0 }} to={f} p={p} />)}
+        {HUNTERS.map(h => <Dot key={h.name} g={g} kind="team" label={h.name} from={{ x: h.x * 0.6, y: h.y * 0.6 }} to={{ x: h.x * 0.6, y: h.y * 0.6 }} p={p} />)}
+        <Clock g={g} from={180} />
+      </>
+    ),
+  },
+  {
+    tag: 'LA CHASSE', title: 'Puis la chasse commence.', body: "Tu vois ton équipe, jamais l'adversaire.",
     cam: { zoom: 16, bearing: 6, pitch: 45 },
     Scene: ({ p, g }) => (
       <>
         <Zone g={g} />
         {FUGITIVES.map(f => <Dot key={f.name} g={g} kind="fugitive" label={f.name} from={f} to={f} p={p} fadeOut />)}
-        {HUNTERS.map((h, i) => <Dot key={h.name} g={g} kind="team" label={h.name} from={{ x: 0, y: 0 }} to={{ x: h.x * 4 + (i ? 0.1 : -0.1), y: h.y * 5 }} p={p} />)}
+        {FUGITIVES.map(f => <Dot key={`?${f.name}`} g={g} kind="unknown" label="?" from={f} to={f} p={p} appearAt={0.55} />)}
+        {HUNTERS.map((h, i) => <Dot key={h.name} g={g} kind="team" label={h.name} from={{ x: 0, y: 0 }} to={huntPos(h, i)} p={p} />)}
       </>
     ),
   },
   {
-    eyebrow: 'Le ping', title: 'Toutes les 2 min, un ping.', body: "Pendant un instant, chaque équipe voit l'autre sur la carte. Le téléphone vibre.",
+    tag: 'PING · TOUTES LES 2 MIN', title: 'Ping : tout le monde est révélé.', body: "Un instant, chaque équipe voit l'autre.",
     cam: { zoom: 16, bearing: 14, pitch: 45 },
     Scene: ({ p, g }) => (
       <>
         <Zone g={g} />
-        {HUNTERS.map((h, i) => <Dot key={h.name} g={g} kind="team" label={h.name} from={{ x: h.x * 4 + (i ? 0.1 : -0.1), y: h.y * 5 }} to={{ x: h.x * 4 + (i ? 0.1 : -0.1), y: h.y * 5 }} p={p} />)}
+        {HUNTERS.map((h, i) => <Dot key={h.name} g={g} kind="team" label={h.name} from={huntPos(h, i)} to={huntPos(h, i)} p={p} />)}
         {FUGITIVES.map(f => <Dot key={f.name} g={g} kind="target" label={`${f.name.toUpperCase()} 1:00`} from={f} to={f} p={p} appearAt={0.4} />)}
         <PingFlash p={p} />
       </>
     ),
   },
   {
-    eyebrow: 'Le décalage', title: "Les chasseurs ont 1 min de retard.", body: "La cible montre où était le fugitif il y a 1 min. Le halo autour, c'est la précision du GPS.",
+    tag: "POSITION D'IL Y A 1 MIN", title: 'Avec 1 min de retard.', body: 'La cible montre où était le fugitif.',
     cam: { zoom: 17, bearing: 20, pitch: 50 },
     Scene: ({ p, g }) => <Lag p={p} g={g} />,
   },
   {
-    eyebrow: 'La zone rétrécit', title: 'Reste dans la zone.', body: "Dehors, les chasseurs te voient en direct, et après 1 min tu es éliminé. Ton téléphone te prévient quand tu approches du bord.",
+    tag: 'LA ZONE RÉTRÉCIT', title: 'Reste dans la zone.', body: 'Dehors : visible en direct, éliminé après 1 min.',
     cam: { zoom: 16, bearing: 10, pitch: 45 },
     Scene: ({ p, g }) => <Shrink p={p} g={g} />,
   },
   {
-    eyebrow: 'La capture', title: 'Attrape, puis scanne.', body: 'Le fugitif montre son QR code, le chasseur le scanne : la capture est validée.',
+    tag: 'CAPTURE', title: 'Attrape, puis scanne.', body: 'Le QR du fugitif valide la capture.',
     cam: { zoom: 16.4, bearing: 0, pitch: 40 },
     Scene: ({ p, g }) => <Capture p={p} g={g} />,
   },
   {
-    eyebrow: 'La radio', title: 'Deux canaux pour parler.', body: "« Équipe » : seuls tes coéquipiers t'entendent. « Tous » : les deux équipes, pour chambrer ou bluffer.",
+    tag: 'RADIO', title: 'Parle à ton équipe… ou à tous.', body: 'Deux canaux : Équipe et Tous.',
     cam: { zoom: 15.8, bearing: 4, pitch: 35 },
     Scene: ({ p, g }) => <RadioScene p={p} g={g} />,
   },
   {
-    eyebrow: 'Mode zombie', title: 'Un chasseur contre tous.', body: "En mode zombie, un seul chasseur au départ. Chaque fugitif attrapé devient chasseur à son tour.",
+    tag: 'MODE ZOMBIE', title: 'Un chasseur contre tous.', body: 'Chaque fugitif attrapé change de camp.',
     cam: { zoom: 16, bearing: -6, pitch: 40 },
-    Scene: ({ p, g }) => {
-      const nina = { x: -0.3, y: -0.2 };
-      return (
-        <>
-          <Zone g={g} />
-          <Dot g={g} kind="team" label="Leo" from={{ x: 0.2, y: 0.3 }} to={{ x: -0.2, y: -0.1 }} p={p} />
-          <Dot g={g} kind="fugitive" label="Nina" from={nina} to={nina} p={p} fadeOut />
-          <Dot g={g} kind="team" label="Nina" from={nina} to={nina} p={p} appearAt={0.55} />
-          {FUGITIVES.slice(1).map(f => <Dot key={f.name} g={g} kind="fugitive" label={f.name} from={f} to={f} p={p} />)}
-        </>
-      );
-    },
+    Scene: ({ p, g }) => <Zombie p={p} g={g} />,
   },
   {
-    eyebrow: 'La fin', title: "Tiens jusqu'au bout.", body: "Les chasseurs gagnent s'ils attrapent tout le monde. Sinon, les fugitifs encore libres l'emportent.",
+    tag: 'FIN DE PARTIE', title: "Tiens jusqu'au bout.", body: 'Tous attrapés : les chasseurs gagnent. Sinon, les fugitifs.',
     cam: { zoom: 15.4, bearing: -8, pitch: 30 },
     Scene: ({ p }) => (
       <Animated.View style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center', opacity: p.interpolate({ inputRange: [0, 0.2], outputRange: [0, 1], extrapolate: 'clamp' }), transform: [{ scale: p.interpolate({ inputRange: [0, 0.25], outputRange: [0.85, 1], extrapolate: 'clamp' }) }] }}>
@@ -170,6 +169,7 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
 
       <View style={{ position: 'absolute', inset: 0 }} onLayout={onLayout} pointerEvents="none">
         {g && <step.Scene key={i} p={p} g={g} />}
+        {g && <Tag key={`t${i}`} g={g} p={p} text={step.tag} />}
       </View>
 
       {/* Zones de tap : gauche = précédent, reste = suivant. */}
@@ -195,10 +195,9 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
       </SafeAreaView>
 
       <SafeAreaView edges={['bottom']} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 12, paddingBottom: 8 }} pointerEvents="box-none">
-        <View style={{ backgroundColor: CARD, borderRadius: radius.block + 4, padding: 22, gap: 8 }} pointerEvents="box-none">
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: LIME, letterSpacing: 1.2 }}>{step.eyebrow.toUpperCase()}</Text>
-          <Text style={{ fontFamily: fonts.hero, fontSize: 30, lineHeight: 33, letterSpacing: -0.3, color: INK }}>{step.title}</Text>
-          <Text style={{ fontFamily: fonts.body, fontSize: 16, lineHeight: 22, color: DIM }}>{step.body}</Text>
+        <View style={{ backgroundColor: CARD, borderRadius: radius.block + 4, paddingHorizontal: 20, paddingVertical: 18, gap: 4 }} pointerEvents="box-none">
+          <Text style={{ fontFamily: fonts.hero, fontSize: 28, lineHeight: 31, color: INK }}>{step.title}</Text>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 16, lineHeight: 22, color: DIM }}>{step.body}</Text>
           {last && (
             <Pressable onPress={onDone} accessibilityRole="button" style={{ marginTop: 10, height: 56, borderRadius: radius.pill, backgroundColor: LIME, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: ON_LIME }}>C'est parti</Text>
@@ -222,11 +221,9 @@ function Zone({ g, scale = 1, opacity = 1, red }: { g: Geo; scale?: number | Ani
   );
 }
 
-type Pt = { x: number; y: number };
-
 /** Joueur animé de `from` vers `to` (fractions du rayon) pendant la première moitié de l'étape. */
 function Dot({ g, kind, label, from, to, p, fadeOut, appearAt }: {
-  g: Geo; kind: 'fugitive' | 'team' | 'target' | 'exposed'; label: string; from: Pt; to: Pt; p: Animated.Value; fadeOut?: boolean; appearAt?: number;
+  g: Geo; kind: Kind; label: string; from: Pt; to: Pt; p: Animated.Value; fadeOut?: boolean; appearAt?: number;
 }) {
   const move = (a: number, b: number) => p.interpolate({ inputRange: [0, 0.5], outputRange: [a * g.r, b * g.r], extrapolate: 'clamp', easing: Easing.out(Easing.cubic) });
   const opacity = fadeOut
@@ -238,14 +235,18 @@ function Dot({ g, kind, label, from, to, p, fadeOut, appearAt }: {
     <Animated.View style={{ position: 'absolute', left: g.cx, top: g.cy, flexDirection: 'row', alignItems: 'center', gap: 6, opacity, transform: [{ translateX: move(from.x, to.x) }, { translateY: move(from.y, to.y) }, { translateX: -9 }, { translateY: -9 }] }}>
       <PlayerSymbol kind={kind} />
       <View style={{ backgroundColor: 'rgba(15,23,18,0.88)', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: kind === 'exposed' ? DANGER : INK }}>{label}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: kind === 'exposed' || kind === 'zombie' ? DANGER : kind === 'unknown' ? DIM : INK }}>{label}</Text>
       </View>
     </Animated.View>
   );
 }
 
+type Kind = 'fugitive' | 'team' | 'target' | 'exposed' | 'unknown' | 'zombie';
+
 /** Mêmes symboles que sur la carte en partie : point plein = équipe, cible = position signalée. */
-function PlayerSymbol({ kind }: { kind: 'fugitive' | 'team' | 'target' | 'exposed' }) {
+function PlayerSymbol({ kind }: { kind: Kind }) {
+  if (kind === 'unknown') return <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: DIM, borderStyle: 'dashed' }} />;
+  if (kind === 'zombie') return <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: DANGER, borderWidth: 2.5, borderColor: BG }} />;
   if (kind === 'team') return <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: LIME, borderWidth: 2.5, borderColor: BG, margin: 1 }} />;
   if (kind === 'fugitive') return <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: INK, borderWidth: 2.5, borderColor: BG }} />;
   const c = kind === 'exposed' ? DANGER : INK;
@@ -256,24 +257,72 @@ function PlayerSymbol({ kind }: { kind: 'fugitive' | 'team' | 'target' | 'expose
   );
 }
 
-function Hud({ label, from, p, right, sub }: { label: string; from: number; p: Animated.Value; right: string; sub: string }) {
+/** Titre de l'étape, en pastille au-dessus de la zone : l'étape se comprend sans lire le bas. */
+function Tag({ g, p, text }: { g: Geo; p: Animated.Value; text: string }) {
+  return (
+    <Animated.View style={{ position: 'absolute', left: 0, right: 0, top: g.cy - g.r - 54, alignItems: 'center',
+      opacity: p.interpolate({ inputRange: [0, 0.06], outputRange: [0, 1], extrapolate: 'clamp' }),
+      transform: [{ translateY: p.interpolate({ inputRange: [0, 0.06], outputRange: [8, 0], extrapolate: 'clamp' }) }] }}>
+      <View style={{ backgroundColor: LIME, borderRadius: radius.pill, paddingHorizontal: 16, paddingVertical: 8 }}>
+        <Text style={{ fontFamily: fonts.mono, fontSize: 14, letterSpacing: 1.5, color: ON_LIME }}>{text}</Text>
+      </View>
+    </Animated.View>
+  );
+}
+
+/** Rayon de la zone, tracé du centre vers le bord. */
+function Radius({ g, p }: StepProps) {
+  const grow = p.interpolate({ inputRange: [0.35, 0.6], outputRange: [0, 1], extrapolate: 'clamp' });
+  return (
+    <>
+      <Animated.View style={{ position: 'absolute', left: g.cx, top: g.cy - 1, width: g.r, height: 2, backgroundColor: LIME, transformOrigin: 'left', transform: [{ scaleX: grow }] }} />
+      <View style={{ position: 'absolute', left: g.cx - 5, top: g.cy - 5, width: 10, height: 10, borderRadius: 5, backgroundColor: LIME }} />
+      <Animated.Text style={{ position: 'absolute', left: g.cx + g.r * 0.25, top: g.cy - 30, fontFamily: fonts.mono, fontSize: 16, color: LIME, opacity: grow }}>420 m</Animated.Text>
+    </>
+  );
+}
+
+/** Compte à rebours de l'avance, au-dessus des chasseurs bloqués au centre. */
+function Clock({ g, from }: { g: Geo; from: number }) {
   const [s, setS] = useState(from);
   useEffect(() => {
     const id = setInterval(() => setS(v => Math.max(0, v - 1)), 1000);
     return () => clearInterval(id);
   }, []);
   return (
-    <Animated.View style={{ position: 'absolute', top: 120, left: 12, right: 12, flexDirection: 'row', backgroundColor: CARD, borderRadius: radius.block, opacity: p.interpolate({ inputRange: [0, 0.1], outputRange: [0, 1], extrapolate: 'clamp' }) }}>
-      <View style={{ flex: 1, padding: 14, borderRightWidth: 1, borderRightColor: LINE }}>
-        <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: DIM }}>{label}</Text>
-        <Text style={{ fontFamily: fonts.mono, fontSize: 30, color: INK }}>{Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}</Text>
+    <View style={{ position: 'absolute', left: 0, right: 0, top: g.cy + g.r * 0.22, alignItems: 'center' }}>
+      <View style={{ backgroundColor: CARD, borderRadius: radius.inner, paddingHorizontal: 12, paddingVertical: 4 }}>
+        <Text style={{ fontFamily: fonts.mono, fontSize: 22, color: INK }}>{Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}</Text>
       </View>
-      <View style={{ flex: 1, padding: 14, gap: 8 }}>
-        <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: DIM }}>{right}</Text>
-        <View style={{ height: 6, borderRadius: 3, backgroundColor: SURFACE2 }} />
-        <Text style={{ fontFamily: fonts.body, fontSize: 12, color: DIM }}>{sub}</Text>
+    </View>
+  );
+}
+
+/** Zombie : Leo attrape Nina, Nina passe chasseuse. */
+function Zombie({ p, g }: StepProps) {
+  const nina = { x: -0.3, y: -0.2 };
+  const burst = p.interpolate({ inputRange: [0.5, 0.75], outputRange: [0, 1], extrapolate: 'clamp' });
+  const one = p.interpolate({ inputRange: [0.5, 0.55], outputRange: [1, 0], extrapolate: 'clamp' });
+  const two = p.interpolate({ inputRange: [0.5, 0.55], outputRange: [0, 1], extrapolate: 'clamp' });
+  return (
+    <>
+      <Zone g={g} />
+      <Animated.View style={{ position: 'absolute', left: g.cx + nina.x * g.r - 40, top: g.cy + nina.y * g.r - 40, width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: DANGER,
+        opacity: burst.interpolate({ inputRange: [0, 0.1, 1], outputRange: [0, 1, 0] }), transform: [{ scale: burst.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1.6] }) }] }} />
+      <Dot g={g} kind="zombie" label="Leo" from={{ x: 0.25, y: 0.35 }} to={{ x: -0.18, y: -0.08 }} p={p} />
+      <Dot g={g} kind="fugitive" label="Nina" from={nina} to={nina} p={p} fadeOut />
+      <Dot g={g} kind="zombie" label="Nina" from={nina} to={nina} p={p} appearAt={0.55} />
+      {FUGITIVES.slice(1).map(f => <Dot key={f.name} g={g} kind="fugitive" label={f.name} from={f} to={f} p={p} />)}
+      <View style={{ position: 'absolute', left: 0, right: 0, top: g.cy + g.r + 14, alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: CARD, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 6 }}>
+          <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: DANGER }} />
+          <View style={{ width: 112 }}>
+            <Animated.Text numberOfLines={1} style={{ fontFamily: fonts.mono, fontSize: 14, color: INK, opacity: one }}>1 CHASSEUR</Animated.Text>
+            <Animated.Text numberOfLines={1} style={{ position: 'absolute', left: 0, right: 0, fontFamily: fonts.mono, fontSize: 14, color: DANGER, opacity: two }}>2 CHASSEURS</Animated.Text>
+          </View>
+        </View>
       </View>
-    </Animated.View>
+    </>
   );
 }
 
@@ -313,12 +362,12 @@ function Lag({ p, g }: StepProps) {
 
 function Shrink({ p, g }: StepProps) {
   const scale = p.interpolate({ inputRange: [0.05, 0.45], outputRange: [1, 0.62], extrapolate: 'clamp', easing: Easing.inOut(Easing.cubic) });
-  const out = { x: 0.1, y: -0.82 }; // au-dessus de la zone réduite : l'étiquette reste dans l'écran
+  const out = { x: -0.35, y: -0.82 }; // au-dessus de la zone réduite : l'étiquette reste dans l'écran
   return (
     <>
       <Zone g={g} scale={scale} />
       <Dot g={g} kind="target" label="SASHA 0:20" from={{ x: -0.3, y: 0.25 }} to={{ x: -0.3, y: 0.25 }} p={p} />
-      <Dot g={g} kind="exposed" label="TEO hors zone · en direct · 0:42" from={out} to={out} p={p} appearAt={0.55} />
+      <Dot g={g} kind="exposed" label="TEO hors zone 0:42" from={out} to={out} p={p} appearAt={0.55} />
     </>
   );
 }
@@ -356,7 +405,7 @@ function RadioScene({ p, g }: StepProps) {
     <Animated.View key={text} style={[{ alignItems: mine ? 'flex-end' : 'flex-start', gap: 4 }, appear(from)]}>
       {name && <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: DIM, marginLeft: 10 }}>{name}</Text>}
       <View style={{ backgroundColor: mine ? LIME : SURFACE2, borderRadius: radius.block, paddingHorizontal: 14, paddingVertical: 9, maxWidth: '82%' }}>
-        <Text style={{ fontFamily: fonts.body, fontSize: 15, color: INK }}>{text}</Text>
+        <Text style={{ fontFamily: fonts.body, fontSize: 15, color: mine ? ON_LIME : INK }}>{text}</Text>
       </View>
     </Animated.View>
   );
@@ -364,6 +413,7 @@ function RadioScene({ p, g }: StepProps) {
     <View style={{ flex: 1, height: 34, alignItems: 'center', justifyContent: 'center' }}>
       <Animated.View style={{ position: 'absolute', inset: 0, backgroundColor: LIME, borderRadius: radius.inner - 3, opacity: on }} />
       <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: INK }}>{label}</Text>
+      <Animated.Text style={{ position: 'absolute', fontFamily: fonts.semibold, fontSize: 14, color: ON_LIME, opacity: on }}>{label}</Animated.Text>
     </View>
   );
   return (
