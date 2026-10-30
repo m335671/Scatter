@@ -136,8 +136,7 @@ export function start(g: Game, rng = Math.random) {
     : 'La partie commence. Bonne chance à tous !');
 }
 
-/** Pas de zombie en entraînement : les bots ne savent pas jouer un fugitif converti. */
-export const isZombie = (g: Game) => g.rules.mode === 'zombie' && !g.training;
+export const isZombie = (g: Game) => g.rules.mode === 'zombie';
 
 // ---------- Positions ----------
 

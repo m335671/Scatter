@@ -10,9 +10,11 @@ const NAMES = ['Leo', 'Sasha', 'Teo', 'Nina', 'Adri', 'Maya', 'Yanis', 'Lou'];
 export function addBots(g: Game, rng = Math.random) {
   const human = [...g.players.values()][0];
   if (human.choice === 'random') human.choice = rng() < 0.5 ? 'hunter' : 'fugitive';
+  // Zombie : un seul chasseur au départ, le joueur s'il l'a choisi, sinon un bot.
+  const zombie = g.rules.mode === 'zombie';
   const roles = human.choice === 'hunter'
-    ? ['hunter', 'fugitive', 'fugitive', 'fugitive', 'fugitive'] as const
-    : ['hunter', 'hunter', 'fugitive', 'fugitive', 'fugitive'] as const;
+    ? [zombie ? 'fugitive' : 'hunter', 'fugitive', 'fugitive', 'fugitive', 'fugitive'] as const
+    : ['hunter', zombie ? 'fugitive' : 'hunter', 'fugitive', 'fugitive', 'fugitive'] as const;
   roles.forEach((role, i) => {
     const name = NAMES[i];
     const p = join(g, { id: `bot-${i}`, name, username: name.toLowerCase() }, { isBot: true, choice: role });

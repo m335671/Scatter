@@ -196,3 +196,16 @@ test('zombie : un seul chasseur, le fugitif attrapé change d\'équipe', () => {
   capture(g, 'a', qrFor(g, g.players.get('c')!)); // le converti chasse à son tour
   assert.equal(g.winner, 'hunter');
 });
+
+test('zombie en entraînement : un seul chasseur, le joueur attrapé passe chasseur', () => {
+  const g = createGame('ZOMB22', { id: 'h', name: 'H', username: 'h' }, { ...defaultRules(C), mode: 'zombie', headStartMin: 0 }, true);
+  g.players.get('h')!.choice = 'fugitive';
+  addBots(g);
+  start(g);
+  const hunters = [...g.players.values()].filter(p => p.role === 'hunter');
+  assert.deepEqual(hunters.map(p => p.id), ['bot-0']);
+  updatePosition(g, 'h', g.players.get('bot-0')!.history.at(-1)!);
+  moveBots(g, 1000);
+  assert.equal(view(g, 'h')!.me.role, 'hunter');
+  assert.equal(view(g, 'h')!.me.caught, false);
+});

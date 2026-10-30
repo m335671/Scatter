@@ -92,18 +92,16 @@ export default function LobbyScreen() {
           </Group>
         )}
 
-        {!lobby.training && (
-          <Group label="Mode" footer={r.mode === 'zombie'
-            ? "Un seul chasseur au départ, tiré parmi ceux qui ont choisi « Chasseur ». Chaque fugitif attrapé devient chasseur à son tour."
-            : 'Deux équipes fixes : un fugitif attrapé passe spectateur.'}>
-            {isHost ? (
-              <View style={{ padding: 12 }}>
-                <Segmented<GameMode> stretch value={r.mode} onChange={mode => set(x => ({ ...x, mode }))}
-                  options={[{ value: 'classic', label: 'Classique' }, { value: 'zombie', label: 'Zombie' }]} />
-              </View>
-            ) : <Row title="Mode" value={r.mode === 'zombie' ? 'Zombie' : 'Classique'} />}
-          </Group>
-        )}
+      <Group label="Mode" footer={r.mode === 'zombie'
+          ? "Un seul chasseur au départ, tiré parmi ceux qui ont choisi « Chasseur ». Chaque fugitif attrapé devient chasseur à son tour."
+          : 'Deux équipes fixes : un fugitif attrapé passe spectateur.'}>
+          {isHost ? (
+            <View style={{ padding: 12 }}>
+              <Segmented<GameMode> stretch value={r.mode} onChange={mode => set(x => ({ ...x, mode }))}
+                options={[{ value: 'classic', label: 'Classique' }, { value: 'zombie', label: 'Zombie' }]} />
+            </View>
+          ) : <Row title="Mode" value={r.mode === 'zombie' ? 'Zombie' : 'Classique'} />}
+        </Group>
 
         <Group label="Règles de la partie" footer={isHost ? undefined : "Seul l'hôte peut modifier les règles."}>
           {step('Durée', `${r.durationMin} min`, d => set(x => ({ ...x, durationMin: clamp(x.durationMin + d * 5, 5, 180) })))}
