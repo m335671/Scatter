@@ -196,7 +196,7 @@ function useHere(): Here {
 
 function HereCard({ here, radiusM, children }: { here: Here; radiusM: number; children: React.ReactNode }) {
   const t = useTheme();
-  const mapStyle = useMapStyle(t.dark);
+  const mapStyle = useMapStyle(t);
   const zone = useMemo(() => here.pos && circle(here.pos, radiusM), [here.pos?.lat, here.pos?.lng, radiusM]);
   return (
     <View style={{ flex: 1, minHeight: 170, borderRadius: radius.block + 10, overflow: 'hidden', backgroundColor: t.surface2, borderWidth: t.dark ? 1 : 0, borderColor: t.line }}>

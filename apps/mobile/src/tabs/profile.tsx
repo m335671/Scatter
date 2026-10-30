@@ -1,13 +1,14 @@
 // Onglet Profil : compte, préférences, données locales, serveur.
 import { useState } from 'react';
-import { ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import { connect, updateMe } from '../api';
 import { clearStats } from '../stats';
 import { DEFAULT_SERVER, setState, useStore, type Settings } from '../store';
-import { fonts, radius, useTheme } from '../theme';
-import { Group, Row, Segmented, showDialog } from '../ui';
+import { CheckIcon } from 'phosphor-react-native';
+import { PALETTES, PALETTE_IDS, fonts, radius, themeOf, useTheme, type PaletteId } from '../theme';
+import { Group, Row, Segmented, Toggle, showDialog } from '../ui';
 import { LocalDataNotice } from './activity';
 
 export function ProfileTab() {
@@ -19,6 +20,7 @@ export function ProfileTab() {
   const [server, setServer] = useState(settings.serverUrl || DEFAULT_SERVER);
 
   const patch = (p: Partial<Settings>) => setState(s => ({ settings: { ...s.settings, ...p } }));
+  const dyn = settings.dynamicColors;
 
   // Alert.prompt n'existe que sur iOS : on édite le nom et le username en ligne.
   const [edit, setEdit] = useState<null | 'name' | 'username'>(null);
@@ -79,6 +81,28 @@ export function ProfileTab() {
         } />
       </Group>
 
+      <Group label="Couleurs" footer={dyn.enabled
+        ? "En salon et en partie, la couleur suit le mode joué. Partout ailleurs, c'est ta palette."
+        : "La couleur de toute l'app, carte comprise."}>
+        <View style={{ paddingVertical: 12 }}>
+          <PalettePicker value={settings.palette} onChange={palette => patch({ palette })} />
+        </View>
+        <Row title="Couleur selon le mode" sub="Une palette pour Classique, une autre pour Zombie"
+          right={<Toggle value={dyn.enabled} onChange={enabled => patch({ dynamicColors: { ...dyn, enabled } })} />} />
+        {dyn.enabled && (
+          <View style={{ paddingVertical: 12, gap: 8 }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: t.text, marginLeft: 16 }}>Classique</Text>
+            <PalettePicker value={dyn.classic} onChange={classic => patch({ dynamicColors: { ...dyn, classic } })} />
+          </View>
+        )}
+        {dyn.enabled && (
+          <View style={{ paddingVertical: 12, gap: 8 }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: t.text, marginLeft: 16 }}>Zombie</Text>
+            <PalettePicker value={dyn.zombie} onChange={zombie => patch({ dynamicColors: { ...dyn, zombie } })} />
+          </View>
+        )}
+      </Group>
+
       <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: t.textDim, marginLeft: 4, marginTop: 8 }}>Tes données</Text>
       <LocalDataNotice />
       <Group>
@@ -100,6 +124,34 @@ export function ProfileTab() {
       </Group>
 
       <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: t.textDim, textAlign: 'center', marginTop: 8 }}>SCATTER · v{Constants.expoConfig?.version}</Text>
+    </ScrollView>
+  );
+}
+
+/** Palettes en aperçu : fond, surface et accent de chacune, dans l'apparence actuelle. */
+function PalettePicker({ value, onChange }: { value: PaletteId; onChange: (id: PaletteId) => void }) {
+  const t = useTheme();
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}>
+      {PALETTE_IDS.map(id => {
+        const p = themeOf(id, t.dark);
+        const on = id === value;
+        return (
+          <Pressable key={id} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={PALETTES[id].name} onPress={() => onChange(id)}
+            style={({ pressed }) => ({ alignItems: 'center', gap: 6, transform: [{ scale: pressed ? 0.95 : 1 }] })}>
+            <View style={{ width: 64, height: 64, borderRadius: 18, backgroundColor: p.bg, borderWidth: on ? 2.5 : 1, borderColor: on ? t.text : t.line, padding: 8, justifyContent: 'space-between' }}>
+              <View style={{ height: 10, borderRadius: 5, backgroundColor: p.surface2 }} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: p.accent, alignItems: 'center', justifyContent: 'center' }}>
+                  {on && <CheckIcon size={13} color={p.onAccent} weight="bold" />}
+                </View>
+                <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: p.text, opacity: 0.85 }} />
+              </View>
+            </View>
+            <Text style={{ fontFamily: on ? fonts.bold : fonts.medium, fontSize: 12, color: on ? t.text : t.textDim }}>{PALETTES[id].name}</Text>
+          </Pressable>
+        );
+      })}
     </ScrollView>
   );
 }

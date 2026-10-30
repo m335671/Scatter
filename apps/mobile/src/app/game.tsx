@@ -65,7 +65,7 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
   const router = useRouter();
   const camera = useRef<CameraRef>(null);
   const insets = useSafeAreaInsets();
-  const mapStyle = useMapStyle(t.dark);
+  const mapStyle = useMapStyle(t);
   const last = useStore(s => s.chat.at(-1));
   const zone = game.zone;
   const zoneShape = useMemo(() => circle(zone.center, zone.radiusM), [zone.center.lat, zone.center.lng, zone.radiusM]);

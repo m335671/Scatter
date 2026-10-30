@@ -4,20 +4,19 @@ import { AccessibilityInfo, Animated, Easing, Pressable, Text, View, type Layout
 import { SafeAreaView } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 import { Camera, Layer, Map, type CameraRef } from '@maplibre/maplibre-react-native';
-import { useMapStyle } from './map-style';
-import { fonts, radius } from './theme';
+import { mix, useMapStyle } from './map-style';
+import { fonts, radius, useTheme, type Theme } from './theme';
 
 const STEP_MS = 6500;
-// Toujours en sombre, aux couleurs de l'app.
-const LIME = '#D4FF3A';
-const ON_LIME = '#0F1712';
-const DANGER = '#FF7A59';
-const INK = '#E8EEE4';
-const DIM = '#9DB09F';
-const LINE = '#2C3B2F';
-const SURFACE2 = '#1E2C23';
-const BG = '#0F1712';
-const CARD = 'rgba(21,32,26,0.95)';
+// Toujours en sombre, aux couleurs de la palette active. Fixées par Tutorial() avant le rendu de ses scènes
+// (un seul tutoriel affiché à la fois) : les éléments de scène les lisent directement.
+let LIME = '', ON_LIME = '', DANGER = '', INK = '', DIM = '', LINE = '', SURFACE2 = '', BG = '', CARD = '';
+function setColors(t: Theme) {
+  ({ accent: LIME, onAccent: ON_LIME, danger: DANGER, text: INK, textDim: DIM, line: LINE, surface2: SURFACE2, bg: BG } = t);
+  CARD = fade(t.surface, 0.95);
+}
+const fade = (hex: string, a: number) =>
+  `rgba(${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)},${a})`;
 // Lyon, Presqu'île : dense, lisible en 3D. Le décor ne dépend pas de la position du joueur.
 const CENTER: [number, number] = [4.8335, 45.7605];
 
@@ -129,7 +128,9 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
   const [g, setG] = useState<Geo | null>(null);
   const p = useRef(new Animated.Value(0)).current;
   const camera = useRef<CameraRef>(null);
-  const mapStyle = useMapStyle(true);
+  const t = useTheme(true);
+  setColors(t);
+  const mapStyle = useMapStyle(t);
   const step = steps[i];
 
   useEffect(() => {
@@ -158,14 +159,14 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
         logo={false} compass={false} attribution={false} dragPan={false} touchZoom={false} doubleTapZoom={false} touchRotate={false} touchPitch={false}>
         <Camera ref={camera} initialViewState={{ center: CENTER, ...steps[0].cam }} />
         <Layer type="fill-extrusion" id="tuto-buildings" source="openmaptiles" source-layer="building" paint={{
-          'fill-extrusion-color': '#2B3C32',
+          'fill-extrusion-color': mix(t.surface2, t.text, 0.08),
           'fill-extrusion-height': ['get', 'render_height'],
           'fill-extrusion-base': ['get', 'render_min_height'],
           'fill-extrusion-opacity': 0.9,
         }} />
       </Map>
       {/* Voile sombre : le décor reste en arrière-plan, les éléments de jeu ressortent. */}
-      <View pointerEvents="none" style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(15,23,18,0.35)' }} />
+      <View pointerEvents="none" style={{ position: 'absolute', inset: 0, backgroundColor: fade(BG, 0.35) }} />
 
       <View style={{ position: 'absolute', inset: 0 }} onLayout={onLayout} pointerEvents="none">
         {g && <step.Scene key={i} p={p} g={g} />}
@@ -182,7 +183,7 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: CARD, borderRadius: radius.block, paddingLeft: 16, paddingRight: 8, height: 52 }}>
           <View style={{ flex: 1, flexDirection: 'row', gap: 5 }}>
             {steps.map((_, k) => (
-              <View key={k} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(232,238,228,0.22)', overflow: 'hidden' }}>
+              <View key={k} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: fade(INK, 0.22), overflow: 'hidden' }}>
                 {k < i && <View style={{ flex: 1, backgroundColor: INK }} />}
                 {k === i && <Animated.View style={{ flex: 1, backgroundColor: INK, transformOrigin: 'left', transform: [{ scaleX: p }] }} />}
               </View>
@@ -215,7 +216,7 @@ function Zone({ g, scale = 1, opacity = 1, red }: { g: Geo; scale?: number | Ani
   return (
     <Animated.View style={{
       position: 'absolute', left: g.cx - g.r, top: g.cy - g.r, width: g.r * 2, height: g.r * 2, borderRadius: g.r,
-      borderWidth: 2.5, borderColor: red ? DANGER : LIME, borderStyle: 'dashed', backgroundColor: red ? 'rgba(255,122,89,0.14)' : 'rgba(212,255,58,0.07)',
+      borderWidth: 2.5, borderColor: red ? DANGER : LIME, borderStyle: 'dashed', backgroundColor: red ? fade(DANGER, 0.14) : fade(LIME, 0.07),
       opacity, transform: [{ scale }],
     }} />
   );
@@ -234,7 +235,7 @@ function Dot({ g, kind, label, from, to, p, fadeOut, appearAt }: {
   return (
     <Animated.View style={{ position: 'absolute', left: g.cx, top: g.cy, flexDirection: 'row', alignItems: 'center', gap: 6, opacity, transform: [{ translateX: move(from.x, to.x) }, { translateY: move(from.y, to.y) }, { translateX: -9 }, { translateY: -9 }] }}>
       <PlayerSymbol kind={kind} />
-      <View style={{ backgroundColor: 'rgba(15,23,18,0.88)', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}>
+      <View style={{ backgroundColor: fade(BG, 0.88), borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: kind === 'exposed' || kind === 'zombie' ? DANGER : kind === 'unknown' ? DIM : INK }}>{label}</Text>
       </View>
     </Animated.View>
@@ -251,7 +252,7 @@ function PlayerSymbol({ kind }: { kind: Kind }) {
   if (kind === 'fugitive') return <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: INK, borderWidth: 2.5, borderColor: BG }} />;
   const c = kind === 'exposed' ? DANGER : INK;
   return (
-    <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 2.5, borderColor: c, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15,23,18,0.6)' }}>
+    <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 2.5, borderColor: c, alignItems: 'center', justifyContent: 'center', backgroundColor: fade(BG, 0.6) }}>
       <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: c }} />
     </View>
   );
@@ -344,7 +345,7 @@ function Lag({ p, g }: StepProps) {
   return (
     <>
       <Zone g={g} />
-      <Animated.View style={{ position: 'absolute', left: g.cx + old.x * g.r - halo, top: g.cy + old.y * g.r - halo, width: halo * 2, height: halo * 2, borderRadius: halo, backgroundColor: 'rgba(232,238,228,0.12)', borderWidth: 1, borderColor: 'rgba(232,238,228,0.35)', opacity: p.interpolate({ inputRange: [0.05, 0.2], outputRange: [0, 1], extrapolate: 'clamp' }) }} />
+      <Animated.View style={{ position: 'absolute', left: g.cx + old.x * g.r - halo, top: g.cy + old.y * g.r - halo, width: halo * 2, height: halo * 2, borderRadius: halo, backgroundColor: fade(INK, 0.12), borderWidth: 1, borderColor: fade(INK, 0.35), opacity: p.interpolate({ inputRange: [0.05, 0.2], outputRange: [0, 1], extrapolate: 'clamp' }) }} />
       <Dot g={g} kind="target" label="NINA 1:00" from={old} to={old} p={p} />
       {/* Où est vraiment Nina maintenant : ce que les chasseurs ne voient pas. */}
       <Animated.View style={{ position: 'absolute', left: g.cx, top: g.cy, opacity: ghostOpacity, transform: [

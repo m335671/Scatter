@@ -2,10 +2,14 @@
 import { useSyncExternalStore } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import type { Channel, ChatMessage, GameView, Lobby } from '@kr/shared';
+import type { PaletteId } from './theme';
 
 export interface User { id: string; name: string; username: string }
 export interface Settings {
   appearance: 'system' | 'light' | 'dark';
+  palette: PaletteId;
+  /** Couleur selon le mode : en salon ou en partie, la palette suit le mode joué. */
+  dynamicColors: { enabled: boolean; classic: PaletteId; zombie: PaletteId };
   units: 'km' | 'mi';
   /** Vide = serveur compilé dans l'app. Rempli seulement si le joueur saisit sa propre adresse. */
   serverUrl: string;
@@ -36,7 +40,10 @@ export const DEFAULT_SERVER = process.env.EXPO_PUBLIC_SERVER_URL ?? 'http://loca
 
 let state: State = {
   ready: false, token: null, user: null, connected: false, lobby: null, game: null, chat: [], unread: { team: 0, all: 0 }, dialog: null, permsChecked: false,
-  settings: { appearance: 'system', units: 'km', serverUrl: '', tutorialSeen: false },
+  settings: {
+    appearance: 'system', palette: 'foret', dynamicColors: { enabled: false, classic: 'braise', zombie: 'foret' },
+    units: 'km', serverUrl: '', tutorialSeen: false,
+  },
 };
 const listeners = new Set<() => void>();
 

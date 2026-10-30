@@ -5,16 +5,9 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import type { LatLng } from '@kr/shared';
 import { Mark } from './logo';
 import type { GameRecord } from './stats';
-import { fonts, radius } from './theme';
+import { fonts, radius, useTheme } from './theme';
 import { fmtClock, fmtDistance } from './ui';
 
-// Toujours aux couleurs sombres de l'app, quel que soit le thème : l'image partagée reste reconnaissable.
-const LIME = '#D4FF3A';
-const INK = '#E8EEE4';
-const DIM = '#9DB09F';
-const BG = '#0F1712';
-const PANEL = '#15201A';
-const LINE = '#2C3B2F';
 
 /** Projette le trajet (et la zone) dans un carré de `size` px, nord en haut. */
 export function project(track: LatLng[], zone: GameRecord['zone'], size: number, pad: number) {
@@ -37,6 +30,8 @@ export function project(track: LatLng[], zone: GameRecord['zone'], size: number,
 
 export const ShareCard = forwardRef<ComponentRef<typeof View>, { record: GameRecord; name: string; units: 'km' | 'mi'; width: number }>(
   function ShareCard({ record: r, name, units, width }, ref) {
+    // Toujours en sombre, aux couleurs de la palette active : l'image partagée reste reconnaissable.
+    const { accent: LIME, text: INK, textDim: DIM, bg: BG, surface: PANEL, line: LINE } = useTheme(true);
     const mapSize = width - 40;
     const hasTrack = r.track.length > 1;
     const p = hasTrack || r.zone ? project(r.track, r.zone, mapSize, 22) : null;
@@ -65,7 +60,7 @@ export const ShareCard = forwardRef<ComponentRef<typeof View>, { record: GameRec
         <View style={{ width: mapSize, height: mapSize, backgroundColor: PANEL, borderRadius: radius.block, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
           {p ? (
             <Svg width={mapSize} height={mapSize}>
-              {zc && r.zone && <Circle cx={zc.x} cy={zc.y} r={r.zone.radiusM * p.scale} fill="rgba(212,255,58,0.06)" stroke={DIM} strokeWidth={2} strokeDasharray="6 5" />}
+              {zc && r.zone && <Circle cx={zc.x} cy={zc.y} r={r.zone.radiusM * p.scale} fill={LIME} fillOpacity={0.06} stroke={DIM} strokeWidth={2} strokeDasharray="6 5" />}
               {hasTrack && <Path d={d} fill="none" stroke={LIME} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" />}
               {start && <Circle cx={start.x} cy={start.y} r={6} fill={PANEL} stroke={INK} strokeWidth={3} />}
               {end && <Circle cx={end.x} cy={end.y} r={7} fill={LIME} stroke={BG} strokeWidth={3} />}

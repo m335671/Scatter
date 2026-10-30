@@ -54,7 +54,7 @@ export default function Home() {
       </View>
       {/* Clavier ouvert (code à saisir) : la barre d'onglets laisse la place, le contenu remonte au-dessus du clavier. */}
       {keyboard ? <KeyboardSpacer /> : <SafeAreaView edges={['bottom']} accessibilityRole="tablist"
-        style={{ flexDirection: 'row', backgroundColor: t.dark ? '#0B110D' : t.surface, borderTopWidth: 1, borderTopColor: t.line, marginTop: 12 }}>
+        style={{ flexDirection: 'row', backgroundColor: t.dark ? t.bg : t.surface, borderTopWidth: 1, borderTopColor: t.line, marginTop: 12 }}>
         {item('play', 'Jouer', TargetIcon)}
         {item('activity', 'Activité', PathIcon)}
         {item('profile', 'Profil', UserIcon)}
