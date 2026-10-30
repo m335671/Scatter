@@ -18,15 +18,53 @@ import { circle, fmtLatLng, zoomFor } from '../zone';
 
 const START_RADIUS = defaultRules({ lat: 0, lng: 0 }).zone.startRadiusM;
 
-export function PlayTab({ onProfile }: { onProfile: () => void }) {
+/** En-tête : résumé de la dernière partie (entraînement compris), qui mène à l'onglet Activité. */
+function LastGame({ onPress }: { onPress: () => void }) {
+  const t = useTheme();
+  const records = useRecords();
+  const last = records[0];
+  const wins = records.filter(r => !r.training && r.won).length;
+  const games = records.filter(r => !r.training).length;
+  if (!last) {
+    return (
+      <View style={{ alignItems: 'flex-end' }}>
+        <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11, letterSpacing: 1, color: t.textDim }}>AUCUNE PARTIE</Text>
+        <Text style={{ fontFamily: fonts.mono, fontSize: 14, color: t.accentText }}>à toi de jouer</Text>
+      </View>
+    );
+  }
+  const days = Math.round((startOfDay(Date.now()) - startOfDay(last.date)) / 86_400_000);
+  const when = days === 0 ? "AUJOURD'HUI" : days === 1 ? 'HIER'
+    : new Date(last.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }).toUpperCase();
+  const result = last.role === 'fugitive'
+    ? (last.caught ? `Attrapé ${fmtClock(last.survivedMs)}` : `Survécu ${fmtClock(last.survivedMs)}`)
+    : `${last.captures} capture${last.captures > 1 ? 's' : ''}`;
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={`Dernière partie : ${result}. Voir l'activité`} onPress={onPress} hitSlop={8}
+      style={({ pressed }) => ({ alignItems: 'flex-end', gap: 2, opacity: pressed ? 0.7 : 1, flexShrink: 1 })}>
+      <Text numberOfLines={1} style={{ fontFamily: fonts.monoMedium, fontSize: 11, letterSpacing: 1, color: t.textDim }}>
+        {last.training ? 'ENTRAÎNEMENT' : 'DERNIÈRE'} · {when}
+      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <Text numberOfLines={1} style={{ fontFamily: fonts.mono, fontSize: 15, color: t.text }}>{result}</Text>
+        <View style={{ borderRadius: 5, paddingHorizontal: 5, paddingVertical: 1, backgroundColor: last.won ? t.accent : 'transparent', borderWidth: last.won ? 0 : 1, borderColor: t.line }}>
+          <Text style={{ fontFamily: fonts.mono, fontSize: 10, color: last.won ? t.onAccent : t.textDim }}>{last.won ? 'GAGNÉ' : 'PERDU'}</Text>
+        </View>
+      </View>
+      {games > 0 && <Text style={{ fontFamily: fonts.monoMedium, fontSize: 11, color: t.textDim }}>{wins}/{games} VICTOIRES</Text>}
+    </Pressable>
+  );
+}
+
+const startOfDay = (ms: number) => new Date(ms).setHours(0, 0, 0, 0);
+
+export function PlayTab({ onActivity }: { onActivity: () => void }) {
   const t = useTheme();
   const router = useRouter();
-  const user = useStore(s => s.user);
   const connected = useStore(s => s.connected);
   const lobby = useStore(s => s.lobby);
   const phase = useStore(s => s.game?.phase);
   const units = useStore(s => s.settings.units);
-  const last = useRecords().find(r => !r.training);
   const [busy, setBusy] = useState<'create' | 'train' | 'join' | null>(null);
   const [code, setCode] = useState('');
   const [joinError, setJoinError] = useState('');
@@ -62,21 +100,15 @@ export function PlayTab({ onProfile }: { onProfile: () => void }) {
   }
 
   const inGame = phase === 'headstart' || phase === 'hunt';
-  const lastLine = last && (last.role === 'fugitive'
-    ? (last.caught ? `attrapé à ${fmtClock(last.survivedMs)}` : `survécu ${fmtClock(last.survivedMs)}`)
-    : `${last.captures} capture${last.captures > 1 ? 's' : ''}`);
 
   return (
     <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 8, gap: 12 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, height: 52 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 4, minHeight: 56 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Mark size={32} color={t.text} dot={t.dark ? t.accent : t.text} />
           <Text accessibilityRole="header" style={{ fontFamily: fonts.hero, fontSize: 26, color: t.text, letterSpacing: -0.5 }}>scatter</Text>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel="Profil" onPress={onProfile}
-          style={({ pressed }) => ({ width: 42, height: 42, borderRadius: 21, backgroundColor: t.dark ? t.surface2 : t.text, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] })}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: t.accent }}>{user?.name.slice(0, 1).toUpperCase()}</Text>
-        </Pressable>
+        <LastGame onPress={onActivity} />
       </View>
 
       {/* Seules les vraies parties, en cours ou en salon, sont proposées : pas les entraînements ni les parties finies. */}
@@ -120,9 +152,9 @@ export function PlayTab({ onProfile }: { onProfile: () => void }) {
       {joinError ? <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: t.danger, marginHorizontal: 8, marginTop: -4 }}>{joinError}</Text> : null}
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 6 }}>
-        <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: t.textDim, flexShrink: 1 }} numberOfLines={1}>
-          {!connected ? 'Connexion au serveur…' : lastLine ? <>Dernière : <Text style={{ fontFamily: fonts.mono, color: t.text }}>{lastLine}</Text></> : 'Pas encore de partie'}
-        </Text>
+        {connected
+          ? <Pressable hitSlop={10} onPress={() => router.push('/tutorial')}><Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: t.textDim }}>Comment ça marche</Text></Pressable>
+          : <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: t.danger, flexShrink: 1 }} numberOfLines={1}>Connexion au serveur…</Text>}
         <Pressable hitSlop={10} onPress={() => create(true)} disabled={!connected || !!busy}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: t.accentText, opacity: connected ? 1 : 0.4 }}>{busy === 'train' ? 'Préparation…' : "S'entraîner →"}</Text>
         </Pressable>

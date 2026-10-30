@@ -46,7 +46,7 @@ export default function Home() {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
       <View style={{ flex: 1 }}>
-        {tab === 'play' && <PlayTab onProfile={() => setTab('profile')} />}
+        {tab === 'play' && <PlayTab onActivity={() => setTab('activity')} />}
         {tab === 'activity' && <ActivityTab />}
         {tab === 'profile' && <ProfileTab />}
       </View>
