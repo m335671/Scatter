@@ -46,6 +46,19 @@ export async function currentPosition() {
   return { lat: p.coords.latitude, lng: p.coords.longitude };
 }
 
+/**
+ * Position pour placer une zone : la dernière connue si elle est récente et assez précise (instantané,
+ * l'accueil vient d'en obtenir une), sinon un relevé GPS frais (plusieurs secondes).
+ */
+export async function zonePosition() {
+  const fg = await Location.getForegroundPermissionsAsync();
+  if (!fg.granted && !(await Location.requestForegroundPermissionsAsync()).granted) {
+    throw new Error('Sans ta position, impossible de placer la zone de jeu.');
+  }
+  const known = await Location.getLastKnownPositionAsync({ maxAge: 2 * 60_000, requiredAccuracy: 60 }).catch(() => null);
+  return known ? { lat: known.coords.latitude, lng: known.coords.longitude } : currentPosition();
+}
+
 let foregroundSub: Location.LocationSubscription | null = null;
 
 export async function startTracking() {

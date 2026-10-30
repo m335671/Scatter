@@ -58,6 +58,9 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            COMMIT=${{ github.sha }}
+            BUILT_AT=${{ github.event.head_commit.timestamp }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

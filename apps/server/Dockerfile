@@ -9,7 +9,10 @@ COPY packages/shared ./packages/shared
 COPY apps/server/package.json ./apps/server/
 RUN npm install --omit=dev -w @kr/server && npm cache clean --force
 COPY apps/server/src ./apps/server/src
-ENV NODE_ENV=production DATA_DIR=/data PORT=3000
+# Renseignés par le workflow GitHub : visibles dans /version.
+ARG COMMIT=dev
+ARG BUILT_AT=
+ENV NODE_ENV=production DATA_DIR=/data PORT=3000 COMMIT=$COMMIT BUILT_AT=$BUILT_AT
 EXPOSE 3000
 VOLUME /data
 USER node

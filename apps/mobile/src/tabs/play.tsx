@@ -1,5 +1,5 @@
 // Onglet Jouer : la carte autour de toi pour créer une partie, la barre de code pour en rejoindre une.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, Pressable, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Location from 'expo-location';
@@ -7,7 +7,7 @@ import { Camera, GeoJSONSource, Layer, Map } from '@maplibre/maplibre-react-nati
 import { CaretRightIcon, MapPinIcon, ScanIcon } from 'phosphor-react-native';
 import { defaultRules, type LatLng } from '@kr/shared';
 import { emit } from '../api';
-import { askLocation, currentPosition } from '../location';
+import { askLocation, currentPosition, zonePosition } from '../location';
 import { Mark } from '../logo';
 import { useMapStyle } from '../map-style';
 import { useRecords } from '../stats';
@@ -19,7 +19,7 @@ import { circle, fmtLatLng, zoomFor } from '../zone';
 const START_RADIUS = defaultRules({ lat: 0, lng: 0 }).zone.startRadiusM;
 
 /** En-tête : résumé de la dernière partie (entraînement compris), qui mène à l'onglet Activité. */
-function LastGame({ onPress }: { onPress: () => void }) {
+function LastGame({ onPress, disabled }: { onPress: () => void; disabled: boolean }) {
   const t = useTheme();
   const records = useRecords();
   const last = records[0];
@@ -40,8 +40,8 @@ function LastGame({ onPress }: { onPress: () => void }) {
     ? (last.caught ? `Attrapé ${fmtClock(last.survivedMs)}` : `Survécu ${fmtClock(last.survivedMs)}`)
     : `${last.captures} capture${last.captures > 1 ? 's' : ''}`;
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`Dernière partie : ${result}. Voir l'activité`} onPress={onPress} hitSlop={8}
-      style={({ pressed }) => ({ alignItems: 'flex-end', gap: 2, opacity: pressed ? 0.7 : 1, flexShrink: 1 })}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`Dernière partie : ${result}. Voir l'activité`} onPress={onPress} hitSlop={8} disabled={disabled}
+      style={({ pressed }) => ({ alignItems: 'flex-end', gap: 2, opacity: pressed || disabled ? 0.5 : 1, flexShrink: 1 })}>
       <Text numberOfLines={1} style={{ fontFamily: fonts.monoMedium, fontSize: 11, letterSpacing: 1, color: t.textDim }}>
         {last.training ? 'ENTRAÎNEMENT' : 'DERNIÈRE'} · {when}
       </Text>
@@ -58,23 +58,26 @@ function LastGame({ onPress }: { onPress: () => void }) {
 
 const startOfDay = (ms: number) => new Date(ms).setHours(0, 0, 0, 0);
 
-export function PlayTab({ onActivity }: { onActivity: () => void }) {
+export function PlayTab({ onActivity, onBusy }: { onActivity: () => void; onBusy: (busy: boolean) => void }) {
   const t = useTheme();
   const router = useRouter();
   const connected = useStore(s => s.connected);
   const lobby = useStore(s => s.lobby);
   const phase = useStore(s => s.game?.phase);
   const units = useStore(s => s.settings.units);
-  const [busy, setBusy] = useState<'create' | 'train' | 'join' | null>(null);
+  const [busy, setBusyState] = useState<'create' | 'train' | 'join' | null>(null);
   const [code, setCode] = useState('');
   const [joinError, setJoinError] = useState('');
   const here = useHere();
+  // Verrou synchrone : deux appuis rapides passeraient avant que l'état `busy` ne soit rendu.
+  const lock = useRef(false);
+  const setBusy = (b: typeof busy) => { lock.current = !!b; setBusyState(b); onBusy(!!b); };
 
   async function create(training: boolean) {
+    if (lock.current) return;
     setBusy(training ? 'train' : 'create');
     try {
-      if ((await askLocation()) === 'denied') throw new Error('Sans ta position, impossible de placer la zone de jeu.');
-      const center = await currentPosition();
+      const center = await zonePosition();
       await emit('create', { rules: defaultRules(center), training });
       router.push('/lobby');
     } catch (e) {
@@ -85,13 +88,14 @@ export function PlayTab({ onActivity }: { onActivity: () => void }) {
   }
 
   async function join() {
+    if (lock.current) return;
     setBusy('join');
     setJoinError('');
     try {
       await emit('join', { code });
-      await askLocation().catch(() => {});
       setCode('');
       router.push('/lobby');
+      askLocation().catch(() => {}); // demandée dans le salon, sans retarder l'arrivée
     } catch (e) {
       setJoinError((e as Error).message);
     } finally {
@@ -108,7 +112,7 @@ export function PlayTab({ onActivity }: { onActivity: () => void }) {
           <Mark size={32} color={t.text} dot={t.dark ? t.accent : t.text} />
           <Text accessibilityRole="header" style={{ fontFamily: fonts.hero, fontSize: 26, color: t.text, letterSpacing: -0.5 }}>scatter</Text>
         </View>
-        <LastGame onPress={onActivity} />
+        <LastGame onPress={onActivity} disabled={!!busy} />
       </View>
 
       {/* Seules les vraies parties, en cours ou en salon, sont proposées : pas les entraînements ni les parties finies. */}
@@ -136,10 +140,10 @@ export function PlayTab({ onActivity }: { onActivity: () => void }) {
           value={code} onChangeText={s => { setJoinError(''); setCode(s.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)); }}
           placeholder="CODE" placeholderTextColor={t.textDim} selectionColor={t.accent}
           autoCapitalize="characters" autoCorrect={false} returnKeyType="go" onSubmitEditing={() => code.length === 6 && join()}
-          accessibilityLabel="Code de la partie"
+          accessibilityLabel="Code de la partie" editable={!busy}
           style={{ flex: 1, fontFamily: fonts.mono, fontSize: 20, letterSpacing: 5, color: t.text, paddingVertical: 0 }} />
-        <Pressable accessibilityRole="button" accessibilityLabel="Scanner le QR du salon" onPress={() => router.push('/scan?mode=join')} disabled={!connected}
-          style={({ pressed }) => ({ width: 46, height: 46, borderRadius: 23, backgroundColor: t.surface2, alignItems: 'center', justifyContent: 'center', opacity: connected ? 1 : 0.4, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Scanner le QR du salon" onPress={() => router.push('/scan?mode=join')} disabled={!connected || !!busy}
+          style={({ pressed }) => ({ width: 46, height: 46, borderRadius: 23, backgroundColor: t.surface2, alignItems: 'center', justifyContent: 'center', opacity: connected && !busy ? 1 : 0.4, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
           <ScanIcon size={22} color={t.text} />
         </Pressable>
         <Pressable accessibilityRole="button" onPress={join} disabled={code.length !== 6 || !connected || !!busy}
@@ -153,10 +157,10 @@ export function PlayTab({ onActivity }: { onActivity: () => void }) {
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 6 }}>
         {connected
-          ? <Pressable hitSlop={10} onPress={() => router.push('/tutorial')}><Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: t.textDim }}>Comment ça marche</Text></Pressable>
+          ? <Pressable hitSlop={10} disabled={!!busy} onPress={() => router.push('/tutorial')}><Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: t.textDim, opacity: busy ? 0.4 : 1 }}>Comment ça marche</Text></Pressable>
           : <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: t.danger, flexShrink: 1 }} numberOfLines={1}>Connexion au serveur…</Text>}
         <Pressable hitSlop={10} onPress={() => create(true)} disabled={!connected || !!busy}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: t.accentText, opacity: connected ? 1 : 0.4 }}>{busy === 'train' ? 'Préparation…' : "S'entraîner →"}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: t.accentText, opacity: connected && (!busy || busy === 'train') ? 1 : 0.4 }}>{busy === 'train' ? 'Préparation…' : "S'entraîner →"}</Text>
         </Pressable>
       </View>
     </View>

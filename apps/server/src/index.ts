@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { Server, type Socket } from 'socket.io';
 import type { z } from 'zod';
@@ -43,12 +44,21 @@ function send(res: ServerResponse, status: number, data: unknown) {
   res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(data));
 }
 
+/** Version servie par /health et /version : permet de vérifier qu'une mise à jour est bien déployée. */
+const VERSION = {
+  version: JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version as string,
+  commit: process.env.COMMIT || 'dev',      // injecté au build de l'image Docker
+  builtAt: process.env.BUILT_AT || null,
+  startedAt: new Date().toISOString(),
+};
+
 const bearer = (req: IncomingMessage) => req.headers.authorization?.replace(/^Bearer /, '') ?? '';
 
 const http = createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? '/', 'http://x');
-    if (req.method === 'GET' && url.pathname === '/health') return send(res, 200, { ok: true });
+    if (req.method === 'GET' && url.pathname === '/health') return send(res, 200, { ok: true, ...VERSION });
+    if (req.method === 'GET' && url.pathname === '/version') return send(res, 200, VERSION);
 
     const m = url.pathname.match(/^\/username\/([^/]+)$/);
     if (req.method === 'GET' && m) {
@@ -346,4 +356,4 @@ setInterval(() => {
   });
 }, 10 * 60_000);
 
-http.listen(PORT, () => log('serveur', 'démarré', { port: PORT, donnees: process.env.DATA_DIR ?? './data', comptes: db.userCount(), node: process.version }));
+http.listen(PORT, () => log('serveur', 'démarré', { version: VERSION.version, commit: VERSION.commit, port: PORT, donnees: process.env.DATA_DIR ?? './data', comptes: db.userCount(), node: process.version }));

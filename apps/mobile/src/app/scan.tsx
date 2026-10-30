@@ -34,8 +34,8 @@ export default function Scan() {
         if (!CODE.test(code)) return fail("Ce n'est pas le QR d'un salon Scatter.");
         await emit('join', { code });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        await askLocation().catch(() => {});
         router.replace('/lobby');
+        askLocation().catch(() => {}); // demandée dans le salon, sans retarder l'arrivée
         return;
       }
       await emit('capture', { qr: data });

@@ -21,6 +21,8 @@ export default function Home() {
   const permsChecked = useStore(s => s.permsChecked);
   const [tab, setTab] = useState<Tab>('play');
   const keyboard = useKeyboardHeight() > 0;
+  // Création ou arrivée dans une partie en cours : on ne change pas d'onglet entre-temps.
+  const [busy, setBusy] = useState(false);
 
   // À chaque lancement : s'il manque une permission, on montre l'écran qui les liste.
   useEffect(() => {
@@ -35,8 +37,8 @@ export default function Home() {
     const on = tab === key;
     const color = on ? (t.dark ? t.accent : t.text) : t.textDim;
     return (
-      <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => setTab(key)}
-        style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, paddingVertical: 8 }}>
+      <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => setTab(key)} disabled={busy}
+        style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, paddingVertical: 8, opacity: busy && !on ? 0.4 : 1 }}>
         <Icon size={25} color={color} weight={on ? 'bold' : 'regular'} />
         <Text style={{ fontFamily: on ? fonts.bold : fonts.semibold, fontSize: 12, color }}>{label}</Text>
       </Pressable>
@@ -46,7 +48,7 @@ export default function Home() {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
       <View style={{ flex: 1 }}>
-        {tab === 'play' && <PlayTab onActivity={() => setTab('activity')} />}
+        {tab === 'play' && <PlayTab onActivity={() => setTab('activity')} onBusy={setBusy} />}
         {tab === 'activity' && <ActivityTab />}
         {tab === 'profile' && <ProfileTab />}
       </View>
