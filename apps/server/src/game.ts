@@ -23,6 +23,8 @@ export interface Player {
   secret: string;
   history: Sample[];
   target?: LatLng; // bots
+  /** Bot envoyé hors zone par les contrôles d'entraînement. */
+  stray?: boolean;
   /** A quitté la partie en cours de manche. */
   left?: boolean;
   captures?: number;
@@ -50,6 +52,8 @@ export interface Game {
   /** Messages créés depuis le dernier drain, à diffuser par le serveur. */
   outbox: { team: Role | 'all'; msg: ChatMessage }[];
   seq: number;
+  /** Bots bavards : dernier ping commenté à la radio. */
+  botsPingAt?: number;
 }
 
 export interface UserRef { id: string; name: string; username: string }

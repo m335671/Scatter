@@ -26,6 +26,13 @@ export const Rules = z.object({
     finalRadiusM: z.number().min(25).max(10_000),
     shrinkEveryMin: z.number().int().min(1).max(60),
   }).refine(z => z.finalRadiusM <= z.startRadiusM, 'finalRadiusM > startRadiusM'),
+  /** Entraînement uniquement. smart : les bots exploitent les pings ; chatty : ils parlent à la radio. */
+  bots: z.object({
+    hunters: z.number().int().min(0).max(5),
+    fugitives: z.number().int().min(0).max(10),
+    smart: z.boolean(),
+    chatty: z.boolean(),
+  }).default({ hunters: 2, fugitives: 3, smart: false, chatty: true }),
 });
 export type Rules = z.infer<typeof Rules>;
 
@@ -37,6 +44,7 @@ export const defaultRules = (center: LatLng): Rules => ({
   huntersCanTalk: true,
   spectatorDelayMin: 1,
   zone: { enabled: true, center, startRadiusM: 420, finalRadiusM: 150, shrinkEveryMin: 5 },
+  bots: { hunters: 2, fugitives: 3, smart: false, chatty: true },
 });
 
 /** Les chasseurs voient la position des fugitifs telle qu'elle était PING_DELAY_MS avant le ping. */
@@ -75,6 +83,9 @@ export const C2S = {
     z.object({ action: z.literal('advance') }),
     z.object({ action: z.literal('speed'), value: z.union([z.literal(1), z.literal(5), z.literal(20)]) }),
     z.object({ action: z.literal('end') }),
+    z.object({ action: z.literal('catch') }),   // chasseur : attrape le bot fugitif le plus proche (simule le scan)
+    z.object({ action: z.literal('caught') }),  // fugitif : se fait attraper par le bot chasseur le plus proche
+    z.object({ action: z.literal('stray') }),   // un bot fugitif part hors zone
   ]),
 };
 

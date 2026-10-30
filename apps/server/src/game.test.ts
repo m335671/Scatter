@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { defaultRules, MIN, zoneRadius } from '@kr/shared';
 import { type Game, GameError, capture, createGame, join, leave, qrFor, say, start, tick, updatePosition, view } from './game.ts';
-import { addBots, moveBots } from './bots.ts';
+import { addBots, moveBots, sendStray, trainingCatch } from './bots.ts';
 
 const C = { lat: 45.9, lng: 4.6 };
 
@@ -138,12 +138,12 @@ test('entraînement : les bots bougent dans la zone', () => {
   g.players.get('me')!.choice = 'hunter';
   addBots(g);
   start(g);
-  const bot = g.players.get('bot-1')!;
+  const bot = g.players.get('bot-2')!; // 2 bots chasseurs puis 3 fugitifs par défaut
   const before = bot.history.at(-1)!;
   tick(g, 10_000);
   moveBots(g, 10_000);
   assert.notDeepEqual(bot.history.at(-1), before);
-  assert.equal(view(g, 'me')!.fugitivesTotal, 4);
+  assert.equal(view(g, 'me')!.fugitivesTotal, 3);
 });
 
 test('zone : éliminé après 1 min dehors, compteur remis à zéro en rentrant, chasseurs prévenus', () => {
@@ -208,4 +208,22 @@ test('zombie en entraînement : un seul chasseur, le joueur attrapé passe chass
   moveBots(g, 1000);
   assert.equal(view(g, 'h')!.me.role, 'hunter');
   assert.equal(view(g, 'h')!.me.caught, false);
+});
+
+test('entraînement : nombre de bots, capture simulée, bot hors zone éliminé, radio des bots', () => {
+  const rules = { ...defaultRules(C), headStartMin: 0, bots: { hunters: 1, fugitives: 4, smart: true, chatty: true } };
+  const g = createGame('TRAIN2', { id: 'me', name: 'Moi', username: 'moi' }, rules, true);
+  g.players.get('me')!.choice = 'hunter';
+  addBots(g);
+  addBots(g); // un lancement raté puis relancé ne double pas les bots
+  start(g);
+  updatePosition(g, 'me', C);
+  assert.equal(g.players.size, 6);
+  trainingCatch(g, 'me', 'catch');
+  assert.equal(view(g, 'me')!.fugitivesLeft, 3);
+  assert.throws(() => trainingCatch(g, 'me', 'caught'), /fugitifs/);
+  sendStray(g);
+  for (let i = 0; i < 400; i++) { tick(g, 1000); moveBots(g, 1000); }
+  assert.ok([...g.players.values()].some(p => p.eliminated));
+  assert.ok(g.chat.hunter.some(m => !m.system && m.from?.startsWith('bot-')));
 });

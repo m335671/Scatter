@@ -7,7 +7,7 @@ import {
   type Game, GameError, capture, createGame, endNow, join, leave, lobbyView, ping, say, start,
   tick, updatePosition, view,
 } from './game.ts';
-import { addBots, moveBots } from './bots.ts';
+import { addBots, moveBots, sendStray, trainingCatch } from './bots.ts';
 
 const PORT = Number(process.env.PORT ?? 3000);
 const TRAINING_GRACE_MS = 2 * 60_000;
@@ -285,6 +285,8 @@ io.on('connection', (socket) => {
       case 'advance': { const before = x.clock; tick(x, 60_000 / x.speed); moveBots(x, x.clock - before); break; }
       case 'speed': x.speed = cmd.value; break;
       case 'end': endNow(x); break;
+      case 'catch': case 'caught': trainingCatch(x, user.id, cmd.action); break;
+      case 'stray': sendStray(x); break;
     }
     broadcastState(x);
   });

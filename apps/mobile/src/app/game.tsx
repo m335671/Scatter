@@ -563,6 +563,9 @@ function MoreSheet({ game, visible, onClose, onQr }: { game: GameView; visible: 
             <Segmented<number> value={game.speed} onChange={value => ctl({ action: 'speed', value })}
               options={[1, 5, 20].map(v => ({ value: v, label: `${v}×` }))} />
           } />
+          {game.phase === 'hunt' && game.me.role === 'hunter' && <Row title="Attraper le fugitif le plus proche" sub="Comme si tu scannais son QR code" onPress={() => ctl({ action: 'catch' })} />}
+          {game.phase === 'hunt' && game.me.role === 'fugitive' && !game.me.caught && <Row title="Me faire attraper" sub="Par le bot chasseur le plus proche" onPress={() => ctl({ action: 'caught' })} />}
+          {game.phase === 'hunt' && <Row title="Envoyer un bot hors zone" sub="Pour voir l'alerte, le suivi en direct et l'élimination" onPress={() => ctl({ action: 'stray' })} />}
           <Row title="Terminer la manche" onPress={() => ctl({ action: 'end' })} />
         </Group>
       )}

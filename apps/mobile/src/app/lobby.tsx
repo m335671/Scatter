@@ -81,7 +81,16 @@ export default function LobbyScreen() {
         )}
 
         {lobby.training && (
-          <T kind="dim">Une manche d'entraînement. Les autres joueurs sont des bots qui se baladent autour de toi.</T>
+          <Group label="Bots" footer={r.bots.smart
+            ? 'Malins : les chasseurs courent vers ton dernier ping, les fugitifs fuient les chasseurs repérés.'
+            : 'Promeneurs : les bots se baladent au hasard dans la zone.'}>
+            {r.mode !== 'zombie' && step('Bots chasseurs', String(r.bots.hunters), d => set(x => ({ ...x, bots: { ...x.bots, hunters: clamp(x.bots.hunters + d, 0, 5) } })))}
+            {/* Zombie : tous les bots comptent ensemble, un seul chasseur est tiré au départ. */}
+            {step(r.mode === 'zombie' ? 'Bots' : 'Bots fugitifs', String(r.mode === 'zombie' ? r.bots.hunters + r.bots.fugitives : r.bots.fugitives),
+              d => set(x => ({ ...x, bots: { ...x.bots, fugitives: clamp(x.bots.fugitives + d, 0, 10) } })))}
+            <Row title="Bots malins" right={<Toggle value={r.bots.smart} onChange={v => set(x => ({ ...x, bots: { ...x.bots, smart: v } }))} />} />
+            <Row title="Messages radio des bots" sub="Un coéquipier commente chaque ping" right={<Toggle value={r.bots.chatty} onChange={v => set(x => ({ ...x, bots: { ...x.bots, chatty: v } }))} />} />
+          </Group>
         )}
 
         {!lobby.training && (
