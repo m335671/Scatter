@@ -32,12 +32,13 @@ Fichiers serveur :
 - `index.ts` : HTTP, sockets, boucle de jeu, sauvegarde et reprise.
 - `bots.ts` : bots d'entraînement.
 - `db.ts` : comptes.
+- `server.test.ts` : lance le vrai serveur sur un port libre et simule des téléphones (arrivée refusée, recalage de zone, radio, plafond d'inscriptions).
 
 ## Commandes
 
 ```bash
 npm ci                                   # à la racine
-npm test                                 # tests du moteur (node:test), doit afficher « fail 0 »
+npm test                                 # moteur (game.test.ts) + bout en bout avec vrai serveur et sockets (server.test.ts), ~6 s, « fail 0 »
 cd apps/mobile && npx tsc --noEmit       # typecheck de l'app (pas de sortie = OK)
 cd apps/server && node --experimental-strip-types --no-warnings src/bench.ts 1000   # coût CPU du moteur, 1 000 parties
 cd apps/server && node --experimental-strip-types --no-warnings src/load.ts http://localhost:3000 100 40   # charge réseau réelle
@@ -70,6 +71,7 @@ Avant de dire qu'une tâche est finie : `npm test` passe, et `npx tsc --noEmit` 
   - 20 messages par seconde maximum par connexion, et 16 Ko maximum par message ;
   - 5 000 parties maximum en mémoire ;
   - salons abandonnés supprimés au bout de 15 min ;
+  - inscriptions : plafond global (réserve de 100, puis 30/min), réponse 429 « réessaie dans une minute » ;
   - radio : un message toutes les 0,5 s au plus par connexion ; historique de positions plafonné à 400 échantillons ;
   - une partie finie n'est plus diffusée après 15 s (reconnexion : état complet quand même) ;
   - codes de salon de 6 caractères sur 31 symboles. Pas de limite par adresse IP : les opérateurs 4G partagent les IP entre abonnés.

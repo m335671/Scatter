@@ -74,6 +74,20 @@ const load = () => ({
 });
 setInterval(() => loopDelay.reset(), 60_000).unref();
 
+// Plafond global d'inscriptions (pas par IP : la 4G partage les adresses). Réserve de 100 pour un groupe qui
+// installe l'app d'un coup, puis 30 par minute. Un script qui crée des comptes en masse est ralenti et se voit dans les logs.
+const SIGNUP_BURST = 100;
+const SIGNUP_PER_MIN = 30;
+let signupTokens = SIGNUP_BURST, signupAt = Date.now();
+function signupAllowed() {
+  const now = Date.now();
+  signupTokens = Math.min(SIGNUP_BURST, signupTokens + ((now - signupAt) * SIGNUP_PER_MIN) / 60_000);
+  signupAt = now;
+  if (signupTokens < 1) return false;
+  signupTokens--;
+  return true;
+}
+
 const bearer = (req: IncomingMessage) => req.headers.authorization?.replace(/^Bearer /, '') ?? '';
 
 const http = createServer(async (req, res) => {
@@ -91,6 +105,10 @@ const http = createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/auth/register') {
       const p = Register.safeParse(await body(req));
       if (!p.success) return send(res, 400, { error: 'Nom ou username invalide.' });
+      if (!signupAllowed()) {
+        log('compte', 'inscription refusée (plafond global)', { ip: clientIp(req.headers, req.socket.remoteAddress) });
+        return send(res, 429, { error: 'Beaucoup d’inscriptions en ce moment, réessaie dans une minute.' });
+      }
       const r = db.createUser(p.data.name, p.data.username);
       log('compte', r ? 'inscription' : 'inscription refusée (pseudo pris)', { user: '@' + p.data.username, ip: clientIp(req.headers, req.socket.remoteAddress) });
       return r ? send(res, 201, r) : send(res, 409, { error: 'Ce nom d’utilisateur est déjà pris.' });
