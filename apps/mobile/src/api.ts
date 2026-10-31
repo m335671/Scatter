@@ -47,7 +47,7 @@ export function connect() {
   socket.on('nogame', () => setState({ lobby: null, game: null, chat: [], unread: { team: 0, all: 0 } }));
   socket.on('kicked', () => {
     setState({ lobby: null, game: null, chat: [], unread: { team: 0, all: 0 } });
-    showDialog({ title: 'Retiré du salon', message: "L'hôte t'a retiré de ce salon." });
+    showDialog({ title: 'Salon fermé pour toi', message: "L'hôte t'a fermé l'accès à ce salon." });
   });
   socket.on('disconnect', () => setState({ connected: false }));
   socket.on('connect_error', (e) => {

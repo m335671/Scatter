@@ -63,7 +63,10 @@ export const SHRINK_WARN_MS = 60_000;
 // ---------- Messages client → serveur (frontière de confiance) ----------
 
 export const Username = z.string().regex(/^[a-z0-9_]{3,20}$/);
-export const DisplayName = z.string().trim().min(1).max(24);
+// Emojis et accents acceptés (SQLite et JSON stockent l'UTF-8 tel quel). Refusés : caractères de contrôle, invisibles
+// (espace de largeur nulle…) et d'inversion du sens d'écriture, qui donnent des noms vides ou qui débordent sur l'interface.
+export const DisplayName = z.string().trim().min(1).max(24)
+  .refine(s => !/[\p{Cc}\u200B\u200E\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/u.test(s), 'Caractère non autorisé');
 export const Register = z.object({ name: DisplayName, username: Username });
 export const UpdateMe = z.object({ name: DisplayName.optional(), username: Username.optional() });
 

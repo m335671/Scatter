@@ -3,13 +3,13 @@ import { Modal, Pressable, ScrollView, Share, Text, View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
-import { CaretDownIcon, CheckIcon, QrCodeIcon } from 'phosphor-react-native';
+import { CaretDownIcon, CheckIcon, QrCodeIcon, XIcon } from 'phosphor-react-native';
 import { defaultRules, type GameMode, type LobbyPlayer, type RoleChoice, type Rules } from '@kr/shared';
 import { emit, leaveGame } from '../api';
 import { currentPosition } from '../location';
 import { useStore } from '../store';
 import { fonts, radius, useTheme } from '../theme';
-import { BackHeader, Button, Group, Row, Segmented, Stepper, T, Toggle, fmtDistance, showDialog } from '../ui';
+import { BackHeader, Button, Group, Row, Segmented, Stepper, T, Toggle, fmtDistance, initial, showDialog } from '../ui';
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 const ROLE_LABEL: Record<RoleChoice, string> = { hunter: 'Chasseur', fugitive: 'Fugitif', random: 'Au hasard' };
@@ -56,9 +56,10 @@ export default function LobbyScreen() {
 
   function kick(p: LobbyPlayer) {
     showDialog({
-      title: `Retirer ${p.name} ?`, message: 'Il ne pourra plus revenir dans ce salon.',
+      title: `Exclure ${p.name} ?`,
+      message: `${p.name} quittera le salon et ne pourra plus le rejoindre, même avec le code ou le QR. En cas d'erreur, il faudra créer un nouveau salon.`,
       actions: [
-        { label: 'Retirer', kind: 'danger', onPress: () => emit('kick', { id: p.id }).catch(e => showDialog({ title: 'Action impossible', message: e.message })) },
+        { label: 'Exclure', kind: 'danger', onPress: () => emit('kick', { id: p.id }).catch(e => showDialog({ title: 'Action impossible', message: e.message })) },
         { label: 'Annuler', kind: 'cancel' },
       ],
     });
@@ -141,7 +142,7 @@ export default function LobbyScreen() {
         )}
 
         <Group label="Tu joues" footer={lobby.training ? undefined : r.mode === 'zombie'
-          ? "Zombie : « Chasseur » = volontaire pour être le premier chasseur. Tous les autres commencent fugitifs."
+          ? "« Chasseur » : volontaire pour être le premier chasseur."
           : "« Au hasard » complète l'équipe qui en a besoin, environ un chasseur pour trois joueurs."}>
           <View style={{ padding: 12 }}>
             <Segmented<RoleChoice> stretch value={myChoice}
@@ -151,7 +152,7 @@ export default function LobbyScreen() {
         </Group>
 
         <Group label="Mode" footer={r.mode === 'zombie'
-          ? "Un seul chasseur au départ, tiré parmi ceux qui ont choisi « Chasseur ». Chaque fugitif attrapé devient chasseur à son tour."
+          ? 'Un chasseur au départ, chaque fugitif attrapé le rejoint.'
           : 'Deux équipes fixes : un fugitif attrapé passe spectateur.'}>
           {isHost ? (
             <View style={{ padding: 12 }}>
@@ -217,7 +218,7 @@ export default function LobbyScreen() {
   );
 }
 
-/** `onKick` : l'hôte touche un autre joueur pour le retirer du salon. */
+/** `onKick` : l'hôte exclut un autre joueur (croix, ou toucher la ligne). */
 function PlayerRow({ p, me, first, ready, onKick }: { p: LobbyPlayer; me: boolean; first: boolean; ready: boolean; onKick?: () => void }) {
   const t = useTheme();
   const pill = {
@@ -226,10 +227,10 @@ function PlayerRow({ p, me, first, ready, onKick }: { p: LobbyPlayer; me: boolea
     random: { bg: 'transparent', fg: t.text, border: t.line },
   }[p.choice];
   return (
-    <Pressable onPress={onKick} disabled={!onKick} accessibilityHint={onKick ? 'Retirer ce joueur du salon' : undefined}
+    <Pressable onPress={onKick} disabled={!onKick} accessibilityHint={onKick ? 'Exclure ce joueur du salon' : undefined}
       style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderTopWidth: first ? 0 : 1, borderTopColor: t.line, opacity: pressed ? 0.6 : 1 })}>
       <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: me ? (t.dark ? t.accent : t.text) : t.surface2, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: me ? (t.dark ? t.onAccent : t.accent) : t.text }}>{p.name.slice(0, 1).toUpperCase()}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: me ? (t.dark ? t.onAccent : t.accent) : t.text }}>{initial(p.name)}</Text>
       </View>
       <View style={{ flex: 1 }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: t.text }} numberOfLines={1}>{p.name}{me ? ' (toi)' : ''}</Text>
@@ -242,6 +243,12 @@ function PlayerRow({ p, me, first, ready, onKick }: { p: LobbyPlayer; me: boolea
       <View style={{ height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: pill.bg, borderWidth: 1.5, borderColor: pill.border, justifyContent: 'center' }}>
         <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: pill.fg }}>{ROLE_LABEL[p.choice]}</Text>
       </View>
+      {onKick && (
+        <Pressable onPress={onKick} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Exclure ${p.name}`}
+          style={({ pressed }) => ({ width: 30, height: 30, borderRadius: 15, borderWidth: 1.5, borderColor: t.danger, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.9 : 1 }] })}>
+          <XIcon size={14} color={t.danger} weight="bold" />
+        </Pressable>
+      )}
     </Pressable>
   );
 }

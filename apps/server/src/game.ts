@@ -84,7 +84,7 @@ export function join(g: Game, u: UserRef, opts: { isBot?: boolean; choice?: Role
   const existing = g.players.get(u.id);
   if (existing) return existing;
   if (g.phase !== 'lobby') throw new GameError('La partie a déjà commencé.');
-  if (g.banned.includes(u.id)) throw new GameError("L'hôte t'a retiré de ce salon.");
+  if (g.banned.includes(u.id)) throw new GameError("L'hôte t'a fermé l'accès à ce salon.");
   if (g.players.size >= MAX_PLAYERS) throw new GameError('Le salon est plein.');
   const p: Player = {
     ...u, sid: (++g.seq).toString(36), choice: opts.choice ?? 'random', role: null, isBot: !!opts.isBot,

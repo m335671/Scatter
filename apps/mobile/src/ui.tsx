@@ -207,6 +207,9 @@ export const fmtDistance = (m: number, units: 'km' | 'mi') =>
 /** Boîte de dialogue aux couleurs de l'app, à la place des alertes Android/iOS natives. */
 export const showDialog = (dialog: Dialog) => setState({ dialog });
 
+/** Première lettre d'un nom pour un avatar. Array.from découpe par caractère : un emoji n'est pas coupé en deux. */
+export const initial = (name: string) => (Array.from(name)[0] ?? '').toUpperCase();
+
 export function DialogHost() {
   const t = useTheme();
   const d = useStore(s => s.dialog);

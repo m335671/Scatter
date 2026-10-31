@@ -9,7 +9,7 @@ import { DEFAULT_SERVER, setState, useStore, type Settings } from '../store';
 import { CheckIcon } from 'phosphor-react-native';
 import { PALETTES, PALETTE_IDS, fonts, notifColor, radius, themeOf, useTheme, type PaletteId } from '../theme';
 import { Mark } from '../logo';
-import { Group, Row, Segmented, Toggle, showDialog } from '../ui';
+import { Group, Row, Segmented, Toggle, initial, showDialog } from '../ui';
 import { LocalDataNotice } from './activity';
 
 export function ProfileTab() {
@@ -55,7 +55,7 @@ export function ProfileTab() {
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: t.surface, borderWidth: 1, borderColor: t.line, borderRadius: radius.block, padding: 14 }}>
         <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: t.dark ? t.surface2 : t.text, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontFamily: fonts.hero, fontSize: 26, color: t.accent }}>{user?.name.slice(0, 1).toUpperCase()}</Text>
+          <Text style={{ fontFamily: fonts.hero, fontSize: 26, color: t.accent }}>{initial(user?.name ?? '')}</Text>
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: t.text }} numberOfLines={1}>{user?.name}</Text>

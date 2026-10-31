@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { defaultRules, MIN, zoneRadius } from '@kr/shared';
+import { DisplayName, defaultRules, MIN, zoneRadius } from '@kr/shared';
 import { type Game, GameError, capture, createGame, join, leave, loadGame, lobbyView, qrFor, saveGame, say, start, tick, updatePosition, view } from './game.ts';
 import { addBots, moveBots, sendStray, trainingCatch } from './bots.ts';
 
@@ -263,5 +263,10 @@ test('retirer : un joueur banni ne peut plus revenir', () => {
   join(g, { id: 'b', name: 'B', username: 'b' });
   g.banned.push('b');
   leave(g, 'b');
-  assert.throws(() => join(g, { id: 'b', name: 'B', username: 'b' }), /retiré/);
+  assert.throws(() => join(g, { id: 'b', name: 'B', username: 'b' }), /fermé l'accès/);
+});
+
+test('pseudo : emojis et accents acceptés, caractères invisibles refusés', () => {
+  for (const ok of ['Zoé 🏃', '🦊', 'Élodie', '👩‍👩‍👧']) assert.ok(DisplayName.safeParse(ok).success, ok);
+  for (const ko of ['\u200B', 'abc\u202Edef', '\u0007bip', '   ']) assert.ok(!DisplayName.safeParse(ko).success, JSON.stringify(ko));
 });
