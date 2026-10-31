@@ -1,34 +1,141 @@
 # Scatter (ex « Keep Runni'n »)
 
-Jeu de manhunt mobile, open source et gratuit. Les chasseurs traquent les fugitifs sur une vraie carte, dans une zone qui rétrécit. Les pings révèlent les positions telles qu'elles étaient 1 min plus tôt. La capture se fait en scannant un QR.
+Jeu de manhunt mobile en conditions réelles, entre amis. Open source, gratuit, sans achats. Dépôt privé `m335671/Keep-Runni-n`, branche `main`.
 
 ## Règles de travail (à respecter)
 
-- **Répondre en français.** Le code, les commentaires et les messages de commit sont en français aussi.
-- **Style « ponytail lite » :**
+- **Français partout** : réponses, interface, commits, commentaires.
+- **Style « ponytail lite »** :
   - la solution la plus simple qui marche ;
   - pas d'abstraction inutile ;
   - commentaires courts, dans le style du code existant.
-- **Ne jamais pousser de tag `v*` sans feu vert explicite.** Un tag déclenche le build IPA, qui coûte des minutes macOS (×10 sur un dépôt privé). Un push sur `main` est sans risque : il ne reconstruit que l'image serveur.
-- Ne commiter ou pousser que si l'utilisateur le demande.
-- **Ne pas suivre `CONTRIBUER.md` dans git** : il est gitignoré exprès.
-- **Mises à jour du serveur :** l'utilisateur les fait lui-même, avec `docker compose pull && docker compose up -d`. Après un push sur `main`, lui dire que l'image est prête, puis vérifier `https://ton-serveur.example/version`.
-- **Distribution :** l'app n'est distribuée qu'en dernière version (dépôt privé), donc pas de compatibilité avec les anciennes versions de l'app. Une vérification de version viendra avant le Play Store.
-- **Objectifs serveur, en permanence :** rapidité et capacité à tenir beaucoup de parties en même temps. Mesurer avant d'optimiser (voir `bench.ts` et `load.ts`).
+- **Commits** : un commit par changement cohérent, message en français. Les pousser sur `main` seulement quand l'utilisateur le demande.
+- **Jamais de tag `v*` sans feu vert explicite.** Un tag lance le build IPA (environ 100 min macOS décomptées, ×10 sur un dépôt privé, quota gratuit de 2 000 min/mois). Un push sur `main` ne reconstruit que l'image serveur.
+- **`CONTRIBUER.md`** : ne pas le suivre dans git (il est gitignoré). Il est en partie périmé ; la référence, c'est ce fichier-ci.
+- **Mises à jour du serveur** : l'utilisateur les fait lui-même, avec `docker compose pull && docker compose up -d`. Après un push, lui dire que l'image est prête, puis vérifier `https://ton-serveur.example/version`.
+- **Distribution** : l'app n'est distribuée qu'en dernière version, donc pas de compatibilité avec les anciennes versions de l'app. Une vérification de version viendra avant le Play Store.
+- **Objectifs serveur, en permanence** : rapidité et capacité à tenir beaucoup de parties en même temps. Mesurer avant d'optimiser (`bench.ts`, `load.ts`).
+- **Pas de limitation par adresse IP** : les opérateurs 4G partagent une IP entre beaucoup d'abonnés.
+- **Données personnelles** : ne jamais utiliser l'adresse e-mail de l'utilisateur. Les comptes de jeu n'ont pas d'e-mail.
+- **Avant de dire qu'une tâche est finie** : `npm test` passe, et `npx tsc --noEmit` dans `apps/mobile` ne renvoie rien. Si c'est visible à l'écran, il faut aussi un test sur le téléphone : à faire en local uniquement, sinon le signaler.
 
-## Structure (npm workspaces)
+## Le jeu
+
+- **Rôles** : chasseurs et fugitifs, choisis dans le salon (Chasseur, Fugitif ou Au hasard). « Au hasard » complète l'équipe qui en a besoin, avec environ un chasseur pour trois joueurs.
+- **Salon** :
+  - l'hôte crée une partie et reçoit un code de 6 caractères, lettres et chiffres mélangés, sans 0/O/1/I/L ;
+  - les autres rejoignent avec le code ou en scannant le QR du salon, qui contient juste le code ;
+  - chacun se dit « prêt » ; il faut au moins 2 joueurs, tous prêts, pour lancer ;
+  - l'hôte règle les règles (ce qui remet tout le monde « pas prêt »), lance la partie et peut exclure un joueur, qui ne peut plus revenir.
+- **Règles réglables par l'hôte** :
+  - mode Classique ou Zombie ;
+  - durée (5 à 180 min) ;
+  - intervalle des pings ;
+  - avance des fugitifs ;
+  - « les chasseurs peuvent parler » ;
+  - délai de la vue spectateur (0 à 2 min) ;
+  - zone : activée ou non, centre, taille de départ, taille finale, rétrécissement.
+- **Déroulement** :
+  1. salon ;
+  2. décompte 3-2-1 synchronisé (la dernière seconde affiche la révélation du rôle) ;
+  3. avance (les fugitifs se cachent) ;
+  4. chasse ;
+  5. fin.
+- **Visibilité** :
+  - chacun voit son équipe en direct (GPS toutes les 2 s) ;
+  - l'équipe adverse n'apparaît qu'au **ping** : les chasseurs voient où étaient les fugitifs **1 min avant** (`PING_DELAY_MS`), et les fugitifs voient les chasseurs en direct ;
+  - un fugitif **hors zone** est visible en direct par les chasseurs, et il est éliminé s'il reste dehors plus d'1 min.
+- **Zone** : elle rétrécit par paliers dès la fin de l'avance et atteint sa taille finale 5 min avant la fin.
+- **Capture** :
+  - le fugitif affiche un QR (`KR1:<code>:<id>:<secret>`), le chasseur le scanne, et le serveur vérifie le secret ;
+  - en Classique, le fugitif attrapé devient spectateur ;
+  - en Zombie, il devient chasseur.
+- **Fin** : la partie s'arrête quand tous les fugitifs sont pris (victoire des chasseurs) ou quand le temps est écoulé (victoire des fugitifs libres). Un joueur qui part en cours de partie est annoncé à la radio.
+- **Radio** :
+  - canaux « Équipe » et « Tous » ;
+  - messages rapides et annonces système ;
+  - pas de vocal, pas de signalement ni de blocage (retirés volontairement).
+- **Entraînement** :
+  - partie solo contre des bots côté serveur, avec nombre de bots, bots « malins » et bots bavards ;
+  - contrôles de démo : ping, avancer d'une minute, vitesse ×1/×5/×20, fin, capture simulée, bot hors zone ;
+  - la partie est supprimée si le joueur la quitte.
+- **Stats** :
+  - **uniquement sur le téléphone** : totaux, liste des parties, carte partageable en image, export JSON ;
+  - l'app prévient qu'il faut les exporter avant de désinstaller.
+
+## Structure (npm workspaces, TypeScript partout)
 
 | Dossier | Contenu |
 |---|---|
-| `packages/shared` | Schémas zod des messages client → serveur, types des vues, règles par défaut, géo (zone, distances). |
-| `apps/server` | Node 22 (`--experimental-strip-types`), `node:http` + Socket.IO, comptes en `node:sqlite`. |
-| `apps/mobile` | Expo SDK 58, React Native, expo-router (`src/app/`), MapLibre + tuiles OpenFreeMap. |
+| `packages/shared` | Schémas zod des messages client → serveur (frontière de confiance), types des vues, règles par défaut, géo (zone, distances), constantes. |
+| `apps/server` | Node 22 (`--experimental-strip-types`, pas de build), `node:http` + Socket.IO, comptes en `node:sqlite`. |
+| `apps/mobile` | Expo SDK 58 (React Native 0.88), expo-router (écrans dans `src/app/`), MapLibre RN v11 + tuiles OpenFreeMap (gratuites, sans clé). |
 
-Fichiers serveur :
+Fichiers serveur (`apps/server/src/`) :
 - `game.ts` : moteur pur, sans réseau, testé dans `game.test.ts`.
-- `index.ts` : HTTP, sockets, boucle de jeu, sauvegarde et reprise.
+- `index.ts` : HTTP (`/health`, `/version`, `/username/:u`, `/auth/register`, `/me`), Socket.IO, boucle de jeu, sauvegarde et reprise, logs.
 - `bots.ts` : bots d'entraînement.
-- `db.ts` : comptes.
+- `db.ts` : comptes uniquement. On ne stocke que le hash du jeton, pas d'e-mail.
+- `bench.ts` et `load.ts` : outils de mesure.
+
+Fichiers app (`apps/mobile/src/`) :
+- `app/` : écrans (`index` à onglets Jouer/Activité/Profil, `lobby`, `game`, `scan`, `onboarding`, `tutorial`, `permissions`).
+- `tabs/` : contenu des onglets.
+- `api.ts` : HTTP et Socket.IO.
+- `store.ts` : état global et réglages, persistés en SecureStore.
+- `location.ts` : GPS en arrière-plan.
+- `theme.ts` : palettes et polices.
+- `ui.tsx` : composants.
+- `stats.ts`, `share-card.tsx`, `tutorial.tsx`, `notify.ts`, `map-style.ts` (carte recolorée selon la palette).
+
+## Protocole Socket.IO
+
+- **Client → serveur**, avec accusé `{ ok } | { error }` :
+  - `create`, `join`, `leave`, `rules`, `role`, `ready`, `kick`, `start` ;
+  - `capture`, `chat` (`channel: team | all`) ;
+  - `training` (`ping | advance | speed | end | catch | caught | stray`) ;
+  - `pos` : envoyé en `volatile` par l'app, sans accusé.
+- **Serveur → client** :
+  - `lobby` ;
+  - `state` : un `GameView` propre au joueur, chaque seconde ;
+  - `chat`, `chat:history` ;
+  - `nogame` : plus de partie à la reconnexion ;
+  - `kicked`.
+- L'app ignore un `state` dont le code ne correspond pas au salon courant.
+
+## Fonctionnement clé (à connaître avant de toucher)
+
+- **Parties en mémoire** :
+  - sauvegardées dans `$DATA_DIR/games.json` à l'arrêt (SIGTERM) et toutes les 30 s, puis relues au démarrage ;
+  - l'horloge des parties en cours avance du temps de coupure ;
+  - une sauvegarde de plus de 10 min est ignorée.
+- **Boucle de jeu à 100 ms** : chaque partie avance une fois par seconde, à son rythme, donc les parties sont réparties sur la seconde. En entraînement, l'horloge de jeu (`clock`) peut accélérer.
+- **Vues par joueur** :
+  - `view()` n'envoie jamais plus que ce que le joueur a le droit de voir ;
+  - les autres joueurs y apparaissent sous un identifiant court (`sid`), jamais sous leur identifiant de compte (radio comprise) ;
+  - le ping n'est renvoyé que quand il change ; s'il est absent d'un état, l'app garde le précédent.
+- **Garde-fous** :
+  - 20 messages par seconde maximum par connexion, et 16 Ko maximum par message ;
+  - 5 000 parties maximum en mémoire ;
+  - salons et parties abandonnés supprimés au bout de 15 min ;
+  - un compte n'est que dans une partie à la fois ;
+  - pseudos : emojis acceptés, caractères invisibles et de contrôle refusés.
+- **`/health`** donne la version, le commit et la charge : parties, joueurs, attente p99 (doit rester sous ~50 ms), mémoire. Le même bilan est logué toutes les 10 min.
+- **Comptes** : un jeton aléatoire est stocké sur le téléphone. Si le serveur répond `unauthorized`, l'app repasse à l'inscription.
+
+## Interface (conventions)
+
+- **DA « Topo »** : fond sombre `#0F1712`, accent lime `#D4FF3A` (palette Forêt). Il y a un mode clair, et 6 palettes au choix dans `theme.ts` (Forêt, Braise, Océan, Ambre, Lavande, Ardoise), plus une option « couleur selon le mode » (Classique ou Zombie). Toujours passer par `useTheme()`, jamais de couleur en dur.
+- **Polices** : Bricolage Grotesque (titres et texte) et JetBrains Mono (chiffres, codes, étiquettes).
+- **Formes** : arrondis 18 (blocs), 12 (éléments internes), boutons en pilule.
+- **Icônes** : Phosphor (`phosphor-react-native`, imports `XxxIcon`).
+- **Boîtes de dialogue** : jamais `Alert.alert`, toujours `showDialog`.
+- **Textes de l'interface** :
+  - pas de tiret cadratin ;
+  - textes courts, compréhensibles même sans les lire (tutoriel surtout) ;
+  - ne pas supposer le genre d'un joueur.
+- **Salon** : il ne doit pas défiler tant que « Tous les réglages » est replié.
+- **Expo change souvent** : vérifier l'API dans la doc versionnée (`docs.expo.dev/versions/v58.0.0/`) ou dans les `.d.ts` de `node_modules`. Installer les paquets avec `npx expo install`.
 
 ## Commandes
 
@@ -36,65 +143,61 @@ Fichiers serveur :
 npm ci                                   # à la racine
 npm test                                 # tests du moteur (node:test), doit afficher « fail 0 »
 cd apps/mobile && npx tsc --noEmit       # typecheck de l'app (pas de sortie = OK)
+npm run server                           # serveur local sur :3000 (données dans apps/server/data, gitignoré)
 cd apps/server && node --experimental-strip-types --no-warnings src/bench.ts 1000   # coût CPU du moteur, 1 000 parties
 cd apps/server && node --experimental-strip-types --no-warnings src/load.ts http://localhost:3000 100 40   # charge réseau réelle
-npm run server                           # serveur local sur :3000 (données dans apps/server/data, gitignoré)
 ```
 
-Avant de dire qu'une tâche est finie : `npm test` passe, et `npx tsc --noEmit` dans `apps/mobile` ne renvoie rien.
+## Ce qui ne se fait qu'en local (PC Windows de l'utilisateur)
 
-## Ce qui ne marche pas en session cloud
+- **Build Android** : depuis le worktree `C:\dev\keeprunnin`, parce que l'apostrophe de `KeepRunni'n` casse CMake. Il faut aussi CMake 3.31.6 dans `local.properties` après chaque `prebuild --clean`, et `./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a`.
+- **Tests sur téléphone** : son Android est branché en adb. Ne pas lancer l'émulateur sans demander.
+- **Tests de charge Docker** : clients lancés dans un conteneur, sur le même réseau Docker.
 
-- **Build Android et tests sur téléphone.** Ils se font sur le PC Windows de l'utilisateur, avec son téléphone branché en adb. En cloud, s'arrêter au typecheck et le dire.
-- **Tests de charge Docker.** Ils se font en local. `load.ts` peut tourner contre un serveur lancé avec `npm run server`.
+**En session cloud** : s'arrêter au typecheck et aux tests, et dire clairement ce qui reste à tester sur le téléphone.
 
-## Fonctionnement clé (à connaître avant de toucher)
+## Production et déploiement
 
-- **Parties en mémoire.** Elles sont sauvegardées dans `$DATA_DIR/games.json` à l'arrêt (SIGTERM) et toutes les 30 s, puis relues au démarrage. L'horloge des parties en cours avance du temps de coupure. Une sauvegarde de plus de 10 min est ignorée.
-- **Boucle de jeu à 100 ms.** Chaque partie avance une fois par seconde, à son propre rythme : les parties sont réparties sur la seconde.
-- **Vues par joueur.** `view()` calcule une vue pour chaque joueur, sans jamais lui envoyer plus que ce qu'il a le droit de voir. Les autres joueurs y apparaissent sous un identifiant court (`sid`), jamais sous leur identifiant de compte.
-- **Ping envoyé une seule fois.** Le serveur ne renvoie le ping que quand il change ; s'il est absent d'un état, l'app garde le précédent.
-- **Salon :**
-  - tout le monde doit être « prêt » pour lancer ; l'hôte et les bots le sont d'office ;
-  - il faut au moins 2 joueurs ;
-  - changer les règles remet tout le monde « pas prêt » ;
-  - l'hôte peut exclure un joueur, qui ne peut plus revenir dans ce salon.
-- **Lancement :** un décompte 3-2-1 synchronisé par le serveur (`START_COUNTDOWN_MS`). La dernière seconde affiche la révélation du rôle.
-- **Garde-fous :**
-  - 20 messages par seconde maximum par connexion, et 16 Ko maximum par message ;
-  - 5 000 parties maximum en mémoire ;
-  - salons abandonnés supprimés au bout de 15 min ;
-  - codes de salon de 6 caractères sur 31 symboles. Pas de limite par adresse IP : les opérateurs 4G partagent les IP entre abonnés.
-- **`/health` et `/version`** donnent la version, le commit et la charge (parties, joueurs, attente p99, mémoire).
-- **App :**
-  - thème par palettes (`theme.ts`), avec une option « couleur selon le mode » ;
-  - les stats restent sur le téléphone (`stats.ts`) ;
-  - la couleur de la notification de partie se règle à part.
+- **Serveur** :
+  - un push sur `main` déclenche `server-image.yml`, qui lance les tests puis publie `ghcr.io/m335671/keep-runni-n:latest` ;
+  - serveur maison Debian, derrière NPMPlus (WebSockets activés) et CrowdSec, domaine `https://ton-serveur.example` ;
+  - changer de domaine oblige à recompiler l'app (`EXPO_PUBLIC_SERVER_URL`) ;
+  - `docker-compose.yml` : port 3022, volume `/data` (comptes et sauvegarde des parties).
+- **Releases** :
+  - un tag `vX.Y.Z` lance `mobile-app.yml`, qui construit l'APK (Linux) et l'IPA non signée (macOS), puis publie `scatter-vX.Y.Z.apk/.ipa` dans une Release ;
+  - **seulement sur demande explicite** ;
+  - pour un changement Android seul : APK compilé en local, puis `gh release upload <tag> <apk> --clobber`.
+- **Versions** : à chaque version, monter `apps/server/package.json` et `apps/mobile/app.json` (`version` et `android.versionCode`).
+- **iPhone** :
+  - IPA compilée par GitHub Actions, parce que le Mac Intel de l'utilisateur ne peut pas compiler le SDK 58 ;
+  - installation avec Sideloadly et un Apple ID gratuit (iOS 16.4 minimum) ;
+  - pas de TestFlight : l'utilisateur refuse de payer Apple ;
+  - voir `docs/IOS.md`.
 
-## Déploiement
+## État au 31/10/2026 (v0.8.0, release publiée, serveur à jour)
 
-- Un push sur `main` déclenche le workflow `server-image.yml`, qui publie `ghcr.io/m335671/keep-runni-n:latest`. L'utilisateur fait ensuite `docker compose pull && docker compose up -d` sur son serveur, derrière NPMPlus et CrowdSec.
-- Un tag `vX.Y.Z` déclenche le workflow `mobile-app.yml`, qui construit l'APK et l'IPA et les joint à une Release GitHub. **Seulement sur demande explicite.**
-- Serveur de production : `https://ton-serveur.example`.
-- À chaque version, monter la version dans `apps/server/package.json` et dans `apps/mobile/app.json` (`version` et `android.versionCode`).
-
-## État au 31/10/2026 (v0.8.0)
-
-Fait :
-- nouvelle DA « Topo » ;
-- onglets Jouer / Activité / Profil ;
+**Fait :**
+- DA « Topo » et palettes ;
+- onglets ;
 - rejoindre par QR ;
 - entraînement avec bots ;
 - mode zombie ;
 - système « prêt » ;
 - exclusion d'un joueur ;
 - sauvegarde et reprise des parties ;
-- états allégés (environ 0,9 Ko par seconde et par joueur).
+- états allégés (environ 0,9 Ko par seconde et par joueur) ;
+- couleur de la notification de partie.
 
-Mesure : environ 5 000 joueurs tiennent sur un seul cœur.
+**Capacité mesurée :** environ 5 000 joueurs sur un seul cœur.
 
-Pistes pour plus tard, seulement si le besoin se fait sentir :
+**À vérifier en conditions réelles :**
+- partie à plusieurs en extérieur : écran éteint, batterie, réseau mobile instable ;
+- carte de partie avec un vrai trajet ;
+- ligne « Batterie sans restriction » sur Android.
+
+**Pistes, seulement si le besoin se fait sentir :**
 1. **N'envoyer que les changements** dans les états. Gain : environ 3×.
 2. **Plusieurs processus**, un par cœur, avec les parties réparties par code de salon.
 3. **Vérification de version de l'app**, avant le Play Store.
 4. **Import des stats**, en complément de l'export.
+5. **Image GHCR publique**, si le dépôt devient public : le serveur n'aurait plus besoin de `docker login`.
