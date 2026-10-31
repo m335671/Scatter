@@ -436,9 +436,10 @@ function PingFlash({ game }: { game: GameView }) {
 
 // ---------- Décompte de lancement ----------
 
-const countLabel = (left: number) => (left > 3000 ? '3' : left > 2000 ? '2' : left > 1000 ? '1' : 'GO');
+// La dernière seconde du décompte serveur (le « GO ») est remplacée par la révélation du rôle.
+const countLabel = (left: number) => (left > 3000 ? '3' : left > 2000 ? '2' : '1');
 
-/** « 3, 2, 1, GO » plein écran, calé sur le temps restant donné par le serveur, puis la révélation du rôle. */
+/** « 3, 2, 1 » plein écran, calé sur le temps restant donné par le serveur, puis la révélation du rôle. */
 function StartCountdown({ ms, onDone }: { ms: number; onDone: () => void }) {
   const t = useTheme();
   const end = useRef(Date.now() + ms).current;
@@ -448,29 +449,32 @@ function StartCountdown({ ms, onDone }: { ms: number; onDone: () => void }) {
   useEffect(() => {
     const id = setInterval(() => {
       const left = end - Date.now();
-      if (left <= 0) { clearInterval(id); onDone(); return; }
+      if (left <= 1000) {
+        clearInterval(id);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        onDone();
+        return;
+      }
       setLabel(countLabel(left));
     }, 50);
     return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
-    const go = label === 'GO';
-    (go ? Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success) : Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)).catch(() => {});
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
     AccessibilityInfo.isReduceMotionEnabled().then(reduce => {
       if (reduce) return;
       scale.setValue(1.5);
       Animated.spring(scale, { toValue: 1, friction: 6, tension: 120, useNativeDriver: true }).start();
     });
-    AccessibilityInfo.announceForAccessibility(go ? "C'est parti" : label);
+    AccessibilityInfo.announceForAccessibility(label);
   }, [label]);
 
-  const go = label === 'GO';
   return (
-    <View style={{ position: 'absolute', inset: 0, backgroundColor: go ? t.accent : t.bg, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 14, letterSpacing: 2, color: go ? t.onAccent : t.textDim, opacity: go ? 0.7 : 1 }}>LA PARTIE COMMENCE</Text>
+    <View style={{ position: 'absolute', inset: 0, backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontFamily: fonts.monoMedium, fontSize: 14, letterSpacing: 2, color: t.textDim }}>LA PARTIE COMMENCE</Text>
       <Animated.Text numberOfLines={1} adjustsFontSizeToFit
-        style={{ fontFamily: fonts.hero, fontSize: go ? 200 : 260, lineHeight: go ? 210 : 270, color: go ? t.onAccent : t.accentText, transform: [{ scale }], paddingHorizontal: 24 }}>
+        style={{ fontFamily: fonts.hero, fontSize: 260, lineHeight: 270, color: t.accentText, transform: [{ scale }], paddingHorizontal: 24 }}>
         {label}
       </Animated.Text>
     </View>
