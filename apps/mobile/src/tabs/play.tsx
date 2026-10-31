@@ -6,7 +6,7 @@ import * as Location from 'expo-location';
 import { Camera, GeoJSONSource, Layer, Map } from '@maplibre/maplibre-react-native';
 import { CaretRightIcon, MapPinIcon, ScanIcon } from 'phosphor-react-native';
 import { defaultRules, type LatLng } from '@kr/shared';
-import { emit } from '../api';
+import { emit, leaveGame } from '../api';
 import { askLocation, currentPosition, zonePosition } from '../location';
 import { Mark } from '../logo';
 import { useMapStyle } from '../map-style';
@@ -104,6 +104,19 @@ export function PlayTab({ onActivity, onBusy }: { onActivity: () => void; onBusy
   }
 
   const inGame = phase === 'headstart' || phase === 'hunt';
+  // Déjà dans une vraie partie (salon ou manche) : on y retourne ou on la quitte, mais pas de nouvelle partie par-dessus.
+  const engaged = !!lobby && !lobby.training && phase !== 'ended';
+  const off = !connected || !!busy || engaged;
+
+  function quit() {
+    showDialog({
+      title: inGame ? 'Quitter la partie ?' : 'Quitter le salon ?',
+      message: inGame
+        ? "C'est définitif : tu ne pourras pas revenir dans cette partie. Un fugitif qui quitte compte comme attrapé."
+        : 'Tu pourras revenir avec le code tant que la partie n’a pas commencé.',
+      actions: [{ label: 'Quitter', kind: 'danger', onPress: () => { leaveGame(); } }, { label: 'Annuler', kind: 'cancel' }],
+    });
+  }
 
   return (
     <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 8, gap: 12 }}>
@@ -116,15 +129,21 @@ export function PlayTab({ onActivity, onBusy }: { onActivity: () => void; onBusy
       </View>
 
       {/* Seules les vraies parties, en cours ou en salon, sont proposées : pas les entraînements ni les parties finies. */}
-      {lobby && !lobby.training && phase !== 'ended' && (
-        <Pressable onPress={() => router.push(inGame ? '/game' : '/lobby')}
-          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: t.surface, borderWidth: 1, borderColor: t.line, borderRadius: radius.block, paddingHorizontal: 16, paddingVertical: 12, opacity: pressed ? 0.85 : 1 })}>
-          <View style={{ gap: 2 }}>
-            <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, letterSpacing: 1, color: t.textDim }}>{inGame ? 'PARTIE EN COURS' : 'SALON OUVERT'}</Text>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: t.text }}>{lobby.code} · touche pour y retourner</Text>
-          </View>
-          <CaretRightIcon size={20} color={t.accentText} weight="bold" />
-        </Pressable>
+      {engaged && (
+        <View style={{ backgroundColor: t.surface, borderWidth: 1, borderColor: t.line, borderRadius: radius.block, overflow: 'hidden' }}>
+          <Pressable onPress={() => router.push(inGame ? '/game' : '/lobby')}
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, opacity: pressed ? 0.85 : 1 })}>
+            <View style={{ gap: 2 }}>
+              <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, letterSpacing: 1, color: t.textDim }}>{inGame ? 'PARTIE EN COURS' : 'SALON OUVERT'}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: t.text }}>{lobby.code} · touche pour y retourner</Text>
+            </View>
+            <CaretRightIcon size={20} color={t.accentText} weight="bold" />
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={quit} hitSlop={4}
+            style={({ pressed }) => ({ borderTopWidth: 1, borderTopColor: t.line, paddingHorizontal: 16, paddingVertical: 10, opacity: pressed ? 0.6 : 1 })}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: t.danger }}>{inGame ? 'Quitter la partie' : 'Quitter le salon'}</Text>
+          </Pressable>
+        </View>
       )}
 
       <HereCard here={here} radiusM={START_RADIUS}>
@@ -132,7 +151,7 @@ export function PlayTab({ onActivity, onBusy }: { onActivity: () => void; onBusy
           <Text style={{ fontFamily: fonts.hero, fontSize: 26, color: t.text, letterSpacing: -0.6 }}>Jouer ici</Text>
           <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: t.textDim }}>ZONE {fmtDistance(START_RADIUS, units).toUpperCase()}</Text>
         </View>
-        <Button title="Créer une partie" arrow onPress={() => create(false)} loading={busy === 'create'} disabled={!connected || !!busy} />
+        <Button title={engaged ? 'Quitte ta partie pour en créer une' : 'Créer une partie'} arrow={!engaged} onPress={() => create(false)} loading={busy === 'create'} disabled={off} />
       </HereCard>
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: t.surface, borderRadius: radius.pill, borderWidth: 1, borderColor: joinError ? t.danger : t.line, height: 58, paddingLeft: 20, paddingRight: 6 }}>
@@ -140,14 +159,14 @@ export function PlayTab({ onActivity, onBusy }: { onActivity: () => void; onBusy
           value={code} onChangeText={s => { setJoinError(''); setCode(s.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)); }}
           placeholder="CODE" placeholderTextColor={t.textDim} selectionColor={t.accent}
           autoCapitalize="characters" autoCorrect={false} returnKeyType="go" onSubmitEditing={() => code.length === 6 && join()}
-          accessibilityLabel="Code de la partie" editable={!busy}
+          accessibilityLabel="Code de la partie" editable={!busy && !engaged}
           style={{ flex: 1, fontFamily: fonts.mono, fontSize: 20, letterSpacing: 5, color: t.text, paddingVertical: 0 }} />
-        <Pressable accessibilityRole="button" accessibilityLabel="Scanner le QR du salon" onPress={() => router.push('/scan?mode=join')} disabled={!connected || !!busy}
-          style={({ pressed }) => ({ width: 46, height: 46, borderRadius: 23, backgroundColor: t.surface2, alignItems: 'center', justifyContent: 'center', opacity: connected && !busy ? 1 : 0.4, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Scanner le QR du salon" onPress={() => router.push('/scan?mode=join')} disabled={off}
+          style={({ pressed }) => ({ width: 46, height: 46, borderRadius: 23, backgroundColor: t.surface2, alignItems: 'center', justifyContent: 'center', opacity: off ? 0.4 : 1, transform: [{ scale: pressed ? 0.94 : 1 }] })}>
           <ScanIcon size={22} color={t.text} />
         </Pressable>
-        <Pressable accessibilityRole="button" onPress={join} disabled={code.length !== 6 || !connected || !!busy}
-          style={({ pressed }) => ({ height: 46, paddingHorizontal: 18, borderRadius: 23, justifyContent: 'center', backgroundColor: code.length === 6 ? t.accent : t.surface2, opacity: !connected ? 0.4 : 1, transform: [{ scale: pressed ? 0.96 : 1 }] })}>
+        <Pressable accessibilityRole="button" onPress={join} disabled={code.length !== 6 || off}
+          style={({ pressed }) => ({ height: 46, paddingHorizontal: 18, borderRadius: 23, justifyContent: 'center', backgroundColor: code.length === 6 ? t.accent : t.surface2, opacity: !connected || engaged ? 0.4 : 1, transform: [{ scale: pressed ? 0.96 : 1 }] })}>
           {busy === 'join'
             ? <ActivityIndicator color={t.onAccent} />
             : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: code.length === 6 ? t.onAccent : t.textDim }}>Rejoindre</Text>}
@@ -159,8 +178,8 @@ export function PlayTab({ onActivity, onBusy }: { onActivity: () => void; onBusy
         {connected
           ? <Pressable hitSlop={10} disabled={!!busy} onPress={() => router.push('/tutorial')}><Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: t.textDim, opacity: busy ? 0.4 : 1 }}>Comment ça marche</Text></Pressable>
           : <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: t.danger, flexShrink: 1 }} numberOfLines={1}>Connexion au serveur…</Text>}
-        <Pressable hitSlop={10} onPress={() => create(true)} disabled={!connected || !!busy}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: t.accentText, opacity: connected && (!busy || busy === 'train') ? 1 : 0.4 }}>{busy === 'train' ? 'Préparation…' : "S'entraîner →"}</Text>
+        <Pressable hitSlop={10} onPress={() => create(true)} disabled={off}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: t.accentText, opacity: connected && !engaged && (!busy || busy === 'train') ? 1 : 0.4 }}>{busy === 'train' ? 'Préparation…' : "S'entraîner →"}</Text>
         </Pressable>
       </View>
     </View>

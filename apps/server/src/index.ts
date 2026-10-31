@@ -1,5 +1,6 @@
 import { randomInt } from 'node:crypto';
 import { readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { rename, writeFile } from 'node:fs/promises';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { Server, type Socket } from 'socket.io';
@@ -20,6 +21,9 @@ const ABANDONED_MS = 15 * 60_000;
 const EVENTS_PER_S = 20;
 /** Au-delà, plus de création de salon : la mémoire du serveur reste bornée même face à des comptes en masse. */
 const MAX_GAMES = 5000;
+const CHAT_GAP_MS = 500;
+/** Une partie finie est encore diffusée ce temps-là (écran de fin à jour), puis seulement à la reconnexion. */
+const ENDED_BROADCAST_MS = 15_000;
 
 // ---------- Logs ----------
 // Une ligne par événement : « 2026-10-28T22:10:00.000Z [partie] lancée code=TACO42 joueurs=5 ».
@@ -261,9 +265,10 @@ io.on('connection', (socket) => {
     return x;
   };
 
+  // Vérifier avant de quitter la partie actuelle : une création ou une arrivée refusée ne doit rien faire perdre.
   on('create', C2S.create, ({ rules, training }) => {
-    leaveCurrent(user.id);
     if (games.size >= MAX_GAMES) throw new GameError('Serveur plein, réessaie dans un instant.');
+    leaveCurrent(user.id);
     const g = createGame(newCode(), user, rules, training);
     games.set(g.code, g);
     userGame.set(user.id, g.code);
@@ -275,8 +280,9 @@ io.on('connection', (socket) => {
   on('join', C2S.join, ({ code }) => {
     const g = games.get(code);
     if (!g || g.training) throw new GameError('Aucune partie avec ce code.');
-    if (userGame.get(user.id) !== code) leaveCurrent(user.id);
-    join(g, user);
+    const prev = userGame.get(user.id);
+    join(g, user); // lève une erreur (lancée, pleine, exclu) avant tout départ
+    if (prev && prev !== code) leaveCurrent(user.id);
     userGame.set(user.id, code);
     log('partie', 'joueur arrivé', { code, user: at(user), joueurs: humans(g).length });
     broadcastLobby(g);
@@ -319,8 +325,11 @@ io.on('connection', (socket) => {
     broadcastLobby(x);
   });
 
-  on('start', C2S.empty, (_, g) => {
+  on('start', C2S.start, ({ center }, g) => {
     const x = host(g);
+    if (x.phase !== 'lobby') throw new GameError('Déjà lancée.');
+    // La zone est toujours centrée sur l'hôte : on la recale sans remettre les joueurs « pas prêts ».
+    if (center) x.rules = { ...x.rules, zone: { ...x.rules.zone, center } };
     if (x.training) addBots(x);
     start(x);
     x.startAt = Date.now() + START_COUNTDOWN_MS;
@@ -336,8 +345,9 @@ io.on('connection', (socket) => {
     broadcastState(x);
   });
 
+  // Positions utiles seulement pendant la manche (le salon a son horloge figée : l'historique n'y serait jamais purgé).
   on('pos', C2S.pos, (pos, g) => {
-    if (g && g.phase !== 'ended') updatePosition(g, user.id, pos);
+    if (g && (g.phase === 'headstart' || g.phase === 'hunt')) updatePosition(g, user.id, pos);
   });
 
   on('capture', C2S.capture, ({ qr }, g) => {
@@ -349,8 +359,12 @@ io.on('connection', (socket) => {
     if (target.role === 'hunter') io.to(`u:${target.id}`).emit('chat:history', history(x, 'hunter'));
   });
 
+  let lastChat = 0;
   on('chat', C2S.chat, ({ text, channel }, g) => {
     const x = need(g);
+    // Anti-spam radio : chaque message part à toute l'équipe.
+    if (Date.now() - lastChat < CHAT_GAP_MS) throw new GameError('Doucement, un message à la fois.');
+    lastChat = Date.now();
     say(x, user.id, text, channel);
     broadcastState(x);
   });
@@ -407,6 +421,7 @@ setInterval(() => {
     if (g.phase === 'ended') {
       if (!endedAt.has(g.code)) endedAt.set(g.code, Date.now());
       else if (Date.now() - endedAt.get(g.code)! > 10 * 60_000) { drop(g, 'nettoyée (terminée depuis 10 min)'); continue; }
+      else if (Date.now() - endedAt.get(g.code)! > ENDED_BROADCAST_MS) continue; // plus rien ne bouge
     }
     // Décompte de lancement : rien ne bouge, puis on ne compte que le temps écoulé après le départ.
     let step = dt;
@@ -452,11 +467,36 @@ const SAVE_FILE = `${process.env.DATA_DIR ?? './data'}/games.json`;
 /** Sauvegarde plus vieille que ça : les joueurs sont partis, on repart de zéro. */
 const RESTORE_MAX_MS = 10 * 60_000;
 
-// ponytail: écriture synchrone de tout l'état (~20 Mo et ~100 ms à 5 000 joueurs), par partie modifiée si ça devient gênant.
-function saveAll() {
-  const tmp = `${SAVE_FILE}.tmp`;
-  writeFileSync(tmp, JSON.stringify({ savedAt: Date.now(), games: [...games.values()].map(saveGame) }));
-  renameSync(tmp, SAVE_FILE); // jamais de fichier à moitié écrit
+const json = (parts: string[]) => `{"savedAt":${Date.now()},"games":[${parts.join(',')}]}`;
+
+/** Arrêt du serveur : tout d'un bloc, plus personne n'attend. */
+function saveAllNow() {
+  // Fichier temporaire à part : une sauvegarde de fond peut être en train d'écrire le sien.
+  writeFileSync(`${SAVE_FILE}.stop`, json([...games.values()].map(g => JSON.stringify(saveGame(g)))));
+  renameSync(`${SAVE_FILE}.stop`, SAVE_FILE); // jamais de fichier à moitié écrit
+}
+
+// En marche : d'un bloc, ~24 Mo prenaient ~0,7 s à 5 000 joueurs, serveur figé. Partie par partie, en rendant la main
+// régulièrement, les messages des joueurs passent pendant la sauvegarde.
+let saving = false;
+async function saveAll() {
+  if (saving) return;
+  saving = true;
+  try {
+    const parts: string[] = [];
+    let since = performance.now();
+    for (const g of games.values()) {
+      parts.push(JSON.stringify(saveGame(g)));
+      // Jamais plus de ~10 ms d'affilée sans rendre la main.
+      if (performance.now() - since > 10) { await new Promise(r => setImmediate(r)); since = performance.now(); }
+    }
+    await writeFile(`${SAVE_FILE}.tmp`, json(parts));
+    await rename(`${SAVE_FILE}.tmp`, SAVE_FILE);
+  } catch (e) {
+    log('erreur', 'sauvegarde impossible', { erreur: (e as Error).message });
+  } finally {
+    saving = false;
+  }
 }
 
 function restoreAll() {
@@ -479,7 +519,7 @@ restoreAll();
 setInterval(saveAll, 30_000).unref();
 for (const sig of ['SIGTERM', 'SIGINT'] as const) {
   process.once(sig, () => {
-    saveAll();
+    saveAllNow();
     log('serveur', 'arrêté, parties sauvegardées', { parties: games.size, signal: sig });
     process.exit(0);
   });

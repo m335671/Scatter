@@ -5,7 +5,8 @@ import { notifyChat, notifyState } from './notify';
 import { trackPosition } from './stats';
 import { showDialog } from './ui';
 
-const base = () => (getState().settings.serverUrl || DEFAULT_SERVER).replace(/\/$/, '');
+// Toujours le serveur compilé dans l'app (EXPO_PUBLIC_SERVER_URL) : plus d'adresse saisie à la main.
+const base = () => DEFAULT_SERVER.replace(/\/$/, '');
 
 async function http<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getState().token;
@@ -23,8 +24,7 @@ export const usernameAvailable = (u: string) =>
 
 export async function register(name: string, username: string) {
   const r = await http<{ user: User; token: string }>('/auth/register', { method: 'POST', body: JSON.stringify({ name, username }) });
-  setState({ token: r.token, user: r.user });
-  connect();
+  setState({ token: r.token, user: r.user }); // le nouveau jeton ouvre la connexion (_layout)
 }
 
 export async function updateMe(patch: { name?: string; username?: string }) {

@@ -40,7 +40,8 @@ export function Radio({ game }: { game: GameView }) {
   async function send(msg: string) {
     if (!msg.trim()) return;
     setText('');
-    try { await emit('chat', { text: msg, channel }); } catch (e) { showDialog({ title: 'Message non envoyé', message: (e as Error).message }); }
+    // Refusé : le texte revient dans le champ, rien n'est perdu.
+    try { await emit('chat', { text: msg, channel }); } catch (e) { setText(msg); showDialog({ title: 'Message non envoyé', message: (e as Error).message }); }
   }
 
   const tab = (c: Channel, label: string) => {

@@ -9,6 +9,7 @@ import {
 const HISTORY_MS = 3 * MIN;
 const MAX_PLAYERS = 20;
 const CHAT_KEEP = 200;
+const MAX_SAMPLES = 400;
 
 interface Sample { t: number; lat: number; lng: number; acc?: number }
 
@@ -165,6 +166,8 @@ export function updatePosition(g: Game, id: string, pos: LatLng & { acc?: number
   // Arrondi à ~1 m (5 décimales) : le GPS n'est pas plus précis, et chaque état envoyé en est plus léger.
   p.history.push({ t: g.clock, lat: Math.round(pos.lat * 1e5) / 1e5, lng: Math.round(pos.lng * 1e5) / 1e5, acc: pos.acc });
   // On garde le dernier échantillon antérieur à la fenêtre pour pouvoir répondre à positionAt(clock - 3 min).
+  // Plafond contre un client qui inonderait de positions (un téléphone en envoie ~90 en 3 min).
+  if (p.history.length > MAX_SAMPLES) p.history.shift();
   const cutoff = g.clock - HISTORY_MS;
   let i = 0;
   while (i + 1 < p.history.length && p.history[i + 1].t <= cutoff) i++;

@@ -14,7 +14,9 @@ Jeu de manhunt mobile, open source et gratuit. Les chasseurs traquent les fugiti
 - **Ne pas suivre `CONTRIBUER.md` dans git** : il est gitignoré exprès.
 - **Mises à jour du serveur :** l'utilisateur les fait lui-même, avec `docker compose pull && docker compose up -d`. Après un push sur `main`, lui dire que l'image est prête, puis vérifier `https://ton-serveur.example/version`.
 - **Distribution :** l'app n'est distribuée qu'en dernière version (dépôt privé), donc pas de compatibilité avec les anciennes versions de l'app. Une vérification de version viendra avant le Play Store.
-- **APK de test :** quand une tâche est finie (tests et typecheck OK), lancer le workflow `mobile-app.yml` en manuel sur la branche de travail, avec `ios=false` (pas de minutes macOS, pas de tag). L'APK est l'artefact `scatter-android` du run (Actions → run → Artifacts). Donner à l'utilisateur le lien du run et la liste précise de ce qu'il doit tester. Le workflow doit être présent sur la branche lancée, donc la branche doit être poussée : ne le faire que si l'utilisateur a demandé de pousser.
+- **APK de test :** quand une tâche est finie (tests et typecheck OK), commiter, pousser sur la branche de travail perso de Claude, puis lancer le workflow `mobile-app.yml` en manuel sur cette branche avec `ios=false`. L'APK est l'artefact `scatter-android` du run (Actions → run → Artifacts). Donner à l'utilisateur le lien du run et la liste précise de ce qu'il doit tester.
+- **APK à volonté, IPA sous contrôle :** les builds Android sont libres. L'IPA coûte des crédits macOS : seulement sur un tag `v*` ou en cochant `ios` à la main (décoché par défaut).
+- **Ne jamais dégrader l'expérience de jeu**, même pour corriger un bug : vérifier chaque changement du point de vue du joueur, et prendre des marges.
 - **Objectifs serveur, en permanence :** rapidité et capacité à tenir beaucoup de parties en même temps. Mesurer avant d'optimiser (voir `bench.ts` et `load.ts`).
 
 ## Structure (npm workspaces)
@@ -51,7 +53,10 @@ Avant de dire qu'une tâche est finie : `npm test` passe, et `npx tsc --noEmit` 
 
 ## Fonctionnement clé (à connaître avant de toucher)
 
-- **Parties en mémoire.** Elles sont sauvegardées dans `$DATA_DIR/games.json` à l'arrêt (SIGTERM) et toutes les 30 s, puis relues au démarrage. L'horloge des parties en cours avance du temps de coupure. Une sauvegarde de plus de 10 min est ignorée.
+- **Parties en mémoire.** Elles sont sauvegardées dans `$DATA_DIR/games.json` à l'arrêt (SIGTERM, d'un bloc) et toutes les 30 s (partie par partie, sans figer le serveur), puis relues au démarrage.
+- **Zone :** placée à la création sur la dernière position connue de l'hôte (instantané), recalée sur une position fraîche quand l'hôte lance (`start { center }`, 5 s max).
+- **Déjà dans une partie :** l'onglet Jouer bloque créer / rejoindre / s'entraîner ; seulement « y retourner » ou « quitter » (avec confirmation). Le serveur valide aussi une arrivée avant de faire quitter l'ancienne partie.
+- **Serveur :** l'adresse est celle compilée dans l'app (`EXPO_PUBLIC_SERVER_URL`), plus de réglage dans le Profil. L'horloge des parties en cours avance du temps de coupure. Une sauvegarde de plus de 10 min est ignorée.
 - **Boucle de jeu à 100 ms.** Chaque partie avance une fois par seconde, à son propre rythme : les parties sont réparties sur la seconde.
 - **Vues par joueur.** `view()` calcule une vue pour chaque joueur, sans jamais lui envoyer plus que ce qu'il a le droit de voir. Les autres joueurs y apparaissent sous un identifiant court (`sid`), jamais sous leur identifiant de compte.
 - **Ping envoyé une seule fois.** Le serveur ne renvoie le ping que quand il change ; s'il est absent d'un état, l'app garde le précédent.
@@ -65,6 +70,8 @@ Avant de dire qu'une tâche est finie : `npm test` passe, et `npx tsc --noEmit` 
   - 20 messages par seconde maximum par connexion, et 16 Ko maximum par message ;
   - 5 000 parties maximum en mémoire ;
   - salons abandonnés supprimés au bout de 15 min ;
+  - radio : un message toutes les 0,5 s au plus par connexion ; historique de positions plafonné à 400 échantillons ;
+  - une partie finie n'est plus diffusée après 15 s (reconnexion : état complet quand même) ;
   - codes de salon de 6 caractères sur 31 symboles. Pas de limite par adresse IP : les opérateurs 4G partagent les IP entre abonnés.
 - **`/health` et `/version`** donnent la version, le commit et la charge (parties, joueurs, attente p99, mémoire).
 - **App :**

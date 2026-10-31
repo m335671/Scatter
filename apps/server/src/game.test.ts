@@ -270,3 +270,9 @@ test('pseudo : emojis et accents acceptés, caractères invisibles refusés', ()
   for (const ok of ['Zoé 🏃', '🦊', 'Élodie', '👩‍👩‍👧']) assert.ok(DisplayName.safeParse(ok).success, ok);
   for (const ko of ['\u200B', 'abc\u202Edef', '\u0007bip', '   ']) assert.ok(!DisplayName.safeParse(ko).success, JSON.stringify(ko));
 });
+
+test('positions : un client qui inonde ne fait pas grossir son historique sans fin', () => {
+  const g = setup();
+  for (let i = 0; i < 5000; i++) updatePosition(g, 'f', C); // horloge figée : rien n'est purgé par l'âge
+  assert.ok(g.players.get('f')!.history.length <= 401);
+});

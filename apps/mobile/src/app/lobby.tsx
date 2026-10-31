@@ -6,7 +6,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { CaretDownIcon, CheckIcon, QrCodeIcon, XIcon } from 'phosphor-react-native';
 import { defaultRules, type GameMode, type LobbyPlayer, type RoleChoice, type Rules } from '@kr/shared';
 import { emit, leaveGame } from '../api';
-import { currentPosition } from '../location';
+import { currentPosition, freshPosition } from '../location';
 import { useStore } from '../store';
 import { fonts, radius, useTheme } from '../theme';
 import { BackHeader, Button, Group, Row, Segmented, Stepper, T, Toggle, fmtDistance, initial, showDialog } from '../ui';
@@ -51,7 +51,8 @@ export default function LobbyScreen() {
 
   async function start() {
     setBusy(true);
-    try { await emit('start'); } catch (e) { showDialog({ title: 'Impossible de lancer', message: (e as Error).message }); } finally { setBusy(false); }
+    // La zone a été placée sur la dernière position connue (création instantanée) : on la recale sur une position fraîche.
+    try { await emit('start', { center: (await freshPosition()) ?? undefined }); } catch (e) { showDialog({ title: 'Impossible de lancer', message: (e as Error).message }); } finally { setBusy(false); }
   }
 
   function kick(p: LobbyPlayer) {

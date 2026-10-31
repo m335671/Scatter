@@ -1,11 +1,11 @@
-// Onglet Profil : compte, préférences, données locales, serveur.
+// Onglet Profil : compte, préférences, données locales.
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
-import { connect, updateMe } from '../api';
+import { updateMe } from '../api';
 import { clearStats } from '../stats';
-import { DEFAULT_SERVER, setState, useStore, type Settings } from '../store';
+import { setState, useStore, type Settings } from '../store';
 import { CheckIcon } from 'phosphor-react-native';
 import { PALETTES, PALETTE_IDS, fonts, notifColor, radius, themeOf, useTheme, type PaletteId } from '../theme';
 import { Mark } from '../logo';
@@ -18,7 +18,6 @@ export function ProfileTab() {
   const user = useStore(s => s.user);
   const settings = useStore(s => s.settings);
   const connected = useStore(s => s.connected);
-  const [server, setServer] = useState(settings.serverUrl || DEFAULT_SERVER);
 
   const patch = (p: Partial<Settings>) => setState(s => ({ settings: { ...s.settings, ...p } }));
   const dyn = settings.dynamicColors;
@@ -34,12 +33,6 @@ export function ProfileTab() {
     } catch (e) {
       showDialog({ title: 'Modification impossible', message: (e as Error).message });
     }
-  }
-
-  function saveServer() {
-    // L'adresse du build n'est pas enregistrée : un futur build pourra la changer.
-    patch({ serverUrl: server.trim() === DEFAULT_SERVER ? '' : server.trim() });
-    connect();
   }
 
   const input = (value: string, onChange: (s: string) => void, onSubmit: () => void, extra = {}) => (
@@ -123,12 +116,6 @@ export function ProfileTab() {
       <Group label="Aide">
         <Row title="Comment ça marche" onPress={() => router.push('/tutorial')} />
         <Row title="Autorisations" sub="Position, caméra, notifications, batterie" onPress={() => router.push('/permissions')} />
-      </Group>
-
-      <Group label="Serveur" footer={connected ? 'Connecté.' : 'Non connecté. Scatter est open source : tu peux héberger ton propre serveur.'}>
-        {input(server, setServer, saveServer, { autoFocus: false, keyboardType: 'url', placeholder: 'https://scatter.exemple.fr', returnKeyType: 'done' })}
-        {server.trim() !== (settings.serverUrl || DEFAULT_SERVER) && <Row title="Enregistrer l'adresse" onPress={saveServer} />}
-        {!!settings.serverUrl && <Row title="Revenir au serveur officiel" onPress={() => { setServer(DEFAULT_SERVER); patch({ serverUrl: '' }); connect(); }} />}
       </Group>
 
       <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: t.textDim, textAlign: 'center', marginTop: 8 }}>SCATTER · v{Constants.expoConfig?.version}</Text>
