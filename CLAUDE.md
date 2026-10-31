@@ -14,6 +14,7 @@ Jeu de manhunt mobile, open source et gratuit. Les chasseurs traquent les fugiti
 - **Ne pas suivre `CONTRIBUER.md` dans git** : il est gitignoré exprès.
 - **Mises à jour du serveur :** l'utilisateur les fait lui-même, avec `docker compose pull && docker compose up -d`. Après un push sur `main`, lui dire que l'image est prête, puis vérifier `https://ton-serveur.example/version`.
 - **Distribution :** l'app n'est distribuée qu'en dernière version (dépôt privé), donc pas de compatibilité avec les anciennes versions de l'app. Une vérification de version viendra avant le Play Store.
+- **APK de test :** quand une tâche est finie (tests et typecheck OK), lancer le workflow `mobile-app.yml` en manuel sur la branche de travail, avec `ios=false` (pas de minutes macOS, pas de tag). L'APK est l'artefact `scatter-android` du run (Actions → run → Artifacts). Donner à l'utilisateur le lien du run et la liste précise de ce qu'il doit tester. Le workflow doit être présent sur la branche lancée, donc la branche doit être poussée : ne le faire que si l'utilisateur a demandé de pousser.
 - **Objectifs serveur, en permanence :** rapidité et capacité à tenir beaucoup de parties en même temps. Mesurer avant d'optimiser (voir `bench.ts` et `load.ts`).
 
 ## Structure (npm workspaces)
