@@ -29,7 +29,8 @@ Jeu de manhunt mobile en conditions réelles, entre amis. Open source, gratuit, 
   - l'hôte crée une partie et reçoit un code de 6 caractères, lettres et chiffres mélangés, sans 0/O/1/I/L ;
   - les autres rejoignent avec le code ou en scannant le QR du salon, qui contient juste le code ;
   - chacun se dit « prêt » ; il faut au moins 2 joueurs, tous prêts, pour lancer ;
-  - l'hôte règle les règles (ce qui remet tout le monde « pas prêt »), lance la partie et peut exclure un joueur, qui ne peut plus revenir.
+  - l'hôte règle les règles (ce qui remet tout le monde « pas prêt »), lance la partie et peut exclure un joueur, qui ne peut plus revenir ;
+  - « Chacun choisit son rôle » (`freeRoles`, activé par défaut) : coupé, seul l'hôte choisit, en touchant la pastille de rôle d'un joueur.
 - **Règles réglables par l'hôte** :
   - mode Classique ou Zombie ;
   - durée (5 à 180 min) ;
@@ -97,7 +98,7 @@ Fichiers app (`apps/mobile/src/`) :
 ## Protocole Socket.IO
 
 - **Client → serveur**, avec accusé `{ ok } | { error }` :
-  - `create`, `join`, `leave`, `rules`, `role`, `ready`, `kick`, `start` ;
+  - `create`, `join`, `leave`, `rules`, `role` (`id` : joueur visé par l'hôte quand les rôles ne sont pas libres), `ready`, `kick`, `start` ;
   - `capture`, `chat` (`channel: team | all`) ;
   - `training` (`ping | advance | speed | end | catch | caught | stray`) ;
   - `pos` : envoyé en `volatile` par l'app, sans accusé.
@@ -140,13 +141,16 @@ Fichiers app (`apps/mobile/src/`) :
 - **DA « Topo »** : fond sombre `#0F1712`, accent lime `#D4FF3A` (palette Forêt). Il y a un mode clair, et 6 palettes au choix dans `theme.ts` (Forêt, Braise, Océan, Ambre, Lavande, Ardoise), plus une option « couleur selon le mode » (Classique ou Zombie). Toujours passer par `useTheme()`, jamais de couleur en dur.
 - **Polices** : Bricolage Grotesque (titres et texte) et JetBrains Mono (chiffres, codes, étiquettes).
 - **Formes** : arrondis 18 (blocs), 12 (éléments internes), boutons en pilule.
-- **Icônes** : Phosphor (`phosphor-react-native`, imports `XxxIcon`).
+- **Icônes** : Phosphor, toujours importées depuis `src/icons.ts` (une ligne par icône, jamais depuis `phosphor-react-native` directement : tout le paquet serait embarqué, +6 Mo).
 - **Boîtes de dialogue** : jamais `Alert.alert`, toujours `showDialog`.
 - **Textes de l'interface** :
   - pas de tiret cadratin ;
   - textes courts, compréhensibles même sans les lire (tutoriel surtout) ;
   - ne pas supposer le genre d'un joueur.
 - **Salon** : il ne doit pas défiler tant que « Tous les réglages » est replié.
+- **Réglages chiffrés** : `Choices` (valeurs prêtes à toucher), pas de − / +.
+- **Notifications** : effacées dès que l'app revient au premier plan (sauf celle du suivi GPS, imposée par Android).
+- **Icône de l'app** : une par palette (`expo-alternate-app-icons`, images dans `assets/icons/`, Forêt = icône d'origine). Réglage dans le Profil, bloqué pendant une manche. Images générées depuis la géométrie de `assets/brand/mark.svg` (fond, traits et point = `bg`, `text`, `accent` sombres de la palette).
 - **Expo change souvent** : vérifier l'API dans la doc versionnée (`docs.expo.dev/versions/v58.0.0/`) ou dans les `.d.ts` de `node_modules`. Installer les paquets avec `npx expo install`.
 
 ## Commandes
@@ -180,6 +184,7 @@ cd apps/server && node --experimental-strip-types --no-warnings src/load.ts http
   - **seulement sur demande explicite** ;
   - en manuel (« Run workflow »), APK seul par défaut, l'IPA est à cocher ;
   - pour un changement Android seul : APK compilé en local, puis `gh release upload <tag> <apk> --clobber`.
+- **Taille de l'APK** : bibliothèques natives compressées (`expo-build-properties`, `useLegacyPackaging`) : environ −26 Mo, au prix d'environ 40 Mo de plus une fois installée sur le téléphone.
 - **Versions** : à chaque version, monter `apps/server/package.json` et `apps/mobile/app.json` (`version` et `android.versionCode`).
 - **iPhone** :
   - IPA compilée par GitHub Actions, parce que le Mac Intel de l'utilisateur ne peut pas compiler le SDK 58 ;
@@ -187,7 +192,7 @@ cd apps/server && node --experimental-strip-types --no-warnings src/load.ts http
   - pas de TestFlight : l'utilisateur refuse de payer Apple ;
   - voir `docs/IOS.md`.
 
-## État au 31/10/2026 (v0.8.0, release publiée, serveur à jour)
+## État au 31/10/2026 (v0.9.0)
 
 **Fait :**
 - DA « Topo » et palettes ;
@@ -199,7 +204,10 @@ cd apps/server && node --experimental-strip-types --no-warnings src/load.ts http
 - exclusion d'un joueur ;
 - sauvegarde et reprise des parties ;
 - états allégés (environ 0,9 Ko par seconde et par joueur) ;
-- couleur de la notification de partie.
+- couleur de la notification de partie ;
+- v0.9.0 : audit (partie protégée, zone recalée au lancement, sauvegarde sans gel, garde-fous, tests de bout en bout),
+  APK allégé (58 → ~22 Mo), copier le code du salon, rôles choisis par l'hôte, réglages en un appui,
+  notifications effacées à l'ouverture, couleur de l'icône de l'app.
 
 **Capacité mesurée :** environ 5 000 joueurs sur un seul cœur.
 

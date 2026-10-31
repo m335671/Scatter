@@ -3,7 +3,7 @@
     "name": "Scatter",
     "slug": "scatter",
     "scheme": "scatter",
-    "version": "0.8.0",
+    "version": "0.9.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -24,7 +24,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 8,
+      "versionCode": 9,
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
       ],
@@ -72,6 +72,64 @@
           "color": "#D4FF3A",
           "enableRemoteNotifications": false
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "useLegacyPackaging": true
+          }
+        }
+      ],
+      [
+        "expo-alternate-app-icons",
+        [
+          {
+            "name": "Braise",
+            "ios": "./assets/icons/braise-ios.png",
+            "android": {
+              "foregroundImage": "./assets/icons/braise-android.png",
+              "backgroundColor": "#161111",
+              "monochromeImage": "./assets/android-icon-monochrome.png"
+            }
+          },
+          {
+            "name": "Ocean",
+            "ios": "./assets/icons/ocean-ios.png",
+            "android": {
+              "foregroundImage": "./assets/icons/ocean-android.png",
+              "backgroundColor": "#0E141B",
+              "monochromeImage": "./assets/android-icon-monochrome.png"
+            }
+          },
+          {
+            "name": "Ambre",
+            "ios": "./assets/icons/ambre-ios.png",
+            "android": {
+              "foregroundImage": "./assets/icons/ambre-android.png",
+              "backgroundColor": "#15130E",
+              "monochromeImage": "./assets/android-icon-monochrome.png"
+            }
+          },
+          {
+            "name": "Lavande",
+            "ios": "./assets/icons/lavande-ios.png",
+            "android": {
+              "foregroundImage": "./assets/icons/lavande-android.png",
+              "backgroundColor": "#121019",
+              "monochromeImage": "./assets/android-icon-monochrome.png"
+            }
+          },
+          {
+            "name": "Ardoise",
+            "ios": "./assets/icons/ardoise-ios.png",
+            "android": {
+              "foregroundImage": "./assets/icons/ardoise-android.png",
+              "backgroundColor": "#111213",
+              "monochromeImage": "./assets/android-icon-monochrome.png"
+            }
+          }
+        ]
       ]
     ],
     "experiments": {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CaretLeftIcon, CheckIcon } from 'phosphor-react-native';
+import { CaretLeftIcon, CheckIcon } from '../icons';
 import { register, usernameAvailable } from '../api';
 import { fonts, radius, useTheme } from '../theme';
 import { Button, Field, Screen, Steps, T, KeyboardSpacer } from '../ui';

@@ -5,7 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { DeviceMobileIcon, XIcon } from 'phosphor-react-native';
+import { DeviceMobileIcon, XIcon } from '../icons';
 import { ShareCard, project } from '../share-card';
 import { type GameRecord, exportStats, totals, useRecords } from '../stats';
 import { useStore } from '../store';
