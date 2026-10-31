@@ -71,6 +71,8 @@ Jeu de manhunt mobile en conditions réelles, entre amis. Open source, gratuit, 
 | `apps/server` | Node 22 (`--experimental-strip-types`, pas de build), `node:http` + Socket.IO, comptes en `node:sqlite`. |
 | `apps/mobile` | Expo SDK 58 (React Native 0.88), expo-router (écrans dans `src/app/`), MapLibre RN v11 + tuiles OpenFreeMap (gratuites, sans clé). |
 
+Carte du code : `graphify-out/GRAPH_REPORT.md` (communautés, nœuds centraux) et `graph.html` (graphe interactif). Pour une question sur l'architecture, commencer par là. Les mettre à jour avec `/graphify . --update` après de gros changements.
+
 Fichiers serveur (`apps/server/src/`) :
 - `game.ts` : moteur pur, sans réseau, testé dans `game.test.ts`.
 - `index.ts` : HTTP (`/health`, `/version`, `/username/:u`, `/auth/register`, `/me`), Socket.IO, boucle de jeu, sauvegarde et reprise, logs.
