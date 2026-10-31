@@ -299,14 +299,15 @@ export function endNow(g: Game) {
 
 // ---------- Capture ----------
 
-export const qrFor = (g: Game, p: Player) => `KR1:${g.code}:${p.id}:${p.secret}`;
+// Identifiant court dans le QR : quiconque le scanne ou le photographie ne voit pas l'identifiant du compte.
+export const qrFor = (g: Game, p: Player) => `KR1:${g.code}:${p.sid}:${p.secret}`;
 
 export function capture(g: Game, hunterId: string, qr: string) {
   const hunter = g.players.get(hunterId);
   if (hunter?.role !== 'hunter') throw new GameError("Seuls les chasseurs peuvent attraper.");
   if (g.phase !== 'hunt') throw new GameError("Pas encore, les fugitifs ont de l'avance.");
-  const [tag, code, id, secret] = qr.split(':');
-  const target = g.players.get(id ?? '');
+  const [tag, code, sid, secret] = qr.split(':');
+  const target = [...g.players.values()].find(p => p.sid === sid);
   const ok = tag === 'KR1' && code === g.code && target?.role === 'fugitive' && !!secret
     && secret.length === target.secret.length
     && timingSafeEqual(Buffer.from(secret), Buffer.from(target.secret));

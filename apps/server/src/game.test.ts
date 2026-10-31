@@ -81,7 +81,8 @@ test('capture par QR : bon secret, mauvais secret, pendant l\'avance', () => {
   updatePosition(g, 'f', C);
   assert.throws(() => capture(g, 'h', qrFor(g, f)), GameError); // encore l'avance
   tick(g, 3 * MIN);
-  assert.throws(() => capture(g, 'h', `KR1:ABCD12:f:${'0'.repeat(24)}`), /invalide/);
+  assert.throws(() => capture(g, 'h', `KR1:ABCD12:${f.sid}:${'0'.repeat(24)}`), /invalide/);
+  assert.ok(!qrFor(g, f).includes(':f:')); // jamais l'identifiant du compte dans le QR
   assert.throws(() => capture(g, 'f', qrFor(g, f)), GameError);
   assert.equal(view(g, 'h')!.ping!.players.length, 1); // vu au ping de fin d'avance
   capture(g, 'h', qrFor(g, f));
