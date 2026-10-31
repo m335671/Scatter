@@ -422,12 +422,12 @@ function PingFlash({ game }: { game: GameView }) {
 
   const n = game.ping?.players.length ?? 0;
   return (
-    <Animated.View pointerEvents="none" style={{ position: 'absolute', inset: 0, opacity, backgroundColor: t.accent, justifyContent: 'center', padding: 24 }}>
-      <Text style={{ fontFamily: fonts.mono, fontSize: 16, color: t.onAccent, opacity: 0.75, letterSpacing: 2 }}>
+    <Animated.View pointerEvents="none" style={{ position: 'absolute', inset: 0, opacity, backgroundColor: t.flash, justifyContent: 'center', padding: 24 }}>
+      <Text style={{ fontFamily: fonts.mono, fontSize: 16, color: t.onFlash, opacity: 0.75, letterSpacing: 2 }}>
         {game.me.role === 'hunter' ? `${n} FUGITIF${n > 1 ? 'S' : ''} REPÉRÉ${n > 1 ? 'S' : ''}` : 'LES CHASSEURS SAVENT'}
       </Text>
-      <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.hero, fontSize: 110, lineHeight: 112, letterSpacing: -1.5, color: t.onAccent, marginTop: 4 }}>Ping !</Text>
-      <Text style={{ fontFamily: fonts.medium, fontSize: 17, color: t.onAccent, marginTop: 4 }}>
+      <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.hero, fontSize: 110, lineHeight: 112, letterSpacing: -1.5, color: t.onFlash, marginTop: 4 }}>Ping !</Text>
+      <Text style={{ fontFamily: fonts.medium, fontSize: 17, color: t.onFlash, marginTop: 4 }}>
         {game.me.role === 'hunter' ? 'Positions de il y a 1 min.' : 'Ta position d’il y a 1 min est sur leur carte.'}
       </Text>
     </Animated.View>
@@ -512,9 +512,9 @@ function RoleReveal({ game }: { game: GameView }) {
   if (!show) return null;
   const opacity = p.interpolate({ inputRange: [0, 0.3, 1, 1.6, 2], outputRange: [0, 1, 1, 1, 0] });
   const scale = p.interpolate({ inputRange: [0, 1, 2], outputRange: [0.7, 1, 1.08] });
-  const fg = hunter ? t.onAccent : t.text;
+  const fg = hunter ? t.onFlash : t.text;
   return (
-    <Animated.View style={{ position: 'absolute', inset: 0, opacity, backgroundColor: hunter ? t.accent : t.bg, justifyContent: 'center', padding: 24 }}>
+    <Animated.View style={{ position: 'absolute', inset: 0, opacity, backgroundColor: hunter ? t.flash : t.bg, justifyContent: 'center', padding: 24 }}>
       <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: fg, opacity: 0.85, letterSpacing: 2 }}>{converted ? 'CONTAMINÉ. TU ES' : 'TU ES'}</Text>
       <Animated.Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.hero, fontSize: 120, lineHeight: 124, color: hunter ? fg : t.accentText, letterSpacing: -1.5, transform: [{ scale }] }}>
         {hunter ? 'CHASSEUR' : 'FUGITIF'}

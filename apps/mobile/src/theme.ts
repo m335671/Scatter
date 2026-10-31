@@ -7,6 +7,8 @@ import { useStore } from './store';
 interface Base {
   bg: string; surface: string; surface2: string; text: string; textDim: string; line: string;
   accent: string; accentText: string; onAccent: string; danger: string; onDanger: string;
+  /** Plein écran du ping et de « Tu es chasseur ». Par défaut l'accent ; à part quand l'accent éblouirait. */
+  flash?: string; onFlash?: string;
 }
 
 export const PALETTES = {
@@ -37,8 +39,8 @@ export const PALETTES = {
   },
   ardoise: {
     name: 'Ardoise',
-    dark: { bg: '#111213', surface: '#1A1B1D', surface2: '#242628', text: '#EDEEEF', textDim: '#9A9DA2', line: '#2E3033', accent: '#F2F2F2', accentText: '#FFFFFF', onAccent: '#111213', danger: '#FF6B57', onDanger: '#1A0A05' },
-    light: { bg: '#F2F2F3', surface: '#FFFFFF', surface2: '#E4E5E7', text: '#151618', textDim: '#5F6268', line: '#D8D9DC', accent: '#151618', accentText: '#151618', onAccent: '#FFFFFF', danger: '#C2410C', onDanger: '#FFF4EE' },
+    dark: { bg: '#111213', surface: '#1A1B1D', surface2: '#242628', text: '#EDEEEF', textDim: '#9A9DA2', line: '#2E3033', accent: '#F2F2F2', accentText: '#FFFFFF', onAccent: '#111213', danger: '#FF6B57', onDanger: '#1A0A05', flash: '#2A2C2F', onFlash: '#F2F2F2' },
+    light: { bg: '#F2F2F3', surface: '#FFFFFF', surface2: '#E4E5E7', text: '#151618', textDim: '#5F6268', line: '#D8D9DC', accent: '#151618', accentText: '#151618', onAccent: '#FFFFFF', danger: '#C2410C', onDanger: '#FFF4EE', flash: '#FFFFFF', onFlash: '#151618' },
   },
 } satisfies Record<string, { name: string; dark: Base; light: Base }>;
 
@@ -48,7 +50,9 @@ export const PALETTE_IDS = Object.keys(PALETTES) as PaletteId[];
 const rgba = (hex: string, a: number) =>
   `rgba(${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)},${a})`;
 
-const build = (b: Base, dark: boolean) => ({ ...b, dark, accentSoft: rgba(b.accent, dark ? 0.14 : 0.3) });
+const build = (b: Base, dark: boolean) => ({
+  ...b, dark, accentSoft: rgba(b.accent, dark ? 0.14 : 0.3), flash: b.flash ?? b.accent, onFlash: b.onFlash ?? b.onAccent,
+});
 export type Theme = ReturnType<typeof build>;
 
 // Thèmes construits une fois : chaque écran reçoit le même objet tant que rien ne change.
