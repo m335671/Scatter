@@ -13,6 +13,7 @@ export const CaretDownIcon: Icon = require('phosphor-react-native/src/icons/Care
 export const CaretLeftIcon: Icon = require('phosphor-react-native/src/icons/CaretLeft').CaretLeftIcon;
 export const CaretRightIcon: Icon = require('phosphor-react-native/src/icons/CaretRight').CaretRightIcon;
 export const CheckIcon: Icon = require('phosphor-react-native/src/icons/Check').CheckIcon;
+export const CopyIcon: Icon = require('phosphor-react-native/src/icons/Copy').CopyIcon;
 export const CrosshairIcon: Icon = require('phosphor-react-native/src/icons/Crosshair').CrosshairIcon;
 export const DeviceMobileIcon: Icon = require('phosphor-react-native/src/icons/DeviceMobile').DeviceMobileIcon;
 export const DotsThreeIcon: Icon = require('phosphor-react-native/src/icons/DotsThree').DotsThreeIcon;

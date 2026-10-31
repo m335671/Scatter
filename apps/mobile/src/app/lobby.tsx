@@ -3,7 +3,9 @@ import { Modal, Pressable, ScrollView, Share, Text, View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
-import { CaretDownIcon, CheckIcon, QrCodeIcon, XIcon } from '../icons';
+import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
+import { CaretDownIcon, CheckIcon, CopyIcon, QrCodeIcon, XIcon } from '../icons';
 import { defaultRules, type GameMode, type LobbyPlayer, type RoleChoice, type Rules } from '@kr/shared';
 import { emit, leaveGame } from '../api';
 import { currentPosition, freshPosition } from '../location';
@@ -25,6 +27,7 @@ export default function LobbyScreen() {
   const [busy, setBusy] = useState(false);
   const [qr, setQr] = useState(false);
   const [all, setAll] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (phase && phase !== 'lobby') router.replace('/game');
@@ -64,6 +67,13 @@ export default function LobbyScreen() {
         { label: 'Annuler', kind: 'cancel' },
       ],
     });
+  }
+
+  async function copy() {
+    await Clipboard.setStringAsync(lobby!.code);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setCopied(true); // la coche remplace l'icône un instant : copié
+    setTimeout(() => setCopied(false), 1500);
   }
 
   async function toggleReady() {
@@ -110,6 +120,10 @@ export default function LobbyScreen() {
             <Pressable accessibilityRole="button" accessibilityLabel="Afficher le QR code du salon" onPress={() => setQr(true)}
               style={({ pressed }) => ({ width: 60, height: 60, borderRadius: 18, backgroundColor: t.accent, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] })}>
               <QrCodeIcon size={30} color={t.onAccent} weight="bold" />
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={copied ? 'Code copié' : 'Copier le code du salon'} onPress={copy}
+              style={({ pressed }) => ({ width: 60, height: 60, borderRadius: 18, borderWidth: 1.5, borderColor: codeFg, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] })}>
+              {copied ? <CheckIcon size={28} color={codeFg} weight="bold" /> : <CopyIcon size={28} color={codeFg} weight="bold" />}
             </Pressable>
           </View>
         )}
