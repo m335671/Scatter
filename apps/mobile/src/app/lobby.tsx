@@ -11,9 +11,8 @@ import { emit, leaveGame } from '../api';
 import { currentPosition, freshPosition } from '../location';
 import { useStore } from '../store';
 import { fonts, radius, useTheme } from '../theme';
-import { BackHeader, Button, Group, Row, Segmented, Stepper, T, Toggle, fmtDistance, initial, showDialog } from '../ui';
+import { BackHeader, Button, Choices, Group, Row, Segmented, T, Toggle, fmtDistance, initial, showDialog } from '../ui';
 
-const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 const ROLE_LABEL: Record<RoleChoice, string> = { hunter: 'Chasseur', fugitive: 'Fugitif', random: 'Au hasard' };
 
 export default function LobbyScreen() {
@@ -48,9 +47,22 @@ export default function LobbyScreen() {
   const alone = !lobby.training && humans.length < 2;
 
   const set = (patch: (r: Rules) => Rules) => emit('rules', patch(r)).catch(e => showDialog({ title: 'Modification refusée', message: e.message }));
-  const step = (label: string, value: string, fn: (d: number) => void, sub?: string) => (
-    <Row title={label} sub={sub} value={value} right={isHost ? <Stepper onMinus={() => fn(-1)} onPlus={() => fn(1)} /> : undefined} />
-  );
+  // Hôte : valeurs prêtes à toucher. Les autres voient seulement la valeur.
+  const pick = (title: string, value: number, options: number[], label: (v: number) => string, onPick: (v: number) => void, sub?: string) =>
+    isHost ? <Choices title={title} sub={sub} value={value} options={options} label={label} onChange={onPick} />
+      : <Row title={title} sub={sub} value={label(value)} />;
+  const min = (v: number) => `${v} min`;
+  const m = (v: number) => fmtDistance(v, units);
+  const freeRoles = lobby.training || r.freeRoles;
+  const changeRole = (role: RoleChoice, id?: string) =>
+    emit('role', { role, id }).catch(e => showDialog({ title: 'Changement refusé', message: e.message }));
+  // Rôles choisis par l'hôte : il touche la pastille d'un joueur pour la changer.
+  const pickRole = (p: LobbyPlayer) => showDialog({
+    title: `Rôle de ${p.name}`,
+    actions: (['hunter', 'fugitive', 'random'] as const).map(role => ({
+      label: ROLE_LABEL[role], kind: role === p.choice ? 'primary' as const : 'cancel' as const, onPress: () => changeRole(role, p.id),
+    })),
+  });
 
   async function start() {
     setBusy(true);
@@ -132,7 +144,8 @@ export default function LobbyScreen() {
           <View style={{ backgroundColor: t.surface, borderWidth: t.dark ? 1 : 0, borderColor: t.line, borderRadius: radius.block + 6, paddingHorizontal: 16, paddingVertical: 4 }}>
             {humans.map((p, i) => (
               <PlayerRow key={p.id} p={p} me={p.id === me.id} first={i === 0} ready={isReady(p)}
-                onKick={isHost && p.id !== me.id ? () => kick(p) : undefined} />
+                onKick={isHost && p.id !== me.id ? () => kick(p) : undefined}
+                onRole={isHost && !freeRoles ? () => pickRole(p) : undefined} />
             ))}
             {humans.length < 3 && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderTopWidth: 1, borderTopColor: t.line }}>
@@ -147,23 +160,27 @@ export default function LobbyScreen() {
           <Group label="Bots" footer={r.bots.smart
             ? 'Malins : les chasseurs courent vers ton dernier ping, les fugitifs fuient les chasseurs repérés.'
             : 'Promeneurs : les bots se baladent au hasard dans la zone.'}>
-            {r.mode !== 'zombie' && step('Bots chasseurs', String(r.bots.hunters), d => set(x => ({ ...x, bots: { ...x.bots, hunters: clamp(x.bots.hunters + d, 0, 5) } })))}
+            {r.mode !== 'zombie' && pick('Bots chasseurs', r.bots.hunters, [0, 1, 2, 3, 4, 5], String, v => set(x => ({ ...x, bots: { ...x.bots, hunters: v } })))}
             {/* Zombie : tous les bots comptent ensemble, un seul chasseur est tiré au départ. */}
-            {step(r.mode === 'zombie' ? 'Bots' : 'Bots fugitifs', String(r.mode === 'zombie' ? r.bots.hunters + r.bots.fugitives : r.bots.fugitives),
-              d => set(x => ({ ...x, bots: { ...x.bots, fugitives: clamp(x.bots.fugitives + d, 0, 10) } })))}
+            {r.mode === 'zombie'
+              ? pick('Bots', r.bots.hunters + r.bots.fugitives, [1, 2, 3, 4, 5, 6, 8, 10].filter(v => v >= r.bots.hunters), String,
+                v => set(x => ({ ...x, bots: { ...x.bots, fugitives: v - x.bots.hunters } })))
+              : pick('Bots fugitifs', r.bots.fugitives, [0, 1, 2, 3, 4, 5, 6, 8, 10], String, v => set(x => ({ ...x, bots: { ...x.bots, fugitives: v } })))}
             <Row title="Bots malins" right={<Toggle value={r.bots.smart} onChange={v => set(x => ({ ...x, bots: { ...x.bots, smart: v } }))} />} />
             <Row title="Messages radio des bots" sub="Un coéquipier commente chaque ping" right={<Toggle value={r.bots.chatty} onChange={v => set(x => ({ ...x, bots: { ...x.bots, chatty: v } }))} />} />
           </Group>
         )}
 
-        <Group label="Tu joues" footer={lobby.training ? undefined : r.mode === 'zombie'
-          ? "« Chasseur » : volontaire pour être le premier chasseur."
+        <Group label="Tu joues" footer={lobby.training ? undefined
+          : !freeRoles ? (isHost ? 'Touche la pastille d’un joueur pour choisir son rôle.' : "C'est l'hôte qui choisit les rôles.")
+          : r.mode === 'zombie' ? "« Chasseur » : volontaire pour être le premier chasseur."
           : "« Au hasard » complète l'équipe qui en a besoin, environ un chasseur pour trois joueurs."}>
-          <View style={{ padding: 12 }}>
-            <Segmented<RoleChoice> stretch value={myChoice}
-              onChange={role => emit('role', { role }).catch(e => showDialog({ title: 'Changement refusé', message: e.message }))}
-              options={(['hunter', 'fugitive', 'random'] as const).map(v => ({ value: v, label: ROLE_LABEL[v] }))} />
-          </View>
+          {freeRoles || isHost ? (
+            <View style={{ padding: 12 }}>
+              <Segmented<RoleChoice> stretch value={myChoice} onChange={role => changeRole(role)}
+                options={(['hunter', 'fugitive', 'random'] as const).map(v => ({ value: v, label: ROLE_LABEL[v] }))} />
+            </View>
+          ) : <Row title="Ton rôle" value={ROLE_LABEL[myChoice]} />}
         </Group>
 
         <Group label="Mode" footer={r.mode === 'zombie'
@@ -192,22 +209,25 @@ export default function LobbyScreen() {
         {all && (
           <>
             <Group label="Règles de la partie" footer={isHost ? undefined : "Seul l'hôte peut modifier les règles."}>
-              {step('Durée', `${r.durationMin} min`, d => set(x => ({ ...x, durationMin: clamp(x.durationMin + d * 5, 5, 180) })))}
-              {step('Pings', `Toutes les ${r.pingEveryMin} min`, d => set(x => ({ ...x, pingEveryMin: clamp(x.pingEveryMin + d, 1, 30) })))}
-              {step('Avance', `${r.headStartMin} min`, d => set(x => ({ ...x, headStartMin: clamp(x.headStartMin + d, 0, 30) })))}
+              {pick('Durée', r.durationMin, [10, 15, 20, 30, 45, 60, 90, 120], min, v => set(x => ({ ...x, durationMin: v })))}
+              {pick('Ping toutes les', r.pingEveryMin, [1, 2, 3, 5, 10], min, v => set(x => ({ ...x, pingEveryMin: v })))}
+              {pick('Avance des fugitifs', r.headStartMin, [0, 1, 2, 3, 5, 10], min, v => set(x => ({ ...x, headStartMin: v })))}
+              {!lobby.training && (
+                <Row title="Chacun choisit son rôle" sub={r.freeRoles ? undefined : "Coupé : l'hôte choisit pour tout le monde"}
+                  right={<Toggle value={r.freeRoles} disabled={!isHost} onChange={v => set(x => ({ ...x, freeRoles: v }))} />} />
+              )}
               <Row title="Les chasseurs peuvent parler" right={<Toggle value={r.huntersCanTalk} disabled={!isHost} onChange={v => set(x => ({ ...x, huntersCanTalk: v }))} />} />
-              {step('Après la capture', '', d => set(x => ({ ...x, spectatorDelayMin: clamp(x.spectatorDelayMin + d, 0, 2) })),
-                r.spectatorDelayMin ? `Regarder avec ${r.spectatorDelayMin} min de retard` : 'Regarder en direct')}
+              {pick('Après la capture', r.spectatorDelayMin, [0, 1, 2], v => (v ? `${v} min de retard` : 'En direct'),
+                v => set(x => ({ ...x, spectatorDelayMin: v })), 'Ce que voit un joueur attrapé')}
             </Group>
 
             <Group footer={shrinkText}>
               <Row title="Zone de jeu" right={<Toggle value={r.zone.enabled} disabled={!isHost} onChange={v => set(x => ({ ...x, zone: { ...x.zone, enabled: v } }))} />} />
-              {r.zone.enabled && step('Taille', fmtDistance(r.zone.startRadiusM, units), d => set(x => {
-                const startRadiusM = clamp(x.zone.startRadiusM + d * 50, 100, 5000);
-                return { ...x, zone: { ...x.zone, startRadiusM, finalRadiusM: Math.min(x.zone.finalRadiusM, startRadiusM) } };
-              }))}
-              {r.zone.enabled && step('Taille finale', fmtDistance(r.zone.finalRadiusM, units), d => set(x => ({ ...x, zone: { ...x.zone, finalRadiusM: clamp(x.zone.finalRadiusM + d * 25, 25, x.zone.startRadiusM) } })))}
-              {r.zone.enabled && step('Rétrécit', `Toutes les ${r.zone.shrinkEveryMin} min`, d => set(x => ({ ...x, zone: { ...x.zone, shrinkEveryMin: clamp(x.zone.shrinkEveryMin + d, 1, 30) } })))}
+              {r.zone.enabled && pick('Taille au départ', r.zone.startRadiusM, [200, 300, 400, 500, 750, 1000, 1500, 2000], m,
+                v => set(x => ({ ...x, zone: { ...x.zone, startRadiusM: v, finalRadiusM: Math.min(x.zone.finalRadiusM, v) } })))}
+              {r.zone.enabled && pick('Taille finale', r.zone.finalRadiusM, [25, 50, 100, 150, 200, 300, 500].filter(v => v <= r.zone.startRadiusM), m,
+                v => set(x => ({ ...x, zone: { ...x.zone, finalRadiusM: v } })))}
+              {r.zone.enabled && pick('Rétrécit toutes les', r.zone.shrinkEveryMin, [1, 2, 3, 5, 10], min, v => set(x => ({ ...x, zone: { ...x.zone, shrinkEveryMin: v } })))}
               {r.zone.enabled && isHost && <Row title="Centrer la zone sur moi" onPress={recenter} />}
             </Group>
           </>
@@ -233,8 +253,8 @@ export default function LobbyScreen() {
   );
 }
 
-/** `onKick` : l'hôte exclut un autre joueur (croix, ou toucher la ligne). */
-function PlayerRow({ p, me, first, ready, onKick }: { p: LobbyPlayer; me: boolean; first: boolean; ready: boolean; onKick?: () => void }) {
+/** `onKick` : l'hôte exclut un autre joueur (croix, ou toucher la ligne). `onRole` : l'hôte choisit le rôle (pastille). */
+function PlayerRow({ p, me, first, ready, onKick, onRole }: { p: LobbyPlayer; me: boolean; first: boolean; ready: boolean; onKick?: () => void; onRole?: () => void }) {
   const t = useTheme();
   const pill = {
     hunter: { bg: t.accent, fg: t.onAccent, border: t.accent },
@@ -255,9 +275,12 @@ function PlayerRow({ p, me, first, ready, onKick }: { p: LobbyPlayer; me: boolea
         style={{ width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: ready ? t.accent : 'transparent', borderWidth: ready ? 0 : 1.5, borderStyle: 'dashed', borderColor: t.textDim }}>
         {ready && <CheckIcon size={14} color={t.onAccent} weight="bold" />}
       </View>
-      <View style={{ height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: pill.bg, borderWidth: 1.5, borderColor: pill.border, justifyContent: 'center' }}>
-        <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: pill.fg }}>{ROLE_LABEL[p.choice]}</Text>
-      </View>
+      <Pressable onPress={onRole} disabled={!onRole} hitSlop={6} accessibilityRole={onRole ? 'button' : undefined}
+        accessibilityLabel={`Rôle : ${ROLE_LABEL[p.choice]}`} accessibilityHint={onRole ? 'Choisir le rôle de ce joueur' : undefined}
+        style={({ pressed }) => ({ height: 36, paddingHorizontal: 14, borderRadius: 18, backgroundColor: pill.bg, borderWidth: 1.5, borderColor: pill.border, flexDirection: 'row', alignItems: 'center', gap: 5, opacity: pressed ? 0.7 : 1 })}>
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: pill.fg }}>{ROLE_LABEL[p.choice]}</Text>
+        {onRole && <CaretDownIcon size={13} color={pill.fg} weight="bold" />}
+      </Pressable>
       {onKick && (
         <Pressable onPress={onKick} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Exclure ${p.name}`}
           style={({ pressed }) => ({ width: 30, height: 30, borderRadius: 15, borderWidth: 1.5, borderColor: t.danger, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.9 : 1 }] })}>

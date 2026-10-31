@@ -319,10 +319,17 @@ io.on('connection', (socket) => {
     broadcastLobby(x);
   });
 
-  on('role', C2S.role, ({ role }, g) => {
+  on('role', C2S.role, ({ role, id = user.id }, g) => {
     const x = need(g);
     if (x.phase !== 'lobby') throw new GameError('La partie a déjà commencé.');
-    x.players.get(user.id)!.choice = role;
+    const isHost = x.hostId === user.id;
+    // Rôles libres : chacun le sien. Coupés : seul l'hôte choisit, pour lui comme pour les autres.
+    if (id === user.id ? !isHost && !x.rules.freeRoles : !isHost || x.rules.freeRoles) {
+      throw new GameError(isHost ? 'Coupe « Chacun choisit son rôle » pour choisir à la place des joueurs.' : "C'est l'hôte qui choisit les rôles.");
+    }
+    const p = x.players.get(id);
+    if (!p) throw new GameError('Joueur introuvable.');
+    p.choice = role;
     broadcastLobby(x);
   });
 

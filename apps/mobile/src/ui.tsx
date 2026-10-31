@@ -143,19 +143,33 @@ export function Segmented<V extends string | number>({ options, value, onChange,
   );
 }
 
-export function Stepper({ onMinus, onPlus, disabled }: { onMinus: () => void; onPlus: () => void; disabled?: boolean }) {
+/**
+ * Réglage chiffré : des valeurs prêtes à toucher, à la place d'un − / +. Une pression suffit, toutes les valeurs
+ * sont visibles, et une valeur hors liste (réglage par défaut, ancienne partie) est ajoutée pour rester sélectionnée.
+ */
+export function Choices({ title, sub, value, options, label, onChange }: {
+  title: string; sub?: string; value: number; options: number[]; label: (v: number) => string; onChange: (v: number) => void;
+}) {
   const t = useTheme();
-  const btn = (label: string, fn: () => void, a11y: string) => (
-    <Pressable accessibilityRole="button" accessibilityLabel={a11y} onPress={fn} disabled={disabled} hitSlop={4}
-      style={({ pressed }) => ({ width: 48, height: 40, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.35 : pressed ? 0.6 : 1 })}>
-      <Text style={{ fontFamily: fonts.semibold, fontSize: 24, color: t.text, marginTop: -2 }}>{label}</Text>
-    </Pressable>
-  );
+  const list = options.includes(value) ? options : [...options, value].sort((a, b) => a - b);
   return (
-    <View style={{ flexDirection: 'row', backgroundColor: t.surface2, borderRadius: radius.inner, alignItems: 'center' }}>
-      {btn('−', onMinus, 'Diminuer')}
-      <View style={{ width: StyleSheet.hairlineWidth, height: 20, backgroundColor: t.line }} />
-      {btn('+', onPlus, 'Augmenter')}
+    <View style={{ paddingVertical: 12, gap: 10 }}>
+      <View style={{ paddingHorizontal: 16 }}>
+        <Text style={{ fontFamily: fonts.body, fontSize: 17, color: t.text }}>{title}</Text>
+        {sub ? <Text style={{ fontFamily: fonts.body, fontSize: 15, color: t.textDim, marginTop: 2 }}>{sub}</Text> : null}
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
+        {list.map(v => {
+          const on = v === value;
+          return (
+            <Pressable key={v} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={`${title} : ${label(v)}`}
+              onPress={() => !on && onChange(v)}
+              style={({ pressed }) => ({ height: 40, paddingHorizontal: 16, borderRadius: 20, justifyContent: 'center', backgroundColor: on ? t.accent : t.surface2, opacity: pressed ? 0.7 : 1 })}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: on ? t.onAccent : t.text }}>{label(v)}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }

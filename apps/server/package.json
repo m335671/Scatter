@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node --experimental-strip-types --watch src/index.ts",
     "start": "node --experimental-strip-types src/index.ts",
-    "test": "node --experimental-strip-types --no-warnings --test src/game.test.ts src/server.test.ts"
+    "test": "node --experimental-strip-types --no-warnings --test --test-timeout=30000 src/game.test.ts src/server.test.ts"
   },
   "dependencies": {
     "@kr/shared": "*",

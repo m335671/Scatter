@@ -29,7 +29,8 @@ Jeu de manhunt mobile en conditions réelles, entre amis. Open source, gratuit, 
   - l'hôte crée une partie et reçoit un code de 6 caractères, lettres et chiffres mélangés, sans 0/O/1/I/L ;
   - les autres rejoignent avec le code ou en scannant le QR du salon, qui contient juste le code ;
   - chacun se dit « prêt » ; il faut au moins 2 joueurs, tous prêts, pour lancer ;
-  - l'hôte règle les règles (ce qui remet tout le monde « pas prêt »), lance la partie et peut exclure un joueur, qui ne peut plus revenir.
+  - l'hôte règle les règles (ce qui remet tout le monde « pas prêt »), lance la partie et peut exclure un joueur, qui ne peut plus revenir ;
+  - « Chacun choisit son rôle » (`freeRoles`, activé par défaut) : coupé, seul l'hôte choisit, en touchant la pastille de rôle d'un joueur.
 - **Règles réglables par l'hôte** :
   - mode Classique ou Zombie ;
   - durée (5 à 180 min) ;
@@ -97,7 +98,7 @@ Fichiers app (`apps/mobile/src/`) :
 ## Protocole Socket.IO
 
 - **Client → serveur**, avec accusé `{ ok } | { error }` :
-  - `create`, `join`, `leave`, `rules`, `role`, `ready`, `kick`, `start` ;
+  - `create`, `join`, `leave`, `rules`, `role` (`id` : joueur visé par l'hôte quand les rôles ne sont pas libres), `ready`, `kick`, `start` ;
   - `capture`, `chat` (`channel: team | all`) ;
   - `training` (`ping | advance | speed | end | catch | caught | stray`) ;
   - `pos` : envoyé en `volatile` par l'app, sans accusé.
@@ -147,6 +148,8 @@ Fichiers app (`apps/mobile/src/`) :
   - textes courts, compréhensibles même sans les lire (tutoriel surtout) ;
   - ne pas supposer le genre d'un joueur.
 - **Salon** : il ne doit pas défiler tant que « Tous les réglages » est replié.
+- **Réglages chiffrés** : `Choices` (valeurs prêtes à toucher), pas de − / +.
+- **Notifications** : effacées dès que l'app revient au premier plan (sauf celle du suivi GPS, imposée par Android).
 - **Expo change souvent** : vérifier l'API dans la doc versionnée (`docs.expo.dev/versions/v58.0.0/`) ou dans les `.d.ts` de `node_modules`. Installer les paquets avec `npx expo install`.
 
 ## Commandes

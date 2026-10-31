@@ -18,6 +18,8 @@ export const Rules = z.object({
   pingEveryMin: z.number().int().min(1).max(30),
   headStartMin: z.number().int().min(0).max(30),
   huntersCanTalk: z.boolean(),
+  /** Rôles libres : chacun choisit le sien. Coupé : seul l'hôte choisit (le sien et celui des autres). */
+  freeRoles: z.boolean().default(true),
   spectatorDelayMin: z.number().int().min(0).max(2), // limité par l'historique de positions (3 min)
   zone: z.object({
     enabled: z.boolean(),
@@ -42,6 +44,7 @@ export const defaultRules = (center: LatLng): Rules => ({
   pingEveryMin: 2,
   headStartMin: 3,
   huntersCanTalk: true,
+  freeRoles: true,
   spectatorDelayMin: 1,
   zone: { enabled: true, center, startRadiusM: 420, finalRadiusM: 150, shrinkEveryMin: 5 },
   bots: { hunters: 2, fugitives: 3, smart: false, chatty: true },
@@ -81,7 +84,8 @@ export const C2S = {
   rules: Rules,
   /** center : position fraîche de l'hôte au lancement, la zone s'y recale (la création utilise la dernière connue). */
   start: z.object({ center: LatLng.optional() }),
-  role: z.object({ role: RoleChoice }),
+  /** id : joueur visé, quand l'hôte choisit pour un autre (rôles libres coupés). Absent : soi-même. */
+  role: z.object({ role: RoleChoice, id: z.string().max(64).optional() }),
   ready: z.object({ ready: z.boolean() }),
   kick: z.object({ id: z.string().max(64) }),
   pos: LatLng.extend({ acc: z.number().min(0).max(10_000).optional() }),

@@ -88,6 +88,21 @@ test('radio : un message toutes les 0,5 s au plus', async () => {
   assert.deepEqual(await ask(guest, 'chat', { text: 'c', channel: 'all' }), { ok: true });
 });
 
+test("rôles : libres, chacun le sien ; coupés, seul l'hôte choisit pour tous", async () => {
+  const [host, guest] = await Promise.all([phone(), phone()]);
+  const { code } = await ask(host, 'create', { rules: defaultRules(C) });
+  const lobby = new Promise<any>(r => host.on('lobby', l => l.players.length === 2 && r(l)));
+  await ask(guest, 'join', { code });
+  const guestId = (await lobby).players.find((p: any) => !p.host).id;
+  assert.deepEqual(await ask(guest, 'role', { role: 'hunter' }), { ok: true });
+  assert.match((await ask(host, 'role', { role: 'fugitive', id: guestId })).error, /Coupe/);
+  await ask(host, 'rules', { ...defaultRules(C), freeRoles: false });
+  assert.match((await ask(guest, 'role', { role: 'fugitive' })).error, /hôte/);
+  const changed = new Promise<any>(r => guest.on('lobby', l => l.players.some((p: any) => p.id === guestId && p.choice === 'fugitive') && r(l)));
+  assert.deepEqual(await ask(host, 'role', { role: 'fugitive', id: guestId }), { ok: true });
+  await changed;
+});
+
 // En dernier : épuise la réserve d'inscriptions du serveur.
 test('inscriptions : plafond global, une réserve puis un refus clair', async () => {
   let refused: Response | undefined;
