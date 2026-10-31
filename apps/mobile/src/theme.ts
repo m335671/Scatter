@@ -56,6 +56,8 @@ const THEMES = Object.fromEntries(PALETTE_IDS.map(id => [id, { dark: build(PALET
   Record<PaletteId, { dark: Theme; light: Theme }>;
 
 export const themeOf = (id: PaletteId, dark: boolean): Theme => (THEMES[id] ?? THEMES.foret)[dark ? 'dark' : 'light'];
+/** Couleur Android des notifications (icône, nom de l'app) : l'accent sombre de la palette choisie. */
+export const notifColor = (id: PaletteId) => themeOf(id, true).accent;
 
 /** Palette active : celle du mode de la partie en cours si « couleur selon le mode » est activé, sinon la palette choisie. */
 export function usePaletteId(): PaletteId {

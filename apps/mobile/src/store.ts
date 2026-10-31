@@ -10,6 +10,8 @@ export interface Settings {
   palette: PaletteId;
   /** Couleur selon le mode : en salon ou en partie, la palette suit le mode joué. */
   dynamicColors: { enabled: boolean; classic: PaletteId; zombie: PaletteId };
+  /** Couleur des notifications (celle de la partie en cours comprise). */
+  notifPalette: PaletteId;
   units: 'km' | 'mi';
   /** Vide = serveur compilé dans l'app. Rempli seulement si le joueur saisit sa propre adresse. */
   serverUrl: string;
@@ -41,7 +43,7 @@ export const DEFAULT_SERVER = process.env.EXPO_PUBLIC_SERVER_URL ?? 'http://loca
 let state: State = {
   ready: false, token: null, user: null, connected: false, lobby: null, game: null, chat: [], unread: { team: 0, all: 0 }, dialog: null, permsChecked: false,
   settings: {
-    appearance: 'system', palette: 'foret', dynamicColors: { enabled: false, classic: 'braise', zombie: 'foret' },
+    appearance: 'system', palette: 'foret', dynamicColors: { enabled: false, classic: 'braise', zombie: 'foret' }, notifPalette: 'foret',
     units: 'km', serverUrl: '', tutorialSeen: false,
   },
 };

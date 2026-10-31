@@ -27,6 +27,8 @@ export interface Player {
   stray?: boolean;
   /** A quitté la partie en cours de manche. */
   left?: boolean;
+  /** Prêt à jouer (salon). Remis à zéro quand l'hôte change les règles. */
+  ready?: boolean;
   captures?: number;
   /** Heure de jeu de la sortie de zone en cours (fugitif), null s'il est dedans. */
   outSince?: number | null;
@@ -109,6 +111,8 @@ export const huntEnd = (g: Game) => huntStart(g) + g.rules.durationMin * MIN;
 export function start(g: Game, rng = Math.random) {
   if (g.phase !== 'lobby') throw new GameError('Déjà lancée.');
   const ps = [...g.players.values()];
+  const waiting = ps.filter(p => !isReady(g, p));
+  if (waiting.length) throw new GameError(waiting.length === 1 ? `${waiting[0].name} n'est pas prêt.` : `${waiting.length} joueurs ne sont pas prêts.`);
   if (isZombie(g)) {
     // Un seul chasseur, tiré parmi les volontaires (choix « Chasseur »), sinon parmi tous.
     const pool = ps.filter(p => p.choice === 'hunter');
@@ -143,13 +147,16 @@ export function start(g: Game, rng = Math.random) {
 }
 
 export const isZombie = (g: Game) => g.rules.mode === 'zombie';
+/** L'hôte est prêt en lançant, les bots toujours. */
+export const isReady = (g: Game, p: Player) => p.isBot || p.id === g.hostId || !!p.ready;
 
 // ---------- Positions ----------
 
 export function updatePosition(g: Game, id: string, pos: LatLng & { acc?: number }) {
   const p = g.players.get(id);
   if (!p) return;
-  p.history.push({ t: g.clock, lat: pos.lat, lng: pos.lng, acc: pos.acc });
+  // Arrondi à ~1 m (5 décimales) : le GPS n'est pas plus précis, et chaque état envoyé en est plus léger.
+  p.history.push({ t: g.clock, lat: Math.round(pos.lat * 1e5) / 1e5, lng: Math.round(pos.lng * 1e5) / 1e5, acc: pos.acc });
   // On garde le dernier échantillon antérieur à la fenêtre pour pouvoir répondre à positionAt(clock - 3 min).
   const cutoff = g.clock - HISTORY_MS;
   let i = 0;
@@ -349,7 +356,7 @@ export function lobbyView(g: Game): Lobby {
   return {
     code: g.code, rules: g.rules, training: g.training,
     players: [...g.players.values()].map(p => ({
-      id: p.id, name: p.name, username: p.username, choice: p.choice, isBot: p.isBot, host: p.id === g.hostId,
+      id: p.id, name: p.name, username: p.username, choice: p.choice, isBot: p.isBot, host: p.id === g.hostId, ready: isReady(g, p),
     })),
   };
 }

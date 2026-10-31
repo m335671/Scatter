@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { defaultRules, MIN, zoneRadius } from '@kr/shared';
-import { type Game, GameError, capture, createGame, join, leave, qrFor, say, start, tick, updatePosition, view } from './game.ts';
+import { type Game, GameError, capture, createGame, join, leave, lobbyView, qrFor, say, start, tick, updatePosition, view } from './game.ts';
 import { addBots, moveBots, sendStray, trainingCatch } from './bots.ts';
 
 const C = { lat: 45.9, lng: 4.6 };
@@ -11,9 +11,12 @@ function setup(): Game {
   join(g, { id: 'f', name: 'Fanny', username: 'fanny' });
   g.players.get('h')!.choice = 'hunter';
   g.players.get('f')!.choice = 'fugitive';
+  ready(g);
   start(g);
   return g;
 }
+
+const ready = (g: Game) => { for (const p of g.players.values()) p.ready = true; };
 
 test('ping : les chasseurs voient la position du fugitif 1 min avant', () => {
   const g = setup();
@@ -126,6 +129,7 @@ test('rôles : au hasard complète l\'équipe vide, erreur si impossible', () =>
   const g = createGame('ZZZZ99', { id: 'a', name: 'A', username: 'a' }, defaultRules(C));
   join(g, { id: 'b', name: 'B', username: 'b' });
   g.players.get('a')!.choice = 'hunter';
+  ready(g);
   start(g);
   assert.equal(g.players.get('b')!.role, 'fugitive');
 
@@ -183,6 +187,7 @@ test('zombie : un seul chasseur, le fugitif attrapé change d\'équipe', () => {
   const g = createGame('ZOMB11', { id: 'a', name: 'A', username: 'a' }, { ...defaultRules(C), mode: 'zombie' });
   for (const id of ['b', 'c']) join(g, { id, name: id.toUpperCase(), username: id });
   g.players.get('b')!.choice = 'hunter';
+  ready(g);
   start(g);
   assert.deepEqual([...g.players.values()].map(p => p.role), ['fugitive', 'hunter', 'fugitive']);
   tick(g, 3 * MIN);
@@ -226,4 +231,17 @@ test('entraînement : nombre de bots, capture simulée, bot hors zone éliminé,
   for (let i = 0; i < 400; i++) { tick(g, 1000); moveBots(g, 1000); }
   assert.ok([...g.players.values()].some(p => p.eliminated));
   assert.ok(g.chat.hunter.some(m => !m.system && m.from?.startsWith('bot-')));
+});
+
+test("prêt : on ne lance pas tant qu'un joueur n'est pas prêt, l'hôte l'est d'office", () => {
+  const g = createGame('REDY11', { id: 'a', name: 'A', username: 'a' }, defaultRules(C));
+  join(g, { id: 'b', name: 'Bea', username: 'b' });
+  join(g, { id: 'c', name: 'Cid', username: 'c' });
+  assert.deepEqual(lobbyView(g).players.map(p => p.ready), [true, false, false]);
+  assert.throws(() => start(g), /2 joueurs ne sont pas prêts/);
+  g.players.get('b')!.ready = true;
+  assert.throws(() => start(g), /Cid n'est pas prêt/);
+  g.players.get('c')!.ready = true;
+  start(g);
+  assert.equal(g.phase, 'headstart');
 });

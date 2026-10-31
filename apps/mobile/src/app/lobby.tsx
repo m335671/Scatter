@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, Share, Text, View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
-import { CaretDownIcon, QrCodeIcon } from 'phosphor-react-native';
+import { CaretDownIcon, CheckIcon, QrCodeIcon } from 'phosphor-react-native';
 import { defaultRules, type GameMode, type LobbyPlayer, type RoleChoice, type Rules } from '@kr/shared';
 import { emit, leaveGame } from '../api';
 import { currentPosition } from '../location';
@@ -37,6 +37,12 @@ export default function LobbyScreen() {
   const isHost = lobby.players.find(p => p.host)?.id === me.id;
   const myChoice = lobby.players.find(p => p.id === me.id)?.choice ?? 'random';
   const humans = lobby.players.filter(p => !p.isBot);
+  // Un serveur plus ancien n'envoie pas `ready` : personne n'est alors bloqué.
+  const isReady = (p: LobbyPlayer) => p.ready ?? true;
+  const iAmReady = isReady(lobby.players.find(p => p.id === me.id)!);
+  const readyCount = humans.filter(isReady).length;
+  const allReady = readyCount === humans.length;
+  const alone = !lobby.training && humans.length < 2;
 
   const set = (patch: (r: Rules) => Rules) => emit('rules', patch(r)).catch(e => showDialog({ title: 'Modification refusée', message: e.message }));
   const step = (label: string, value: string, fn: (d: number) => void, sub?: string) => (
@@ -46,6 +52,11 @@ export default function LobbyScreen() {
   async function start() {
     setBusy(true);
     try { await emit('start'); } catch (e) { showDialog({ title: 'Impossible de lancer', message: (e as Error).message }); } finally { setBusy(false); }
+  }
+
+  async function toggleReady() {
+    setBusy(true);
+    try { await emit('ready', { ready: !iAmReady }); } catch (e) { showDialog({ title: 'Action impossible', message: (e as Error).message }); } finally { setBusy(false); }
   }
 
   async function recenter() {
@@ -71,7 +82,7 @@ export default function LobbyScreen() {
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 24, gap: 14 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 8, gap: 12 }}>
         <BackHeader title={lobby.training ? 'Entraînement' : isHost ? "Salon · tu es l'hôte" : 'Salon'} right={
           <Pressable hitSlop={10} onPress={async () => { await leaveGame(); router.replace('/'); }}>
             <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: t.danger }}>Quitter</Text>
@@ -93,7 +104,7 @@ export default function LobbyScreen() {
 
         {!lobby.training && (
           <View style={{ backgroundColor: t.surface, borderWidth: t.dark ? 1 : 0, borderColor: t.line, borderRadius: radius.block + 6, paddingHorizontal: 16, paddingVertical: 4 }}>
-            {humans.map((p, i) => <PlayerRow key={p.id} p={p} me={p.id === me.id} first={i === 0} />)}
+            {humans.map((p, i) => <PlayerRow key={p.id} p={p} me={p.id === me.id} first={i === 0} ready={isReady(p)} />)}
             {humans.length < 3 && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderTopWidth: 1, borderTopColor: t.line }}>
                 <View style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderStyle: 'dashed', borderColor: t.textDim }} />
@@ -176,8 +187,16 @@ export default function LobbyScreen() {
 
       <View style={{ paddingHorizontal: 16, paddingBottom: Math.max(insets.bottom, 16), paddingTop: 8, backgroundColor: t.bg }}>
         {isHost
-          ? <Button arrow title={lobby.training ? "Lancer l'entraînement" : `Lancer la partie · ${humans.length} joueur${humans.length > 1 ? 's' : ''}`} onPress={start} loading={busy} />
-          : <T kind="dim" style={{ textAlign: 'center', paddingVertical: 18 }}>En attente de l'hôte…</T>}
+          ? <Button arrow={allReady && !alone} disabled={!allReady || alone} onPress={start} loading={busy}
+              title={lobby.training ? "Lancer l'entraînement" : alone ? 'Il faut au moins 2 joueurs' : allReady ? `Lancer la partie · ${humans.length} joueurs` : `Prêts : ${readyCount}/${humans.length}`} />
+          : iAmReady
+            ? (
+              <View style={{ gap: 8 }}>
+                <T kind="dim" style={{ textAlign: 'center' }}>Tu es prêt. En attente de l'hôte…</T>
+                <Button kind="secondary" title="Je ne suis plus prêt" onPress={toggleReady} loading={busy} />
+              </View>
+            )
+            : <Button arrow title="Je suis prêt" onPress={toggleReady} loading={busy} />}
       </View>
 
       <QrModal code={lobby.code} visible={qr} onClose={() => setQr(false)} />
@@ -185,7 +204,7 @@ export default function LobbyScreen() {
   );
 }
 
-function PlayerRow({ p, me, first }: { p: LobbyPlayer; me: boolean; first: boolean }) {
+function PlayerRow({ p, me, first, ready }: { p: LobbyPlayer; me: boolean; first: boolean; ready: boolean }) {
   const t = useTheme();
   const pill = {
     hunter: { bg: t.accent, fg: t.onAccent, border: t.accent },
@@ -200,6 +219,10 @@ function PlayerRow({ p, me, first }: { p: LobbyPlayer; me: boolean; first: boole
       <View style={{ flex: 1 }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: t.text }} numberOfLines={1}>{p.name}{me ? ' (toi)' : ''}</Text>
         <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: t.textDim }} numberOfLines={1}>@{p.username}{p.host ? ' · HÔTE' : ''}</Text>
+      </View>
+      <View accessibilityLabel={ready ? 'Prêt' : 'Pas prêt'}
+        style={{ width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: ready ? t.accent : 'transparent', borderWidth: ready ? 0 : 1.5, borderStyle: 'dashed', borderColor: t.textDim }}>
+        {ready && <CheckIcon size={14} color={t.onAccent} weight="bold" />}
       </View>
       <View style={{ height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: pill.bg, borderWidth: 1.5, borderColor: pill.border, justifyContent: 'center' }}>
         <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: pill.fg }}>{ROLE_LABEL[p.choice]}</Text>

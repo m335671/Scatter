@@ -4,6 +4,8 @@ import { AppState, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import type { ChatMessage, GameView } from '@kr/shared';
 import { fmtClock } from './ui';
+import { getState } from './store';
+import { notifColor } from './theme';
 
 const CHANNEL = 'game';
 
@@ -21,7 +23,7 @@ function notify(title: string, body: string, id?: string) {
   if (AppState.currentState === 'active') return; // à l'écran, le HUD et la radio suffisent
   Notifications.scheduleNotificationAsync({
     identifier: id,
-    content: { title, body },
+    content: { title, body, color: notifColor(getState().settings.notifPalette) },
     trigger: Platform.OS === 'android' ? { channelId: CHANNEL } : null,
   }).catch(() => {});
 }

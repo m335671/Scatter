@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { Server, type Socket } from 'socket.io';
 import type { z } from 'zod';
@@ -12,6 +13,10 @@ import { addBots, moveBots, sendStray, trainingCatch } from './bots.ts';
 
 const PORT = Number(process.env.PORT ?? 3000);
 const TRAINING_GRACE_MS = 2 * 60_000;
+/** Partie (ou salon) sans aucun joueur connecté depuis ce délai : supprimée. */
+const ABANDONED_MS = 15 * 60_000;
+/** Anti-flood : événements acceptés par seconde et par connexion (le GPS en envoie un toutes les 2 s). */
+const EVENTS_PER_S = 20;
 
 // ---------- Logs ----------
 // Une ligne par événement : « 2026-10-28T22:10:00.000Z [partie] lancée code=TACO42 joueurs=5 ».
@@ -52,12 +57,22 @@ const VERSION = {
   startedAt: new Date().toISOString(),
 };
 
+// Retard de la boucle d'événements : le temps qu'attend un message avant d'être traité. Doit rester sous ~50 ms.
+const loopDelay = monitorEventLoopDelay({ resolution: 10 });
+loopDelay.enable();
+/** Charge actuelle, servie par /health. Le p99 du retard est remis à zéro toutes les minutes. */
+const load = () => ({
+  games: games.size, players: userGame.size, sockets: io.engine.clientsCount,
+  lagP99Ms: Math.round(loopDelay.percentile(99) / 1e6), memMB: Math.round(process.memoryUsage().rss / 1e6),
+});
+setInterval(() => loopDelay.reset(), 60_000).unref();
+
 const bearer = (req: IncomingMessage) => req.headers.authorization?.replace(/^Bearer /, '') ?? '';
 
 const http = createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? '/', 'http://x');
-    if (req.method === 'GET' && url.pathname === '/health') return send(res, 200, { ok: true, ...VERSION });
+    if (req.method === 'GET' && url.pathname === '/health') return send(res, 200, { ok: true, ...VERSION, load: load() });
     if (req.method === 'GET' && url.pathname === '/version') return send(res, 200, VERSION);
 
     const m = url.pathname.match(/^\/username\/([^/]+)$/);
@@ -96,7 +111,8 @@ const http = createServer(async (req, res) => {
 
 // ---------- Temps réel ----------
 
-const io = new Server(http, { cors: { origin: '*' } });
+// 16 Ko par message suffisent largement (règles, radio) : au-delà, la connexion est coupée.
+const io = new Server(http, { cors: { origin: '*' }, maxHttpBufferSize: 16_000 });
 // ponytail: parties en mémoire, un redémarrage tue les parties en cours → persister/Redis si besoin multi-instance.
 const games = new Map<string, Game>();
 const userGame = new Map<string, string>(); // userId → code
@@ -113,6 +129,19 @@ function newCode(): string {
 
 const humans = (g: Game, team?: Role) =>
   [...g.players.values()].filter(p => !p.isBot && !p.left && (!team || p.role === team));
+/** Au moins une connexion ouverte pour ce joueur (la salle vide disparaît d'elle-même). */
+const online = (id: string) => io.sockets.adapter.rooms.has(`u:${id}`);
+
+/** Supprime une partie et tout ce qui s'y rattache. */
+function drop(g: Game, why: string) {
+  games.delete(g.code);
+  endedAt.delete(g.code);
+  lastSeen.delete(g.code);
+  idleSince.delete(g.code);
+  ticked.delete(g.code);
+  for (const p of g.players.values()) if (userGame.get(p.id) === g.code) userGame.delete(p.id);
+  log('partie', why, { code: g.code });
+}
 
 function broadcastLobby(g: Game) {
   for (const p of humans(g)) io.to(`u:${p.id}`).emit('lobby', lobbyView(g));
@@ -123,6 +152,7 @@ function broadcastState(g: Game) {
     for (const p of humans(g, team === 'all' ? undefined : team)) io.to(`u:${p.id}`).emit('chat', msg);
   }
   for (const p of humans(g)) {
+    if (!online(p.id)) continue; // inutile de calculer une vue que personne ne recevra
     const v = view(g, p.id);
     if (v) io.to(`u:${p.id}`).emit('state', v);
   }
@@ -147,11 +177,8 @@ function leaveCurrent(userId: string) {
   const leaver = g.players.get(userId);
   leave(g, userId);
   log('partie', 'joueur parti', { code: g.code, user: leaver ? at(leaver) : userId, phase: g.phase });
-  if (!humans(g).length || g.training) {
-    games.delete(g.code);
-    lastSeen.delete(g.code);
-    log('partie', 'supprimée (plus de joueurs)', { code: g.code });
-  } else broadcastLobby(g);
+  if (!humans(g).length || g.training) drop(g, 'supprimée (plus de joueurs)');
+  else broadcastLobby(g);
 }
 
 type Ack = (r: object) => void;
@@ -169,6 +196,15 @@ io.use((socket, next) => {
 io.on('connection', (socket) => {
   const user = socket.data.user as db.User;
   socket.join(`u:${user.id}`);
+
+  // Au-delà du quota, l'événement est ignoré sans réponse.
+  let budget = EVENTS_PER_S, refillAt = Date.now() + 1000;
+  socket.use((_, next) => {
+    const now = Date.now();
+    if (now >= refillAt) { budget = EVENTS_PER_S; refillAt = now + 1000; }
+    if (budget-- > 0) next();
+    else if (budget === -1) log('refus', 'trop de messages', { user: at(user) });
+  });
 
   const resume = games.get(userGame.get(user.id) ?? '');
   // Le client garde son état pendant une coupure : on lui dit explicitement s'il n'a plus de partie.
@@ -240,6 +276,8 @@ io.on('connection', (socket) => {
     const x = host(g);
     if (x.phase !== 'lobby') throw new GameError('La partie a déjà commencé.');
     x.rules = rules;
+    // Les règles ont changé : chacun doit les revoir avant de se redire prêt.
+    for (const p of x.players.values()) p.ready = false;
     broadcastLobby(x);
   });
 
@@ -247,6 +285,13 @@ io.on('connection', (socket) => {
     const x = need(g);
     if (x.phase !== 'lobby') throw new GameError('La partie a déjà commencé.');
     x.players.get(user.id)!.choice = role;
+    broadcastLobby(x);
+  });
+
+  on('ready', C2S.ready, ({ ready }, g) => {
+    const x = need(g);
+    if (x.phase !== 'lobby') throw new GameError('La partie a déjà commencé.');
+    x.players.get(user.id)!.ready = ready;
     broadcastLobby(x);
   });
 
@@ -309,6 +354,7 @@ const fugitivesLeft = (g: Game) => [...g.players.values()].filter(p => p.role ==
 
 /** Dernier état connu de chaque partie lancée, pour loguer ses changements (chasse lancée, ping, fin). */
 const lastSeen = new Map<string, { phase: string; pingAt: number | null }>();
+const idleSince = new Map<string, number>(); // code → Date.now() depuis lequel plus personne n'est connecté
 
 function logChanges(g: Game) {
   const prev = lastSeen.get(g.code);
@@ -323,22 +369,20 @@ function logChanges(g: Game) {
   lastSeen.set(g.code, { phase: g.phase, pingAt: g.lastPing?.at ?? null });
 }
 
-let last = performance.now();
+// Chaque partie avance une fois par seconde, à son propre rythme (calé sur son lancement) : les parties se
+// répartissent sur la seconde au lieu de toutes passer d'un bloc, qui bloquerait le serveur à forte charge.
+const ticked = new Map<string, number>(); // code → performance.now() du dernier tick
 setInterval(() => {
-  const now = performance.now(), dt = now - last;
-  last = now;
+  const now = performance.now();
   for (const g of games.values()) {
     if (g.phase === 'lobby') continue;
+    const prev = ticked.get(g.code);
+    if (prev === undefined) { ticked.set(g.code, now); continue; }
+    const dt = now - prev;
+    if (dt < 1000) continue;
     if (g.phase === 'ended') {
       if (!endedAt.has(g.code)) endedAt.set(g.code, Date.now());
-      else if (Date.now() - endedAt.get(g.code)! > 10 * 60_000) {
-        games.delete(g.code);
-        endedAt.delete(g.code);
-        lastSeen.delete(g.code);
-        log('partie', 'nettoyée (terminée depuis 10 min)', { code: g.code });
-        for (const p of humans(g)) if (userGame.get(p.id) === g.code) userGame.delete(p.id);
-        continue;
-      }
+      else if (Date.now() - endedAt.get(g.code)! > 10 * 60_000) { drop(g, 'nettoyée (terminée depuis 10 min)'); continue; }
     }
     // Décompte de lancement : rien ne bouge, puis on ne compte que le temps écoulé après le départ.
     let step = dt;
@@ -348,19 +392,30 @@ setInterval(() => {
       g.startAt = undefined;
       step = Math.min(dt, over);
     }
+    ticked.set(g.code, now);
     const before = g.clock;
     tick(g, step);
     if (g.training) moveBots(g, g.clock - before);
     logChanges(g);
     broadcastState(g);
   }
-}, 1000);
+}, 100);
+
+// Salons et parties abandonnés (tout le monde a fermé l'app sans quitter) : sinon ils resteraient en mémoire.
+setInterval(() => {
+  const now = Date.now();
+  for (const g of games.values()) {
+    if (humans(g).some(p => online(p.id))) idleSince.delete(g.code);
+    else if (!idleSince.has(g.code)) idleSince.set(g.code, now);
+    else if (now - idleSince.get(g.code)! > ABANDONED_MS) drop(g, 'supprimée (abandonnée)');
+  }
+}, 60_000).unref();
 
 // Bilan toutes les 10 min : de quoi vérifier d'un coup d'œil que le serveur vit.
 setInterval(() => {
   const list = [...games.values()];
   log('bilan', 'état', {
-    connectes: io.engine.clientsCount, salons: list.filter(g => g.phase === 'lobby').length,
+    connectes: io.engine.clientsCount, retard_p99_ms: Math.round(loopDelay.percentile(99) / 1e6), memoire_mo: Math.round(process.memoryUsage().rss / 1e6), salons: list.filter(g => g.phase === 'lobby').length,
     parties_en_cours: list.filter(g => g.phase === 'headstart' || g.phase === 'hunt').length, comptes: db.userCount(),
   });
 }, 10 * 60_000);

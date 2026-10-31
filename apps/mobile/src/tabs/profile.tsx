@@ -7,7 +7,8 @@ import { connect, updateMe } from '../api';
 import { clearStats } from '../stats';
 import { DEFAULT_SERVER, setState, useStore, type Settings } from '../store';
 import { CheckIcon } from 'phosphor-react-native';
-import { PALETTES, PALETTE_IDS, fonts, radius, themeOf, useTheme, type PaletteId } from '../theme';
+import { PALETTES, PALETTE_IDS, fonts, notifColor, radius, themeOf, useTheme, type PaletteId } from '../theme';
+import { Mark } from '../logo';
 import { Group, Row, Segmented, Toggle, showDialog } from '../ui';
 import { LocalDataNotice } from './activity';
 
@@ -103,6 +104,13 @@ export function ProfileTab() {
         )}
       </Group>
 
+      <Group label="Notifications" footer="S'applique dès la prochaine partie. L'aperçu montre un Android proche de la version d'origine : selon la marque du téléphone et sa version d'Android, la couleur peut s'afficher autrement, voire pas du tout.">
+        <NotifPreview palette={settings.notifPalette} />
+        <View style={{ paddingVertical: 12 }}>
+          <PalettePicker value={settings.notifPalette} onChange={notifPalette => patch({ notifPalette })} />
+        </View>
+      </Group>
+
       <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: t.textDim, marginLeft: 4, marginTop: 8 }}>Tes données</Text>
       <LocalDataNotice />
       <Group>
@@ -125,6 +133,27 @@ export function ProfileTab() {
 
       <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: t.textDim, textAlign: 'center', marginTop: 8 }}>SCATTER · v{Constants.expoConfig?.version}</Text>
     </ScrollView>
+  );
+}
+
+/** Aperçu de la notification affichée pendant une partie, façon Android. */
+function NotifPreview({ palette }: { palette: PaletteId }) {
+  // Android colore toute la notification du suivi GPS : fond à la couleur choisie, texte foncé ou clair selon le contraste.
+  const color = notifColor(palette);
+  const lum = [1, 3, 5].map(i => parseInt(color.slice(i, i + 2), 16) / 255).map(c => (c <= 0.04 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  const L = 0.2126 * lum[0] + 0.7152 * lum[1] + 0.0722 * lum[2];
+  const ink = (L + 0.05) / 0.05 > 1.05 / (L + 0.05) ? '#1A1A1A' : '#FFFFFF'; // le plus contrasté, comme Android
+  return (
+    <View accessibilityLabel="Aperçu de la notification" style={{ marginHorizontal: 12, marginTop: 12, borderRadius: 22, backgroundColor: color, padding: 14, flexDirection: 'row', gap: 12 }}>
+      <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#0F1712', alignItems: 'center', justifyContent: 'center' }}>
+        <Mark size={22} color="#D4FF3A" dot="#D4FF3A" />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: ink }}>Scatter · Maintenant</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: ink }}>Scatter</Text>
+        <Text style={{ fontFamily: fonts.body, fontSize: 14, lineHeight: 19, color: ink }}>Partie en cours. Ta position est partagée avec le serveur de jeu.</Text>
+      </View>
+    </View>
   );
 }
 

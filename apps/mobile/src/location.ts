@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { ensureConnected, sendPosition } from './api';
+import { getState } from './store';
+import { notifColor } from './theme';
 
 const TASK = 'kr-location';
 const MAX_AGE_MS = 30_000;   // position en cache (dernière connue) : trop vieille pour être « en direct »
@@ -79,7 +81,7 @@ export async function startTracking() {
         foregroundService: {
           notificationTitle: 'Scatter',
           notificationBody: 'Partie en cours. Ta position est partagée avec le serveur de jeu.',
-          notificationColor: '#D4FF3A',
+          notificationColor: notifColor(getState().settings.notifPalette),
         },
       });
       foregroundSub?.remove();

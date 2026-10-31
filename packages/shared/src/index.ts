@@ -77,6 +77,7 @@ export const C2S = {
   join: z.object({ code: z.string().trim().toUpperCase().length(6) }),
   rules: Rules,
   role: z.object({ role: RoleChoice }),
+  ready: z.object({ ready: z.boolean() }),
   pos: LatLng.extend({ acc: z.number().min(0).max(10_000).optional() }),
   capture: z.object({ qr: z.string().max(200) }),
   chat: z.object({ text: z.string().trim().min(1).max(280), channel: z.enum(['team', 'all']).default('team') }),
@@ -95,7 +96,8 @@ export const C2S = {
 
 export type Phase = 'lobby' | 'headstart' | 'hunt' | 'ended';
 
-export interface LobbyPlayer { id: string; name: string; username: string; choice: RoleChoice; isBot: boolean; host: boolean }
+/** ready : prêt à jouer. L'hôte et les bots le sont toujours ; tous doivent l'être pour lancer. */
+export interface LobbyPlayer { id: string; name: string; username: string; choice: RoleChoice; isBot: boolean; host: boolean; ready: boolean }
 export interface Lobby { code: string; rules: Rules; training: boolean; players: LobbyPlayer[] }
 
 /** acc : précision GPS en mètres au moment de la mesure (absente pour les bots). */
