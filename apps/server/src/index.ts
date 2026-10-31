@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { randomInt } from 'node:crypto';
+import { readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { Server, type Socket } from 'socket.io';
@@ -6,8 +7,8 @@ import type { z } from 'zod';
 import { C2S, START_COUNTDOWN_MS, Register, UpdateMe, Username, type Role } from '@kr/shared';
 import * as db from './db.ts';
 import {
-  type Game, GameError, capture, createGame, endNow, join, leave, lobbyView, ping, say, start,
-  tick, updatePosition, view,
+  type Game, type SavedGame, GameError, capture, createGame, endNow, join, leave, loadGame, lobbyView, ping, saveGame,
+  say, start, tick, updatePosition, view,
 } from './game.ts';
 import { addBots, moveBots, sendStray, trainingCatch } from './bots.ts';
 
@@ -17,6 +18,8 @@ const TRAINING_GRACE_MS = 2 * 60_000;
 const ABANDONED_MS = 15 * 60_000;
 /** Anti-flood : événements acceptés par seconde et par connexion (le GPS en envoie un toutes les 2 s). */
 const EVENTS_PER_S = 20;
+/** Au-delà, plus de création de salon : la mémoire du serveur reste bornée même face à des comptes en masse. */
+const MAX_GAMES = 5000;
 
 // ---------- Logs ----------
 // Une ligne par événement : « 2026-10-28T22:10:00.000Z [partie] lancée code=TACO42 joueurs=5 ».
@@ -118,11 +121,11 @@ const games = new Map<string, Game>();
 const userGame = new Map<string, string>(); // userId → code
 const endedAt = new Map<string, number>();  // code → Date.now() de fin
 
-const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+// Lettres et chiffres à toute position, sans les caractères qui se confondent (0/O, 1/I/L) : 31⁶ ≈ 890 millions de codes.
+const ALPHA = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 function newCode(): string {
   for (;;) {
-    const c = Array.from({ length: 4 }, () => ALPHA[Math.floor(Math.random() * ALPHA.length)]).join('')
-      + String(Math.floor(Math.random() * 90) + 10);
+    const c = Array.from({ length: 6 }, () => ALPHA[randomInt(ALPHA.length)]).join('');
     if (!games.has(c)) return c;
   }
 }
@@ -250,6 +253,7 @@ io.on('connection', (socket) => {
 
   on('create', C2S.create, ({ rules, training }) => {
     leaveCurrent(user.id);
+    if (games.size >= MAX_GAMES) throw new GameError('Serveur plein, réessaie dans un instant.');
     const g = createGame(newCode(), user, rules, training);
     games.set(g.code, g);
     userGame.set(user.id, g.code);
@@ -286,6 +290,16 @@ io.on('connection', (socket) => {
     if (x.phase !== 'lobby') throw new GameError('La partie a déjà commencé.');
     x.players.get(user.id)!.choice = role;
     broadcastLobby(x);
+  });
+
+  on('kick', C2S.kick, ({ id }, g) => {
+    const x = host(g);
+    if (x.phase !== 'lobby') throw new GameError('La partie a déjà commencé.');
+    if (id === user.id || !x.players.has(id)) throw new GameError('Joueur introuvable.');
+    x.banned.push(id);
+    log('partie', 'joueur retiré', { code: x.code, hote: at(user), joueur: at(x.players.get(id)!) });
+    leaveCurrent(id);
+    io.to(`u:${id}`).emit('kicked');
   });
 
   on('ready', C2S.ready, ({ ready }, g) => {
@@ -419,5 +433,46 @@ setInterval(() => {
     parties_en_cours: list.filter(g => g.phase === 'headstart' || g.phase === 'hunt').length, comptes: db.userCount(),
   });
 }, 10 * 60_000);
+
+// ---------- Sauvegarde et reprise ----------
+// Les parties vivent en mémoire : on les écrit sur disque à l'arrêt (mise à jour, redémarrage) et toutes les 30 s
+// (plantage), puis on les relit au démarrage. Les apps se reconnectent seules et retrouvent leur partie.
+
+const SAVE_FILE = `${process.env.DATA_DIR ?? './data'}/games.json`;
+/** Sauvegarde plus vieille que ça : les joueurs sont partis, on repart de zéro. */
+const RESTORE_MAX_MS = 10 * 60_000;
+
+// ponytail: écriture synchrone de tout l'état (~20 Mo et ~100 ms à 5 000 joueurs), par partie modifiée si ça devient gênant.
+function saveAll() {
+  const tmp = `${SAVE_FILE}.tmp`;
+  writeFileSync(tmp, JSON.stringify({ savedAt: Date.now(), games: [...games.values()].map(saveGame) }));
+  renameSync(tmp, SAVE_FILE); // jamais de fichier à moitié écrit
+}
+
+function restoreAll() {
+  let saved: { savedAt: number; games: SavedGame[] };
+  try { saved = JSON.parse(readFileSync(SAVE_FILE, 'utf8')); } catch { return; }
+  const down = Date.now() - saved.savedAt;
+  if (down > RESTORE_MAX_MS) return log('serveur', 'sauvegarde trop ancienne, ignorée', { coupure: `${Math.round(down / 1000)}s` });
+  for (const s of saved.games) {
+    const g = loadGame(s);
+    // Les joueurs ont continué à courir pendant la coupure : l'horloge rattrape le temps perdu (pings, zone).
+    if ((g.phase === 'headstart' || g.phase === 'hunt') && !g.startAt) tick(g, down);
+    games.set(g.code, g);
+    for (const p of humans(g)) userGame.set(p.id, g.code);
+    if (g.phase !== 'lobby') lastSeen.set(g.code, { phase: g.phase, pingAt: g.lastPing?.at ?? null });
+  }
+  log('serveur', 'parties reprises', { parties: saved.games.length, coupure: `${(down / 1000).toFixed(1)}s` });
+}
+
+restoreAll();
+setInterval(saveAll, 30_000).unref();
+for (const sig of ['SIGTERM', 'SIGINT'] as const) {
+  process.once(sig, () => {
+    saveAll();
+    log('serveur', 'arrêté, parties sauvegardées', { parties: games.size, signal: sig });
+    process.exit(0);
+  });
+}
 
 http.listen(PORT, () => log('serveur', 'démarré', { version: VERSION.version, commit: VERSION.commit, port: PORT, donnees: process.env.DATA_DIR ?? './data', comptes: db.userCount(), node: process.version }));

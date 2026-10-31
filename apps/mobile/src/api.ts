@@ -3,6 +3,7 @@ import type { ChatMessage, GameView, Lobby } from '@kr/shared';
 import { DEFAULT_SERVER, getState, loadPersisted, setState, type User } from './store';
 import { notifyChat, notifyState } from './notify';
 import { trackPosition } from './stats';
+import { showDialog } from './ui';
 
 const base = () => (getState().settings.serverUrl || DEFAULT_SERVER).replace(/\/$/, '');
 
@@ -44,6 +45,10 @@ export function connect() {
   // à la connexion, le serveur renvoie la partie en cours, ou « nogame » s'il n'y en a plus.
   socket.on('connect', () => setState({ connected: true }));
   socket.on('nogame', () => setState({ lobby: null, game: null, chat: [], unread: { team: 0, all: 0 } }));
+  socket.on('kicked', () => {
+    setState({ lobby: null, game: null, chat: [], unread: { team: 0, all: 0 } });
+    showDialog({ title: 'Retiré du salon', message: "L'hôte t'a retiré de ce salon." });
+  });
   socket.on('disconnect', () => setState({ connected: false }));
   socket.on('connect_error', (e) => {
     if (e.message === 'unauthorized') { socket?.close(); setState({ token: null, user: null }); }

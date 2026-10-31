@@ -78,6 +78,7 @@ export const C2S = {
   rules: Rules,
   role: z.object({ role: RoleChoice }),
   ready: z.object({ ready: z.boolean() }),
+  kick: z.object({ id: z.string().max(64) }),
   pos: LatLng.extend({ acc: z.number().min(0).max(10_000).optional() }),
   capture: z.object({ qr: z.string().max(200) }),
   chat: z.object({ text: z.string().trim().min(1).max(280), channel: z.enum(['team', 'all']).default('team') }),

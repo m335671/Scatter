@@ -54,6 +54,16 @@ export default function LobbyScreen() {
     try { await emit('start'); } catch (e) { showDialog({ title: 'Impossible de lancer', message: (e as Error).message }); } finally { setBusy(false); }
   }
 
+  function kick(p: LobbyPlayer) {
+    showDialog({
+      title: `Retirer ${p.name} ?`, message: 'Il ne pourra plus revenir dans ce salon.',
+      actions: [
+        { label: 'Retirer', kind: 'danger', onPress: () => emit('kick', { id: p.id }).catch(e => showDialog({ title: 'Action impossible', message: e.message })) },
+        { label: 'Annuler', kind: 'cancel' },
+      ],
+    });
+  }
+
   async function toggleReady() {
     setBusy(true);
     try { await emit('ready', { ready: !iAmReady }); } catch (e) { showDialog({ title: 'Action impossible', message: (e as Error).message }); } finally { setBusy(false); }
@@ -104,7 +114,10 @@ export default function LobbyScreen() {
 
         {!lobby.training && (
           <View style={{ backgroundColor: t.surface, borderWidth: t.dark ? 1 : 0, borderColor: t.line, borderRadius: radius.block + 6, paddingHorizontal: 16, paddingVertical: 4 }}>
-            {humans.map((p, i) => <PlayerRow key={p.id} p={p} me={p.id === me.id} first={i === 0} ready={isReady(p)} />)}
+            {humans.map((p, i) => (
+              <PlayerRow key={p.id} p={p} me={p.id === me.id} first={i === 0} ready={isReady(p)}
+                onKick={isHost && p.id !== me.id ? () => kick(p) : undefined} />
+            ))}
             {humans.length < 3 && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderTopWidth: 1, borderTopColor: t.line }}>
                 <View style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderStyle: 'dashed', borderColor: t.textDim }} />
@@ -204,7 +217,8 @@ export default function LobbyScreen() {
   );
 }
 
-function PlayerRow({ p, me, first, ready }: { p: LobbyPlayer; me: boolean; first: boolean; ready: boolean }) {
+/** `onKick` : l'hôte touche un autre joueur pour le retirer du salon. */
+function PlayerRow({ p, me, first, ready, onKick }: { p: LobbyPlayer; me: boolean; first: boolean; ready: boolean; onKick?: () => void }) {
   const t = useTheme();
   const pill = {
     hunter: { bg: t.accent, fg: t.onAccent, border: t.accent },
@@ -212,7 +226,8 @@ function PlayerRow({ p, me, first, ready }: { p: LobbyPlayer; me: boolean; first
     random: { bg: 'transparent', fg: t.text, border: t.line },
   }[p.choice];
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderTopWidth: first ? 0 : 1, borderTopColor: t.line }}>
+    <Pressable onPress={onKick} disabled={!onKick} accessibilityHint={onKick ? 'Retirer ce joueur du salon' : undefined}
+      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderTopWidth: first ? 0 : 1, borderTopColor: t.line, opacity: pressed ? 0.6 : 1 })}>
       <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: me ? (t.dark ? t.accent : t.text) : t.surface2, alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: me ? (t.dark ? t.onAccent : t.accent) : t.text }}>{p.name.slice(0, 1).toUpperCase()}</Text>
       </View>
@@ -227,7 +242,7 @@ function PlayerRow({ p, me, first, ready }: { p: LobbyPlayer; me: boolean; first
       <View style={{ height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: pill.bg, borderWidth: 1.5, borderColor: pill.border, justifyContent: 'center' }}>
         <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: pill.fg }}>{ROLE_LABEL[p.choice]}</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 

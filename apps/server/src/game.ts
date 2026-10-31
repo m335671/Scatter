@@ -58,6 +58,8 @@ export interface Game {
   botsPingAt?: number;
   /** Heure réelle (Date.now) du vrai départ : avant, décompte de lancement et horloge figée. */
   startAt?: number;
+  /** Joueurs retirés du salon par l'hôte : ils ne peuvent plus revenir. */
+  banned: string[];
 }
 
 export interface UserRef { id: string; name: string; username: string }
@@ -68,7 +70,7 @@ export function createGame(code: string, host: UserRef, rules: Rules, training =
   const g: Game = {
     code, hostId: host.id, rules, training, speed: 1, phase: 'lobby', clock: 0,
     nextPingAt: null, lastPing: null, winner: null, fugitivesTotal: 0, players: new Map(),
-    chat: { hunter: [], fugitive: [], all: [] }, outbox: [], seq: 0,
+    chat: { hunter: [], fugitive: [], all: [] }, outbox: [], seq: 0, banned: [],
   };
   join(g, host);
   return g;
@@ -78,6 +80,7 @@ export function join(g: Game, u: UserRef, opts: { isBot?: boolean; choice?: Role
   const existing = g.players.get(u.id);
   if (existing) return existing;
   if (g.phase !== 'lobby') throw new GameError('La partie a déjà commencé.');
+  if (g.banned.includes(u.id)) throw new GameError("L'hôte t'a retiré de ce salon.");
   if (g.players.size >= MAX_PLAYERS) throw new GameError('Le salon est plein.');
   const p: Player = {
     ...u, choice: opts.choice ?? 'random', role: null, isBot: !!opts.isBot,
@@ -349,6 +352,13 @@ export function say(g: Game, id: string, text: string, channel: Channel = 'team'
   if (channel === 'team' && p.role === 'hunter' && !g.rules.huntersCanTalk) throw new GameError('Les chasseurs ne peuvent pas parler dans cette partie.');
   push(g, channel === 'all' ? 'all' : p.role, { id: `${g.code}-${++g.seq}`, at: g.clock, from: p.id, fromName: p.name, text, system: false });
 }
+
+// ---------- Sauvegarde ----------
+
+/** Partie sérialisable en JSON (les Map deviennent des tableaux), pour la reprise après un redémarrage. */
+export type SavedGame = Omit<Game, 'players'> & { players: Player[] };
+export const saveGame = (g: Game): SavedGame => ({ ...g, players: [...g.players.values()] });
+export const loadGame = (s: SavedGame): Game => ({ ...s, banned: s.banned ?? [], players: new Map(s.players.map(p => [p.id, p])) });
 
 // ---------- Vues ----------
 

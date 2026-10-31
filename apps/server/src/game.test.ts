@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { defaultRules, MIN, zoneRadius } from '@kr/shared';
-import { type Game, GameError, capture, createGame, join, leave, lobbyView, qrFor, say, start, tick, updatePosition, view } from './game.ts';
+import { type Game, GameError, capture, createGame, join, leave, loadGame, lobbyView, qrFor, saveGame, say, start, tick, updatePosition, view } from './game.ts';
 import { addBots, moveBots, sendStray, trainingCatch } from './bots.ts';
 
 const C = { lat: 45.9, lng: 4.6 };
@@ -244,4 +244,24 @@ test("prêt : on ne lance pas tant qu'un joueur n'est pas prêt, l'hôte l'est d
   g.players.get('c')!.ready = true;
   start(g);
   assert.equal(g.phase, 'headstart');
+});
+
+test('sauvegarde : une partie relue depuis le JSON donne la même vue', () => {
+  const g = setup();
+  updatePosition(g, 'h', C);
+  updatePosition(g, 'f', { lat: C.lat + 0.001, lng: C.lng });
+  tick(g, 4 * MIN);
+  const back = loadGame(JSON.parse(JSON.stringify(saveGame(g))));
+  assert.deepEqual(view(back, 'h'), view(g, 'h'));
+  assert.deepEqual(view(back, 'f'), view(g, 'f'));
+  tick(back, MIN); // la partie relue continue de tourner
+  assert.equal(back.clock, 5 * MIN);
+});
+
+test('retirer : un joueur banni ne peut plus revenir', () => {
+  const g = createGame('KICK11', { id: 'a', name: 'A', username: 'a' }, defaultRules(C));
+  join(g, { id: 'b', name: 'B', username: 'b' });
+  g.banned.push('b');
+  leave(g, 'b');
+  assert.throws(() => join(g, { id: 'b', name: 'B', username: 'b' }), /retiré/);
 });
