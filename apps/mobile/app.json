@@ -72,6 +72,14 @@
           "color": "#D4FF3A",
           "enableRemoteNotifications": false
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "useLegacyPackaging": true
+          }
+        }
       ]
     ],
     "experiments": {
