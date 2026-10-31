@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { PathIcon, TargetIcon, UserIcon } from 'phosphor-react-native';
+import { PathIcon, TargetIcon, UserIcon } from '../icons';
 import { setState, useStore } from '../store';
 import { allGranted, checkAll } from '../permissions';
 import { ActivityTab } from '../tabs/activity';

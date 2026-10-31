@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AppState, Pressable, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { BatteryChargingIcon, BellIcon, CameraIcon, CheckIcon, MapPinIcon, NavigationArrowIcon } from 'phosphor-react-native';
+import { BatteryChargingIcon, BellIcon, CameraIcon, CheckIcon, MapPinIcon, NavigationArrowIcon } from '../icons';
 import { type Perm, type PermKey, allGranted, checkAll, request } from '../permissions';
 import { setState } from '../store';
 import { fonts, radius, useTheme } from '../theme';

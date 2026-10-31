@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, Share, Text, View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
-import { CaretDownIcon, CheckIcon, QrCodeIcon, XIcon } from 'phosphor-react-native';
+import { CaretDownIcon, CheckIcon, QrCodeIcon, XIcon } from '../icons';
 import { defaultRules, type GameMode, type LobbyPlayer, type RoleChoice, type Rules } from '@kr/shared';
 import { emit, leaveGame } from '../api';
 import { currentPosition, freshPosition } from '../location';

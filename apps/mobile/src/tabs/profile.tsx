@@ -6,7 +6,7 @@ import Constants from 'expo-constants';
 import { updateMe } from '../api';
 import { clearStats } from '../stats';
 import { setState, useStore, type Settings } from '../store';
-import { CheckIcon } from 'phosphor-react-native';
+import { CheckIcon } from '../icons';
 import { PALETTES, PALETTE_IDS, fonts, notifColor, radius, themeOf, useTheme, type PaletteId } from '../theme';
 import { Mark } from '../logo';
 import { Group, Row, Segmented, Toggle, initial, showDialog } from '../ui';

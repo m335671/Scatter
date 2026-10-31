@@ -5,7 +5,7 @@ import {
   type PressableProps, type StyleProp, type TextInputProps, type TextStyle, type ViewStyle,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowRightIcon, CaretLeftIcon, CaretRightIcon } from 'phosphor-react-native';
+import { ArrowRightIcon, CaretLeftIcon, CaretRightIcon } from './icons';
 import { useRouter } from 'expo-router';
 import { fonts, radius, useTheme } from './theme';
 import { setState, useStore, type Dialog } from './store';

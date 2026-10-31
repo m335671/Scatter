@@ -1,6 +1,6 @@
 import { type ComponentRef, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { PaperPlaneRightIcon } from 'phosphor-react-native';
+import { PaperPlaneRightIcon } from './icons';
 import type { Channel, GameView } from '@kr/shared';
 import { emit } from './api';
 import { setState, useStore } from './store';

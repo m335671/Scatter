@@ -5,7 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics';
 import QRCode from 'react-native-qrcode-svg';
 import { Camera, GeoJSONSource, Layer, Map, NativeUserLocation, type CameraRef } from '@maplibre/maplibre-react-native';
-import { BroadcastIcon, CrosshairIcon, DotsThreeIcon, MapTrifoldIcon, QrCodeIcon, ScanIcon } from 'phosphor-react-native';
+import { BroadcastIcon, CrosshairIcon, DotsThreeIcon, MapTrifoldIcon, QrCodeIcon, ScanIcon } from '../icons';
 import type { GameView, LatLng, SeenPlayer } from '@kr/shared';
 import { emit, leaveGame } from '../api';
 import { useGpsStatus } from '../location';

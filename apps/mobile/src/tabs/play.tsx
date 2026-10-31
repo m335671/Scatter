@@ -4,7 +4,7 @@ import { ActivityIndicator, AppState, Pressable, Text, TextInput, View } from 'r
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { Camera, GeoJSONSource, Layer, Map } from '@maplibre/maplibre-react-native';
-import { CaretRightIcon, MapPinIcon, ScanIcon } from 'phosphor-react-native';
+import { CaretRightIcon, MapPinIcon, ScanIcon } from '../icons';
 import { defaultRules, type LatLng } from '@kr/shared';
 import { emit, leaveGame } from '../api';
 import { askLocation, currentPosition, zonePosition } from '../location';

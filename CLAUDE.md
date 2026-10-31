@@ -140,7 +140,7 @@ Fichiers app (`apps/mobile/src/`) :
 - **DA « Topo »** : fond sombre `#0F1712`, accent lime `#D4FF3A` (palette Forêt). Il y a un mode clair, et 6 palettes au choix dans `theme.ts` (Forêt, Braise, Océan, Ambre, Lavande, Ardoise), plus une option « couleur selon le mode » (Classique ou Zombie). Toujours passer par `useTheme()`, jamais de couleur en dur.
 - **Polices** : Bricolage Grotesque (titres et texte) et JetBrains Mono (chiffres, codes, étiquettes).
 - **Formes** : arrondis 18 (blocs), 12 (éléments internes), boutons en pilule.
-- **Icônes** : Phosphor (`phosphor-react-native`, imports `XxxIcon`).
+- **Icônes** : Phosphor, toujours importées depuis `src/icons.ts` (une ligne par icône, jamais depuis `phosphor-react-native` directement : tout le paquet serait embarqué, +6 Mo).
 - **Boîtes de dialogue** : jamais `Alert.alert`, toujours `showDialog`.
 - **Textes de l'interface** :
   - pas de tiret cadratin ;
@@ -180,6 +180,7 @@ cd apps/server && node --experimental-strip-types --no-warnings src/load.ts http
   - **seulement sur demande explicite** ;
   - en manuel (« Run workflow »), APK seul par défaut, l'IPA est à cocher ;
   - pour un changement Android seul : APK compilé en local, puis `gh release upload <tag> <apk> --clobber`.
+- **Taille de l'APK** : bibliothèques natives compressées (`expo-build-properties`, `useLegacyPackaging`) : environ −26 Mo, au prix d'environ 40 Mo de plus une fois installée sur le téléphone.
 - **Versions** : à chaque version, monter `apps/server/package.json` et `apps/mobile/app.json` (`version` et `android.versionCode`).
 - **iPhone** :
   - IPA compilée par GitHub Actions, parce que le Mac Intel de l'utilisateur ne peut pas compiler le SDK 58 ;
