@@ -14,6 +14,10 @@ interface Sample { t: number; lat: number; lng: number; acc?: number }
 
 export interface Player {
   id: string;
+  /** Identifiant court montré aux autres joueurs (états, radio) : plus léger, et l'identifiant du compte reste privé. */
+  sid: string;
+  /** Clé du dernier ping envoyé à ce joueur : inutile de le renvoyer tant qu'il ne change pas. */
+  sentPing?: string;
   name: string;
   username: string;
   choice: RoleChoice;
@@ -83,7 +87,7 @@ export function join(g: Game, u: UserRef, opts: { isBot?: boolean; choice?: Role
   if (g.banned.includes(u.id)) throw new GameError("L'hôte t'a retiré de ce salon.");
   if (g.players.size >= MAX_PLAYERS) throw new GameError('Le salon est plein.');
   const p: Player = {
-    ...u, choice: opts.choice ?? 'random', role: null, isBot: !!opts.isBot,
+    ...u, sid: (++g.seq).toString(36), choice: opts.choice ?? 'random', role: null, isBot: !!opts.isBot,
     caughtAt: null, secret: '', history: [],
   };
   g.players.set(u.id, p);
@@ -350,7 +354,7 @@ export function say(g: Game, id: string, text: string, channel: Channel = 'team'
   const p = g.players.get(id);
   if (!p?.role) throw new GameError("Tu n'es pas dans une équipe.");
   if (channel === 'team' && p.role === 'hunter' && !g.rules.huntersCanTalk) throw new GameError('Les chasseurs ne peuvent pas parler dans cette partie.');
-  push(g, channel === 'all' ? 'all' : p.role, { id: `${g.code}-${++g.seq}`, at: g.clock, from: p.id, fromName: p.name, text, system: false });
+  push(g, channel === 'all' ? 'all' : p.role, { id: `${g.code}-${++g.seq}`, at: g.clock, from: p.sid, fromName: p.name, text, system: false });
 }
 
 // ---------- Sauvegarde ----------
@@ -358,7 +362,10 @@ export function say(g: Game, id: string, text: string, channel: Channel = 'team'
 /** Partie sérialisable en JSON (les Map deviennent des tableaux), pour la reprise après un redémarrage. */
 export type SavedGame = Omit<Game, 'players'> & { players: Player[] };
 export const saveGame = (g: Game): SavedGame => ({ ...g, players: [...g.players.values()] });
-export const loadGame = (s: SavedGame): Game => ({ ...s, banned: s.banned ?? [], players: new Map(s.players.map(p => [p.id, p])) });
+export function loadGame(s: SavedGame): Game {
+  for (const p of s.players) p.sid ??= (++s.seq).toString(36); // sauvegarde d'avant les identifiants courts
+  return { ...s, banned: s.banned ?? [], players: new Map(s.players.map(p => [p.id, p])) };
+}
 
 // ---------- Vues ----------
 
@@ -392,6 +399,8 @@ export function view(g: Game, id: string): GameView | null {
       })
       : [];
   const fugitives = ps.filter(p => p.role === 'fugitive');
+  // Les joueurs sont repérés en interne par leur compte ; le client ne voit que leur identifiant court.
+  const out = (list: SeenPlayer[]) => list.map(s => ({ ...s, id: g.players.get(s.id)!.sid }));
   // Règle dure : un fugitif hors zone est visible en direct par les chasseurs tant qu'il y reste.
   const outOfZone = me.role === 'hunter' && g.phase === 'hunt'
     ? fugitives.flatMap(p => { const s = p.caughtAt === null && isOutOfZone(g, p) ? current(p) : null; return s ? [seen(p, s, true)] : []; })
@@ -405,7 +414,7 @@ export function view(g: Game, id: string): GameView | null {
       radiusM: zoneRadius(g.rules, g.clock), nextShrinkAt: nextShrinkAt(g.rules, g.clock),
     },
     me: {
-      id: me.id, role: me.role, caught: me.caughtAt !== null, caughtAt: me.caughtAt, eliminated: !!me.eliminated, captures: me.captures ?? 0,
+      id: me.sid, role: me.role, caught: me.caughtAt !== null, caughtAt: me.caughtAt, eliminated: !!me.eliminated, captures: me.captures ?? 0,
       outOfZone: me.role === 'fugitive' && me.caughtAt === null && isOutOfZone(g, me),
       eliminateAt: me.role === 'fugitive' && me.outSince != null ? me.outSince + OUT_OF_ZONE_LIMIT_MS : null,
       zoneAlert: g.phase === 'headstart' || g.phase === 'hunt' ? zoneAlert(g, me) : null,
@@ -413,17 +422,17 @@ export function view(g: Game, id: string): GameView | null {
     },
     fugitivesLeft: fugitives.filter(p => p.caughtAt === null).length,
     fugitivesTotal: g.fugitivesTotal,
-    team,
+    team: out(team),
     // Un joueur attrapé (ou passé chez les chasseurs, en zombie) depuis le ping disparaît de la carte adverse.
     ping: g.lastPing && {
       at: g.lastPing.at,
-      players: (me.role === 'hunter' ? g.lastPing.forHunters : g.lastPing.forFugitives).filter(p => {
+      players: out((me.role === 'hunter' ? g.lastPing.forHunters : g.lastPing.forFugitives).filter(p => {
         const q = g.players.get(p.id);
         return q?.caughtAt === null && q.role !== me.role;
-      }),
+      })),
     },
-    spectating,
-    outOfZone,
+    spectating: out(spectating),
+    outOfZone: out(outOfZone),
     winner: g.winner,
   };
 }

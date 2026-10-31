@@ -101,7 +101,7 @@ export type Phase = 'lobby' | 'headstart' | 'hunt' | 'ended';
 export interface LobbyPlayer { id: string; name: string; username: string; choice: RoleChoice; isBot: boolean; host: boolean; ready: boolean }
 export interface Lobby { code: string; rules: Rules; training: boolean; players: LobbyPlayer[] }
 
-/** acc : précision GPS en mètres au moment de la mesure (absente pour les bots). */
+/** id : identifiant court du joueur dans la partie (pas son compte). acc : précision GPS en mètres (absente pour les bots). */
 export interface SeenPlayer { id: string; name: string; role: Role; lat: number; lng: number; t: number; acc?: number; caught: boolean; exposed?: boolean }
 
 export interface GameView {
@@ -127,7 +127,8 @@ export interface GameView {
   fugitivesLeft: number;
   fugitivesTotal: number;
   team: SeenPlayer[];                        // coéquipiers en direct
-  ping: { at: number; players: SeenPlayer[] } | null; // dernier ping de l'équipe adverse
+  /** Dernier ping de l'équipe adverse. Absent : inchangé depuis l'état précédent (envoyé une fois, l'app le garde). */
+  ping?: { at: number; players: SeenPlayer[] } | null;
   spectating: SeenPlayer[];                  // fugitif attrapé : tout le monde en différé
   outOfZone: SeenPlayer[];                   // chasseurs : fugitifs hors zone, en direct
   winner: Role | null;

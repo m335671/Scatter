@@ -56,15 +56,17 @@ export function connect() {
   socket.on('lobby', (lobby: Lobby) => setState(s =>
     s.game && s.game.code !== lobby.code ? { lobby, game: null, chat: [], unread: { team: 0, all: 0 } } : { lobby }));
   // Seule la partie du salon actuel compte : un état d'une partie quittée (serveur pas à jour, message en retard) est ignoré.
-  socket.on('state', (game: GameView) => {
+  socket.on('state', (raw: GameView) => {
     const s = getState();
-    if (s.lobby?.code !== game.code) return;
+    if (s.lobby?.code !== raw.code) return;
+    // Ping absent : inchangé, on garde celui de l'état précédent.
+    const game = raw.ping !== undefined ? raw : { ...raw, ping: s.game?.code === raw.code ? s.game.ping : null };
     notifyState(s.game, game);
     setState({ game });
   });
   socket.on('chat:history', (chat: ChatMessage[]) => setState({ chat }));
   socket.on('chat', (m: ChatMessage) => {
-    notifyChat(m, getState().user?.id);
+    notifyChat(m, getState().game?.me.id); // la radio porte l'identifiant court du joueur dans la partie
     setState(s => ({ chat: [...s.chat, m].slice(-400), unread: { ...s.unread, [m.channel ?? 'team']: s.unread[m.channel ?? 'team'] + 1 } }));
   });
 }

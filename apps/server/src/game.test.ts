@@ -34,7 +34,7 @@ test('ping : les chasseurs voient la position du fugitif 1 min avant', () => {
   assert.equal(v.ping!.players[0].acc, 8); // précision GPS transmise (arrondie)
   assert.ok(Math.abs(v.ping!.players[0].lat - (C.lat + 120e-6)) < 1e-9);
   // le fugitif, lui, voit le chasseur en direct
-  assert.equal(view(g, 'f')!.ping!.players[0].id, 'h');
+  assert.equal(view(g, 'f')!.ping!.players[0].id, g.players.get('h')!.sid);
   // les chasseurs ne voient pas les fugitifs hors ping
   assert.equal(v.team.every(p => p.role === 'hunter'), true);
 });
@@ -105,7 +105,7 @@ test('fin au temps écoulé : victoire des fugitifs', () => {
   tick(g, 33 * MIN);
   assert.equal(g.winner, 'fugitive');
   // Fin : le chasseur voit le fugitif en position actuelle.
-  assert.equal(view(g, 'h')!.spectating[0].id, 'f');
+  assert.equal(view(g, 'h')!.spectating[0].id, g.players.get('f')!.sid);
   // Quitter une partie terminée retire vraiment le joueur.
   leave(g, 'h');
   assert.equal(g.players.has('h'), false);
@@ -230,7 +230,7 @@ test('entraînement : nombre de bots, capture simulée, bot hors zone éliminé,
   sendStray(g);
   for (let i = 0; i < 400; i++) { tick(g, 1000); moveBots(g, 1000); }
   assert.ok([...g.players.values()].some(p => p.eliminated));
-  assert.ok(g.chat.hunter.some(m => !m.system && m.from?.startsWith('bot-')));
+  assert.ok(g.chat.hunter.some(m => !m.system && m.fromName !== 'Moi'));
 });
 
 test("prêt : on ne lance pas tant qu'un joueur n'est pas prêt, l'hôte l'est d'office", () => {

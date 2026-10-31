@@ -4,7 +4,7 @@ import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { Server, type Socket } from 'socket.io';
 import type { z } from 'zod';
-import { C2S, START_COUNTDOWN_MS, Register, UpdateMe, Username, type Role } from '@kr/shared';
+import { C2S, START_COUNTDOWN_MS, Register, UpdateMe, Username, type GameView, type Role } from '@kr/shared';
 import * as db from './db.ts';
 import {
   type Game, type SavedGame, GameError, capture, createGame, endNow, join, leave, loadGame, lobbyView, ping, saveGame,
@@ -150,6 +150,9 @@ function broadcastLobby(g: Game) {
   for (const p of humans(g)) io.to(`u:${p.id}`).emit('lobby', lobbyView(g));
 }
 
+/** Le ping n'est envoyé que quand il change : l'app garde le précédent. */
+const pingKey = (v: GameView) => (v.ping ? `${v.ping.at}:${v.ping.players.map(p => p.id).join()}` : '');
+
 function broadcastState(g: Game) {
   for (const { team, msg } of g.outbox.splice(0)) {
     for (const p of humans(g, team === 'all' ? undefined : team)) io.to(`u:${p.id}`).emit('chat', msg);
@@ -157,7 +160,11 @@ function broadcastState(g: Game) {
   for (const p of humans(g)) {
     if (!online(p.id)) continue; // inutile de calculer une vue que personne ne recevra
     const v = view(g, p.id);
-    if (v) io.to(`u:${p.id}`).emit('state', v);
+    if (!v) continue;
+    const key = pingKey(v);
+    if (p.sentPing === key) delete v.ping;
+    p.sentPing = key;
+    io.to(`u:${p.id}`).emit('state', v);
   }
 }
 
@@ -169,7 +176,10 @@ function sendEverything(socket: Socket, g: Game, userId: string) {
   const role = g.players.get(userId)?.role;
   if (role) socket.emit('chat:history', history(g, role));
   const v = view(g, userId);
-  if (v) socket.emit('state', v);
+  if (v) {
+    g.players.get(userId)!.sentPing = pingKey(v); // état complet, ping compris
+    socket.emit('state', v);
+  }
 }
 
 function leaveCurrent(userId: string) {
