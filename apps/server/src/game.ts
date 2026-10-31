@@ -9,6 +9,7 @@ import {
 const HISTORY_MS = 3 * MIN;
 const MAX_PLAYERS = 20;
 const CHAT_KEEP = 200;
+const MAX_SAMPLES = 400;
 
 interface Sample { t: number; lat: number; lng: number; acc?: number }
 
@@ -165,6 +166,8 @@ export function updatePosition(g: Game, id: string, pos: LatLng & { acc?: number
   // Arrondi à ~1 m (5 décimales) : le GPS n'est pas plus précis, et chaque état envoyé en est plus léger.
   p.history.push({ t: g.clock, lat: Math.round(pos.lat * 1e5) / 1e5, lng: Math.round(pos.lng * 1e5) / 1e5, acc: pos.acc });
   // On garde le dernier échantillon antérieur à la fenêtre pour pouvoir répondre à positionAt(clock - 3 min).
+  // Plafond contre un client qui inonderait de positions (un téléphone en envoie ~90 en 3 min).
+  if (p.history.length > MAX_SAMPLES) p.history.shift();
   const cutoff = g.clock - HISTORY_MS;
   let i = 0;
   while (i + 1 < p.history.length && p.history[i + 1].t <= cutoff) i++;
@@ -296,14 +299,15 @@ export function endNow(g: Game) {
 
 // ---------- Capture ----------
 
-export const qrFor = (g: Game, p: Player) => `KR1:${g.code}:${p.id}:${p.secret}`;
+// Identifiant court dans le QR : quiconque le scanne ou le photographie ne voit pas l'identifiant du compte.
+export const qrFor = (g: Game, p: Player) => `KR1:${g.code}:${p.sid}:${p.secret}`;
 
 export function capture(g: Game, hunterId: string, qr: string) {
   const hunter = g.players.get(hunterId);
   if (hunter?.role !== 'hunter') throw new GameError("Seuls les chasseurs peuvent attraper.");
   if (g.phase !== 'hunt') throw new GameError("Pas encore, les fugitifs ont de l'avance.");
-  const [tag, code, id, secret] = qr.split(':');
-  const target = g.players.get(id ?? '');
+  const [tag, code, sid, secret] = qr.split(':');
+  const target = [...g.players.values()].find(p => p.sid === sid);
   const ok = tag === 'KR1' && code === g.code && target?.role === 'fugitive' && !!secret
     && secret.length === target.secret.length
     && timingSafeEqual(Buffer.from(secret), Buffer.from(target.secret));

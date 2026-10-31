@@ -13,8 +13,6 @@ export interface Settings {
   /** Couleur des notifications (celle de la partie en cours comprise). */
   notifPalette: PaletteId;
   units: 'km' | 'mi';
-  /** Vide = serveur compilé dans l'app. Rempli seulement si le joueur saisit sa propre adresse. */
-  serverUrl: string;
   /** Tutoriel vu au moins une fois (affiché automatiquement après l'installation). */
   tutorialSeen: boolean;
 }
@@ -44,7 +42,7 @@ let state: State = {
   ready: false, token: null, user: null, connected: false, lobby: null, game: null, chat: [], unread: { team: 0, all: 0 }, dialog: null, permsChecked: false,
   settings: {
     appearance: 'system', palette: 'foret', dynamicColors: { enabled: false, classic: 'braise', zombie: 'foret' }, notifPalette: 'foret',
-    units: 'km', serverUrl: '', tutorialSeen: false,
+    units: 'km', tutorialSeen: false,
   },
 };
 const listeners = new Set<() => void>();
@@ -78,7 +76,6 @@ export async function loadPersisted() {
     if (raw) {
       const saved = JSON.parse(raw);
       const settings = { ...state.settings, ...saved.settings };
-      if (/^http:\/\/(localhost|10\.0\.2\.2):3000$/.test(settings.serverUrl)) settings.serverUrl = '';
       state = { ...state, token: saved.token, user: saved.user, settings };
     }
   } finally {

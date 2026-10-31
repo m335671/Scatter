@@ -18,6 +18,9 @@ Jeu de manhunt mobile en conditions réelles, entre amis. Open source, gratuit, 
 - **Pas de limitation par adresse IP** : les opérateurs 4G partagent une IP entre beaucoup d'abonnés.
 - **Données personnelles** : ne jamais utiliser l'adresse e-mail de l'utilisateur. Les comptes de jeu n'ont pas d'e-mail.
 - **Avant de dire qu'une tâche est finie** : `npm test` passe, et `npx tsc --noEmit` dans `apps/mobile` ne renvoie rien. Si c'est visible à l'écran, il faut aussi un test sur le téléphone : à faire en local uniquement, sinon le signaler.
+- **APK de test** : quand une tâche est finie (tests et typecheck OK), commiter, pousser sur la branche de travail perso de Claude, puis lancer `mobile-app.yml` en manuel sur cette branche avec `ios=false`. L'APK est l'artefact `scatter-android` du run. Donner le lien du run et la liste précise de ce qu'il faut tester.
+- **APK à volonté, IPA sous contrôle** : les builds Android sont libres. L'IPA coûte des crédits macOS : seulement sur un tag `v*` ou en cochant `ios` à la main (décoché par défaut).
+- **Ne jamais dégrader l'expérience de jeu**, même pour corriger un bug : vérifier chaque changement du point de vue du joueur, et prendre des marges.
 
 ## Le jeu
 
@@ -47,7 +50,7 @@ Jeu de manhunt mobile en conditions réelles, entre amis. Open source, gratuit, 
   - un fugitif **hors zone** est visible en direct par les chasseurs, et il est éliminé s'il reste dehors plus d'1 min.
 - **Zone** : elle rétrécit par paliers dès la fin de l'avance et atteint sa taille finale 5 min avant la fin.
 - **Capture** :
-  - le fugitif affiche un QR (`KR1:<code>:<id>:<secret>`), le chasseur le scanne, et le serveur vérifie le secret ;
+  - le fugitif affiche un QR (`KR1:<code>:<sid>:<secret>`, identifiant court, jamais celui du compte), le chasseur le scanne, et le serveur vérifie le secret ;
   - en Classique, le fugitif attrapé devient spectateur ;
   - en Zombie, il devient chasseur.
 - **Fin** : la partie s'arrête quand tous les fugitifs sont pris (victoire des chasseurs) ou quand le temps est écoulé (victoire des fugitifs libres). Un joueur qui part en cours de partie est annoncé à la radio.
@@ -78,6 +81,7 @@ Fichiers serveur (`apps/server/src/`) :
 - `index.ts` : HTTP (`/health`, `/version`, `/username/:u`, `/auth/register`, `/me`), Socket.IO, boucle de jeu, sauvegarde et reprise, logs.
 - `bots.ts` : bots d'entraînement.
 - `db.ts` : comptes uniquement. On ne stocke que le hash du jeton, pas d'e-mail.
+- `server.test.ts` : lance le vrai serveur sur un port libre et simule des téléphones (arrivée refusée, recalage de zone, radio, plafond d'inscriptions).
 - `bench.ts` et `load.ts` : outils de mesure.
 
 Fichiers app (`apps/mobile/src/`) :
@@ -108,7 +112,7 @@ Fichiers app (`apps/mobile/src/`) :
 ## Fonctionnement clé (à connaître avant de toucher)
 
 - **Parties en mémoire** :
-  - sauvegardées dans `$DATA_DIR/games.json` à l'arrêt (SIGTERM) et toutes les 30 s, puis relues au démarrage ;
+  - sauvegardées dans `$DATA_DIR/games.json` à l'arrêt (SIGTERM, d'un bloc) et toutes les 30 s (partie par partie, en rendant la main : pas de gel du serveur), puis relues au démarrage ;
   - l'horloge des parties en cours avance du temps de coupure ;
   - une sauvegarde de plus de 10 min est ignorée.
 - **Boucle de jeu à 100 ms** : chaque partie avance une fois par seconde, à son rythme, donc les parties sont réparties sur la seconde. En entraînement, l'horloge de jeu (`clock`) peut accélérer.
@@ -120,9 +124,15 @@ Fichiers app (`apps/mobile/src/`) :
   - 20 messages par seconde maximum par connexion, et 16 Ko maximum par message ;
   - 5 000 parties maximum en mémoire ;
   - salons et parties abandonnés supprimés au bout de 15 min ;
-  - un compte n'est que dans une partie à la fois ;
+  - inscriptions : plafond global (réserve de 100, puis 30/min), réponse 429 « réessaie dans une minute » ;
+  - radio : un message toutes les 0,5 s au plus par connexion ;
+  - positions acceptées seulement pendant la manche, historique plafonné à 400 échantillons ;
+  - une partie finie n'est plus diffusée après 15 s (à la reconnexion, état complet quand même) ;
+  - un compte n'est que dans une partie à la fois : l'onglet Jouer bloque créer / rejoindre / s'entraîner tant qu'on est dans une vraie partie (seulement « y retourner » ou « quitter », avec confirmation), et le serveur valide une arrivée avant de faire quitter l'ancienne partie ;
   - pseudos : emojis acceptés, caractères invisibles et de contrôle refusés.
 - **`/health`** donne la version, le commit et la charge : parties, joueurs, attente p99 (doit rester sous ~50 ms), mémoire. Le même bilan est logué toutes les 10 min.
+- **Zone** : placée à la création sur la dernière position connue de l'hôte (instantané), recalée sur une position fraîche quand l'hôte lance (`start { center }`, 5 s max, ignorée si imprécise).
+- **Adresse du serveur** : celle compilée dans l'app (`EXPO_PUBLIC_SERVER_URL`), pas de réglage dans le Profil.
 - **Comptes** : un jeton aléatoire est stocké sur le téléphone. Si le serveur répond `unauthorized`, l'app repasse à l'inscription.
 
 ## Interface (conventions)
@@ -143,7 +153,7 @@ Fichiers app (`apps/mobile/src/`) :
 
 ```bash
 npm ci                                   # à la racine
-npm test                                 # tests du moteur (node:test), doit afficher « fail 0 »
+npm test                                 # moteur (game.test.ts) + bout en bout avec vrai serveur et sockets (server.test.ts), ~6 s, « fail 0 »
 cd apps/mobile && npx tsc --noEmit       # typecheck de l'app (pas de sortie = OK)
 npm run server                           # serveur local sur :3000 (données dans apps/server/data, gitignoré)
 cd apps/server && node --experimental-strip-types --no-warnings src/bench.ts 1000   # coût CPU du moteur, 1 000 parties
@@ -168,6 +178,7 @@ cd apps/server && node --experimental-strip-types --no-warnings src/load.ts http
 - **Releases** :
   - un tag `vX.Y.Z` lance `mobile-app.yml`, qui construit l'APK (Linux) et l'IPA non signée (macOS), puis publie `scatter-vX.Y.Z.apk/.ipa` dans une Release ;
   - **seulement sur demande explicite** ;
+  - en manuel (« Run workflow »), APK seul par défaut, l'IPA est à cocher ;
   - pour un changement Android seul : APK compilé en local, puis `gh release upload <tag> <apk> --clobber`.
 - **Versions** : à chaque version, monter `apps/server/package.json` et `apps/mobile/app.json` (`version` et `android.versionCode`).
 - **iPhone** :

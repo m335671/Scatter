@@ -49,16 +49,27 @@ export async function currentPosition() {
 }
 
 /**
- * Position pour placer une zone : la dernière connue si elle est récente et assez précise (instantané,
- * l'accueil vient d'en obtenir une), sinon un relevé GPS frais (plusieurs secondes).
+ * Position pour placer la zone à la création : la dernière connue, même ancienne (instantané). Un relevé frais
+ * (plusieurs secondes) seulement si le téléphone n'en a aucune. La zone est recalée au lancement (freshPosition).
  */
 export async function zonePosition() {
   const fg = await Location.getForegroundPermissionsAsync();
   if (!fg.granted && !(await Location.requestForegroundPermissionsAsync()).granted) {
     throw new Error('Sans ta position, impossible de placer la zone de jeu.');
   }
-  const known = await Location.getLastKnownPositionAsync({ maxAge: 2 * 60_000, requiredAccuracy: 60 }).catch(() => null);
+  const known = await Location.getLastKnownPositionAsync().catch(() => null);
   return known ? { lat: known.coords.latitude, lng: known.coords.longitude } : currentPosition();
+}
+
+/** Position récente et précise pour recaler la zone au lancement, ou null (pas de relevé à temps, trop imprécis). */
+export async function freshPosition(): Promise<{ lat: number; lng: number } | null> {
+  const ok = (p: Location.LocationObject | null) =>
+    p && (p.coords.accuracy ?? 0) <= 60 ? { lat: p.coords.latitude, lng: p.coords.longitude } : null;
+  const known = ok(await Location.getLastKnownPositionAsync({ maxAge: 15_000, requiredAccuracy: 30 }).catch(() => null));
+  if (known) return known;
+  // Pas plus de 5 s d'attente : au-delà, on lance avec la zone telle quelle.
+  const fix = Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }).catch(() => null);
+  return ok(await Promise.race([fix, new Promise<null>(r => setTimeout(() => r(null), 5000))]));
 }
 
 let foregroundSub: Location.LocationSubscription | null = null;

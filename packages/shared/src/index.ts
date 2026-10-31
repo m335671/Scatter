@@ -79,6 +79,8 @@ export const C2S = {
   create: z.object({ rules: Rules, training: z.boolean().default(false) }),
   join: z.object({ code: z.string().trim().toUpperCase().length(6) }),
   rules: Rules,
+  /** center : position fraîche de l'hôte au lancement, la zone s'y recale (la création utilise la dernière connue). */
+  start: z.object({ center: LatLng.optional() }),
   role: z.object({ role: RoleChoice }),
   ready: z.object({ ready: z.boolean() }),
   kick: z.object({ id: z.string().max(64) }),

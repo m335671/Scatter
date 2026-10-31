@@ -81,7 +81,8 @@ test('capture par QR : bon secret, mauvais secret, pendant l\'avance', () => {
   updatePosition(g, 'f', C);
   assert.throws(() => capture(g, 'h', qrFor(g, f)), GameError); // encore l'avance
   tick(g, 3 * MIN);
-  assert.throws(() => capture(g, 'h', `KR1:ABCD12:f:${'0'.repeat(24)}`), /invalide/);
+  assert.throws(() => capture(g, 'h', `KR1:ABCD12:${f.sid}:${'0'.repeat(24)}`), /invalide/);
+  assert.ok(!qrFor(g, f).includes(':f:')); // jamais l'identifiant du compte dans le QR
   assert.throws(() => capture(g, 'f', qrFor(g, f)), GameError);
   assert.equal(view(g, 'h')!.ping!.players.length, 1); // vu au ping de fin d'avance
   capture(g, 'h', qrFor(g, f));
@@ -269,4 +270,10 @@ test('retirer : un joueur banni ne peut plus revenir', () => {
 test('pseudo : emojis et accents acceptés, caractères invisibles refusés', () => {
   for (const ok of ['Zoé 🏃', '🦊', 'Élodie', '👩‍👩‍👧']) assert.ok(DisplayName.safeParse(ok).success, ok);
   for (const ko of ['\u200B', 'abc\u202Edef', '\u0007bip', '   ']) assert.ok(!DisplayName.safeParse(ko).success, JSON.stringify(ko));
+});
+
+test('positions : un client qui inonde ne fait pas grossir son historique sans fin', () => {
+  const g = setup();
+  for (let i = 0; i < 5000; i++) updatePosition(g, 'f', C); // horloge figée : rien n'est purgé par l'âge
+  assert.ok(g.players.get('f')!.history.length <= 401);
 });

@@ -4,10 +4,11 @@ LABEL org.opencontainers.image.source="https://github.com/m335671/Keep-Runni-n" 
       org.opencontainers.image.licenses="MIT"
 WORKDIR /app
 RUN mkdir /data && chown node /data
-COPY package.json ./
+COPY package.json package-lock.json ./
 COPY packages/shared ./packages/shared
 COPY apps/server/package.json ./apps/server/
-RUN npm install --omit=dev -w @kr/server && npm cache clean --force
+# npm ci : exactement les versions du package-lock, jamais une mise à jour non relue.
+RUN npm ci --omit=dev -w @kr/server && npm cache clean --force
 COPY apps/server/src ./apps/server/src
 # Renseignés par le workflow GitHub : visibles dans /version.
 ARG COMMIT=dev
