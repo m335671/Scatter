@@ -18,6 +18,12 @@ if (Platform.OS === 'android') {
   }).catch(() => {});
 }
 
+// App ouverte : les notifications déjà affichées (radio, ping, zone) font doublon avec l'écran, on les efface.
+// La notification du suivi GPS, elle, reste : Android ne laisse pas effacer celle d'un service en cours.
+const clear = () => { Notifications.dismissAllNotificationsAsync().catch(() => {}); };
+clear();
+AppState.addEventListener('change', s => s === 'active' && clear());
+
 /** `id` : une notification du même id remplace la précédente (zone) au lieu de s'empiler. */
 function notify(title: string, body: string, id?: string) {
   if (AppState.currentState === 'active') return; // à l'écran, le HUD et la radio suffisent
