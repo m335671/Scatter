@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
+import { getAppIconName, setAlternateAppIcon, supportsAlternateIcons } from 'expo-alternate-app-icons';
 import { updateMe } from '../api';
 import { clearStats } from '../stats';
 import { setState, useStore, type Settings } from '../store';
@@ -97,6 +98,8 @@ export function ProfileTab() {
         )}
       </Group>
 
+      {supportsAlternateIcons && <AppIconGroup />}
+
       <Group label="Notifications" footer="S'applique dès la prochaine partie. L'aperçu montre un Android proche de la version d'origine : selon la marque du téléphone et sa version d'Android, la couleur peut s'afficher autrement, voire pas du tout.">
         <NotifPreview palette={settings.notifPalette} />
         <View style={{ paddingVertical: 12 }}>
@@ -120,6 +123,43 @@ export function ProfileTab() {
 
       <Text style={{ fontFamily: fonts.monoMedium, fontSize: 12, color: t.textDim, textAlign: 'center', marginTop: 8 }}>SCATTER · v{Constants.expoConfig?.version}</Text>
     </ScrollView>
+  );
+}
+
+/**
+ * Couleur de l'icône de l'app : une icône par palette, compilée dans l'app (assets/icons). Forêt = l'icône d'origine.
+ * Pas pendant une manche : sur certains Android, le changement d'icône ferme l'app, donc le suivi GPS.
+ */
+function AppIconGroup() {
+  const t = useTheme();
+  const phase = useStore(s => s.game?.phase);
+  const playing = phase === 'headstart' || phase === 'hunt';
+  // L'icône active est lue sur le téléphone (vraie même après une réinstallation) : rien à enregistrer.
+  const [icon, setIcon] = useState<PaletteId>(() => (getAppIconName()?.toLowerCase() as PaletteId | undefined) ?? 'foret');
+  const p = themeOf(icon, true);
+
+  async function choose(id: PaletteId) {
+    if (playing) return showDialog({ title: 'Pas pendant une partie', message: "Change l'icône une fois la partie finie." });
+    try {
+      await setAlternateAppIcon(id === 'foret' ? null : id[0].toUpperCase() + id.slice(1));
+      setIcon(id);
+    } catch (e) {
+      showDialog({ title: 'Icône inchangée', message: (e as Error).message });
+    }
+  }
+
+  return (
+    <Group label="Icône de l'app" footer="Sur certains téléphones, l'écran d'accueil met quelques secondes à afficher la nouvelle icône. Sur iPhone, le système confirme le changement.">
+      <View accessibilityLabel="Aperçu de l'icône" style={{ alignItems: 'center', gap: 6, paddingTop: 16 }}>
+        <View style={{ width: 72, height: 72, borderRadius: 18, backgroundColor: p.bg, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: t.line }}>
+          <Mark size={46} color={p.text} dot={p.accent} />
+        </View>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: t.text }}>Scatter</Text>
+      </View>
+      <View style={{ paddingVertical: 12, opacity: playing ? 0.4 : 1 }}>
+        <PalettePicker value={icon} onChange={choose} />
+      </View>
+    </Group>
   );
 }
 
