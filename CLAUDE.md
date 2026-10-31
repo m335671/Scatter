@@ -150,6 +150,7 @@ Fichiers app (`apps/mobile/src/`) :
 - **Salon** : il ne doit pas défiler tant que « Tous les réglages » est replié.
 - **Réglages chiffrés** : `Choices` (valeurs prêtes à toucher), pas de − / +.
 - **Notifications** : effacées dès que l'app revient au premier plan (sauf celle du suivi GPS, imposée par Android).
+- **Icône de l'app** : une par palette (`expo-alternate-app-icons`, images dans `assets/icons/`, Forêt = icône d'origine). Réglage dans le Profil, bloqué pendant une manche. Images générées depuis la géométrie de `assets/brand/mark.svg` (fond, traits et point = `bg`, `text`, `accent` sombres de la palette).
 - **Expo change souvent** : vérifier l'API dans la doc versionnée (`docs.expo.dev/versions/v58.0.0/`) ou dans les `.d.ts` de `node_modules`. Installer les paquets avec `npx expo install`.
 
 ## Commandes
@@ -191,7 +192,7 @@ cd apps/server && node --experimental-strip-types --no-warnings src/load.ts http
   - pas de TestFlight : l'utilisateur refuse de payer Apple ;
   - voir `docs/IOS.md`.
 
-## État au 31/10/2026 (v0.8.0, release publiée, serveur à jour)
+## État au 31/10/2026 (v0.9.0)
 
 **Fait :**
 - DA « Topo » et palettes ;
@@ -203,7 +204,10 @@ cd apps/server && node --experimental-strip-types --no-warnings src/load.ts http
 - exclusion d'un joueur ;
 - sauvegarde et reprise des parties ;
 - états allégés (environ 0,9 Ko par seconde et par joueur) ;
-- couleur de la notification de partie.
+- couleur de la notification de partie ;
+- v0.9.0 : audit (partie protégée, zone recalée au lancement, sauvegarde sans gel, garde-fous, tests de bout en bout),
+  APK allégé (58 → ~22 Mo), copier le code du salon, rôles choisis par l'hôte, réglages en un appui,
+  notifications effacées à l'ouverture, couleur de l'icône de l'app.
 
 **Capacité mesurée :** environ 5 000 joueurs sur un seul cœur.
 
