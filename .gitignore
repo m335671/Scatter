@@ -17,3 +17,4 @@ graphify-out/*
 # Modules natifs locaux : leurs dossiers android/ et ios/ sont du code source, pas des builds.
 !apps/mobile/modules/*/android/
 !apps/mobile/modules/*/ios/
+apps/mobile/modules/*/android/build/
