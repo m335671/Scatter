@@ -63,11 +63,16 @@ export const themeOf = (id: PaletteId, dark: boolean): Theme => (THEMES[id] ?? T
 /** Couleur Android des notifications (icône, nom de l'app) : l'accent sombre de la palette choisie. */
 export const notifColor = (id: PaletteId) => themeOf(id, true).accent;
 
-/** Palette active : celle du mode de la partie en cours si « couleur selon le mode » est activé, sinon la palette choisie. */
+/** Palette active : celle du mode de la partie (salon compris) ou du rôle (une fois tiré), sinon la palette choisie. */
 export function usePaletteId(): PaletteId {
   const settings = useStore(s => s.settings);
   const mode = useStore(s => s.lobby?.rules.mode) as GameMode | undefined;
-  return settings.dynamicColors.enabled && mode ? settings.dynamicColors[mode] : settings.palette;
+  // Rôle seulement une fois tiré : en Dispersion, une couleur trahirait le camp pendant la course.
+  const role = useStore(s => (s.game && !s.game.hidden && s.game.code === s.lobby?.code ? s.game.me.role : undefined));
+  const dyn = settings.dynamicColors;
+  if (!dyn.enabled) return settings.palette;
+  if (dyn.by === 'role') return role ? dyn[role] : settings.palette;
+  return mode ? dyn[mode] : settings.palette;
 }
 
 /** `forceDark` : écrans toujours sombres (tutoriel, image de partage). */

@@ -1,12 +1,12 @@
 // Onglet Profil : compte, préférences, données locales.
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { AppState, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import { getAppIconName, setAlternateAppIcon, supportsAlternateIcons } from 'expo-alternate-app-icons';
 import { updateMe } from '../api';
 import { clearStats } from '../stats';
-import { setState, useStore, type Settings } from '../store';
+import { getState, setState, useStore, type Settings } from '../store';
 import { CheckIcon } from '../icons';
 import { PALETTES, PALETTE_IDS, fonts, notifColor, radius, themeOf, useTheme, type PaletteId } from '../theme';
 import { Mark } from '../logo';
@@ -76,26 +76,25 @@ export function ProfileTab() {
         } />
       </Group>
 
-      <Group label="Couleurs" footer={dyn.enabled
-        ? "En salon et en partie, la couleur suit le mode joué. Partout ailleurs, c'est ta palette."
-        : "La couleur de toute l'app, carte comprise."}>
+      <Group label="Couleurs" footer={!dyn.enabled ? "La couleur de toute l'app, carte comprise."
+        : dyn.by === 'mode' ? "En salon et en partie, la couleur suit le mode joué. Partout ailleurs, c'est ta palette."
+        : "En partie, la couleur suit ton rôle dès qu'il est tiré. Partout ailleurs, c'est ta palette."}>
         <View style={{ paddingVertical: 12 }}>
           <PalettePicker value={settings.palette} onChange={palette => patch({ palette })} />
         </View>
-        <Row title="Couleur selon le mode" sub="Une palette pour Classique, une autre pour Zombie"
-          right={<Toggle value={dyn.enabled} onChange={enabled => patch({ dynamicColors: { ...dyn, enabled } })} />} />
-        {dyn.enabled && (
-          <View style={{ paddingVertical: 12, gap: 8 }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: t.text, marginLeft: 16 }}>Classique</Text>
-            <PalettePicker value={dyn.classic} onChange={classic => patch({ dynamicColors: { ...dyn, classic } })} />
+        <Row title="En partie" right={
+          <Segmented value={dyn.enabled ? dyn.by : 'off'} onChange={v => patch({ dynamicColors: { ...dyn, enabled: v !== 'off', by: v === 'off' ? dyn.by : v } })}
+            options={[{ value: 'off', label: 'Fixe' }, { value: 'mode', label: 'Mode' }, { value: 'role', label: 'Rôle' }]} />
+        } />
+        {dyn.enabled && (dyn.by === 'mode'
+          ? [['classic', 'Classique'], ['zombie', 'Zombie']] as const
+          : [['hunter', 'Chasseur'], ['fugitive', 'Fugitif']] as const
+        ).map(([key, label]) => (
+          <View key={key} style={{ paddingVertical: 12, gap: 8 }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: t.text, marginLeft: 16 }}>{label}</Text>
+            <PalettePicker value={dyn[key]} onChange={id => patch({ dynamicColors: { ...dyn, [key]: id } })} />
           </View>
-        )}
-        {dyn.enabled && (
-          <View style={{ paddingVertical: 12, gap: 8 }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: t.text, marginLeft: 16 }}>Zombie</Text>
-            <PalettePicker value={dyn.zombie} onChange={zombie => patch({ dynamicColors: { ...dyn, zombie } })} />
-          </View>
-        )}
+        ))}
       </Group>
 
       {supportsAlternateIcons && <AppIconGroup />}
@@ -126,22 +125,41 @@ export function ProfileTab() {
   );
 }
 
-/**
- * Couleur de l'icône de l'app : une icône par palette, compilée dans l'app (assets/icons). Forêt = l'icône d'origine.
- * Pas pendant une manche : sur certains Android, le changement d'icône ferme l'app, donc le suivi GPS.
- */
+const iconName = (id: PaletteId) => (id === 'foret' ? null : id[0].toUpperCase() + id.slice(1));
+
+// Android : changer d'icône désactive l'entrée de l'app qui tourne, et certains téléphones (Samsung) ferment l'app aussitôt.
+// On applique donc le changement quand l'app passe en arrière-plan : si elle est fermée à ce moment-là, personne ne le voit.
+// Jamais pendant une partie (salon compris) : la fermeture couperait la connexion et le suivi GPS.
+let pendingIcon: PaletteId | null = null;
+if (Platform.OS === 'android') {
+  AppState.addEventListener('change', s => {
+    if (s !== 'background' || !pendingIcon) return;
+    const { game, lobby } = getState();
+    if (lobby && game?.phase !== 'ended') return; // retenté au prochain passage en arrière-plan
+    const id = pendingIcon;
+    pendingIcon = null;
+    setAlternateAppIcon(iconName(id)).catch(() => {});
+  });
+}
+
+/** Couleur de l'icône de l'app : une icône par palette, compilée dans l'app (assets/icons). Forêt = l'icône d'origine. */
 function AppIconGroup() {
   const t = useTheme();
   const phase = useStore(s => s.game?.phase);
   const playing = phase === 'headstart' || phase === 'hunt';
   // L'icône active est lue sur le téléphone (vraie même après une réinstallation) : rien à enregistrer.
-  const [icon, setIcon] = useState<PaletteId>(() => (getAppIconName()?.toLowerCase() as PaletteId | undefined) ?? 'foret');
+  const [icon, setIcon] = useState<PaletteId>(() => pendingIcon ?? (getAppIconName()?.toLowerCase() as PaletteId | undefined) ?? 'foret');
   const p = themeOf(icon, true);
 
   async function choose(id: PaletteId) {
     if (playing) return showDialog({ title: 'Pas pendant une partie', message: "Change l'icône une fois la partie finie." });
+    if (Platform.OS === 'android') {
+      pendingIcon = id;
+      setIcon(id);
+      return;
+    }
     try {
-      await setAlternateAppIcon(id === 'foret' ? null : id[0].toUpperCase() + id.slice(1));
+      await setAlternateAppIcon(iconName(id));
       setIcon(id);
     } catch (e) {
       showDialog({ title: 'Icône inchangée', message: (e as Error).message });
@@ -149,7 +167,9 @@ function AppIconGroup() {
   }
 
   return (
-    <Group label="Icône de l'app" footer="Sur certains téléphones, l'écran d'accueil met quelques secondes à afficher la nouvelle icône. Sur iPhone, le système confirme le changement.">
+    <Group label="Icône de l'app" footer={Platform.OS === 'android'
+      ? "La nouvelle icône s'applique quand tu quittes l'app. L'écran d'accueil peut mettre quelques secondes à l'afficher."
+      : 'Le système confirme le changement.'}>
       <View accessibilityLabel="Aperçu de l'icône" style={{ alignItems: 'center', gap: 6, paddingTop: 16 }}>
         <View style={{ width: 72, height: 72, borderRadius: 18, backgroundColor: p.bg, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: t.line }}>
           <Mark size={46} color={p.text} dot={p.accent} />

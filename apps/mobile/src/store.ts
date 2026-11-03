@@ -8,8 +8,8 @@ export interface User { id: string; name: string; username: string }
 export interface Settings {
   appearance: 'system' | 'light' | 'dark';
   palette: PaletteId;
-  /** Couleur selon le mode : en salon ou en partie, la palette suit le mode joué. */
-  dynamicColors: { enabled: boolean; classic: PaletteId; zombie: PaletteId };
+  /** Couleur en partie : la palette suit le mode joué (salon compris) ou le rôle (une fois tiré). */
+  dynamicColors: { enabled: boolean; by: 'mode' | 'role'; classic: PaletteId; zombie: PaletteId; hunter: PaletteId; fugitive: PaletteId };
   /** Couleur des notifications (celle de la partie en cours comprise). */
   notifPalette: PaletteId;
   units: 'km' | 'mi';
@@ -41,7 +41,7 @@ export const DEFAULT_SERVER = process.env.EXPO_PUBLIC_SERVER_URL ?? 'http://loca
 let state: State = {
   ready: false, token: null, user: null, connected: false, lobby: null, game: null, chat: [], unread: { team: 0, all: 0 }, dialog: null, permsChecked: false,
   settings: {
-    appearance: 'system', palette: 'foret', dynamicColors: { enabled: false, classic: 'braise', zombie: 'foret' }, notifPalette: 'foret',
+    appearance: 'system', palette: 'foret', dynamicColors: { enabled: false, by: 'mode', classic: 'braise', zombie: 'foret', hunter: 'braise', fugitive: 'ocean' }, notifPalette: 'foret',
     units: 'km', tutorialSeen: false,
   },
 };
@@ -75,7 +75,8 @@ export async function loadPersisted() {
     const raw = await SecureStore.getItemAsync(KEY);
     if (raw) {
       const saved = JSON.parse(raw);
-      const settings = { ...state.settings, ...saved.settings };
+      // Réglages imbriqués fusionnés aussi : une ancienne sauvegarde n'a pas les champs ajoutés depuis.
+      const settings = { ...state.settings, ...saved.settings, dynamicColors: { ...state.settings.dynamicColors, ...saved.settings?.dynamicColors } };
       state = { ...state, token: saved.token, user: saved.user, settings };
     }
   } finally {
