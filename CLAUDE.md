@@ -24,7 +24,7 @@ Jeu de manhunt mobile en conditions réelles, entre amis. Open source, gratuit, 
 
 ## Le jeu
 
-- **Rôles** : chasseurs et fugitifs, choisis dans le salon (Chasseur, Fugitif ou Au hasard). « Au hasard » complète l'équipe qui en a besoin, avec environ un chasseur pour trois joueurs.
+- **Rôles** : chasseurs et fugitifs, choisis dans le salon (Chasseur, Fugitif ou Au hasard). « Au hasard » complète l'équipe qui en a besoin, avec environ un chasseur pour trois joueurs. Si l'hôte fixe le nombre de chasseurs (`hunters` > 0), ou en Dispersion, les rôles sont tirés au sort et les choix ignorés (le salon affiche « Au sort »).
 - **Salon** :
   - l'hôte crée une partie et reçoit un code de 6 caractères, lettres et chiffres mélangés, sans 0/O/1/I/L ;
   - les autres rejoignent avec le code ou en scannant le QR du salon, qui contient juste le code ;
@@ -32,7 +32,9 @@ Jeu de manhunt mobile en conditions réelles, entre amis. Open source, gratuit, 
   - l'hôte règle les règles (ce qui remet tout le monde « pas prêt »), lance la partie et peut exclure un joueur, qui ne peut plus revenir ;
   - « Chacun choisit son rôle » (`freeRoles`, activé par défaut) : coupé, seul l'hôte choisit, en touchant la pastille de rôle d'un joueur.
 - **Règles réglables par l'hôte** :
-  - mode Classique ou Zombie ;
+  - mode Classique, Zombie ou Dispersion (dans les règles : `mode` + `dispersion`, la Dispersion se joue en Classique) ;
+  - nombre de chasseurs (0 = automatique ; en Zombie, chasseurs au départ) ;
+  - « les fugitifs voient les chasseurs » : à chaque ping, un ping sur N, ou jamais (`huntersShownEvery`) ;
   - durée (5 à 180 min) ;
   - intervalle des pings ;
   - avance des fugitifs ;
@@ -42,12 +44,12 @@ Jeu de manhunt mobile en conditions réelles, entre amis. Open source, gratuit, 
 - **Déroulement** :
   1. salon ;
   2. décompte 3-2-1 synchronisé (la dernière seconde affiche la révélation du rôle) ;
-  3. avance (les fugitifs se cachent) ;
+  3. avance (les fugitifs se cachent) ; en **Dispersion**, tout le monde part sans rôle (même équipe côté serveur, `GameView.hidden`), et les rôles sont tirés à la fin de l'avance ;
   4. chasse ;
   5. fin.
 - **Visibilité** :
   - chacun voit son équipe en direct (GPS toutes les 2 s) ;
-  - l'équipe adverse n'apparaît qu'au **ping** : les chasseurs voient où étaient les fugitifs **1 min avant** (`PING_DELAY_MS`), et les fugitifs voient les chasseurs en direct ;
+  - l'équipe adverse n'apparaît qu'au **ping** : les chasseurs voient où étaient les fugitifs **1 min avant** (`PING_DELAY_MS`), et les fugitifs voient les chasseurs en direct (ou un ping sur N, avec la dernière position vue entre-temps) ;
   - un fugitif **hors zone** est visible en direct par les chasseurs, et il est éliminé s'il reste dehors plus d'1 min.
 - **Zone** : elle rétrécit par paliers dès la fin de l'avance et atteint sa taille finale 5 min avant la fin.
 - **Capture** :
@@ -138,9 +140,13 @@ Fichiers app (`apps/mobile/src/`) :
 
 ## Interface (conventions)
 
-- **DA « Topo »** : fond sombre `#0F1712`, accent lime `#D4FF3A` (palette Forêt). Il y a un mode clair, et 6 palettes au choix dans `theme.ts` (Forêt, Braise, Océan, Ambre, Lavande, Ardoise), plus une option « couleur selon le mode » (Classique ou Zombie). Toujours passer par `useTheme()`, jamais de couleur en dur.
+- **DA « Topo »** : fond sombre `#0F1712`, accent lime `#D4FF3A` (palette Forêt). Il y a un mode clair, et 6 palettes au choix dans `theme.ts` (Forêt, Braise, Océan, Ambre, Lavande, Ardoise), plus une option « En partie : Fixe / Mode / Rôle » (palette selon Classique-Zombie, ou selon chasseur-fugitif une fois le rôle tiré). Toujours passer par `useTheme()`, jamais de couleur en dur.
 - **Polices** : Bricolage Grotesque (titres et texte) et JetBrains Mono (chiffres, codes, étiquettes).
 - **Formes** : arrondis 18 (blocs), 12 (éléments internes), boutons en pilule.
+- **Haptique** : `haptic` dans `ui.tsx` (select, tap, success, error). Les composants partagés (Button, Row, Segmented, Choices, Toggle) vibrent déjà.
+- **Retour Android** : bloqué sur l'écran de partie (on sort avec « Quitter la partie »).
+- **Lampe** : module natif local `modules/torch` (Kotlin + Swift), lié automatiquement. Ses dossiers `android/` et `ios/` sont du code source (exception dans `.gitignore`).
+- **Icône de l'app** (Android) : appliquée quand l'app passe en arrière-plan, jamais en partie : le changement ferme l'app sur Samsung.
 - **Icônes** : Phosphor, toujours importées depuis `src/icons.ts` (une ligne par icône, jamais depuis `phosphor-react-native` directement : tout le paquet serait embarqué, +6 Mo).
 - **Boîtes de dialogue** : jamais `Alert.alert`, toujours `showDialog`.
 - **Textes de l'interface** :
