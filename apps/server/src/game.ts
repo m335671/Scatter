@@ -65,6 +65,8 @@ export interface Game {
   startAt?: number;
   /** Joueurs retirés du salon par l'hôte : ils ne peuvent plus revenir. */
   banned: string[];
+  /** Nombre de pings depuis le lancement (chasseurs montrés aux fugitifs un ping sur N). */
+  pings?: number;
 }
 
 export interface UserRef { id: string; name: string; username: string }
@@ -107,7 +109,8 @@ export function leave(g: Game, id: string) {
     system(g, 'fugitive', msg);
     system(g, 'all', msg);
     if (p.role === 'fugitive' && p.caughtAt === null) p.caughtAt = g.clock;
-    if (!aliveFugitives(g).length) end(g, 'hunter');
+    if (hidden(g)) { /* Dispersion : pas encore d'équipes, rien à conclure */ }
+    else if (!aliveFugitives(g).length) end(g, 'hunter');
     else if (![...g.players.values()].some(q => q.role === 'hunter' && !q.left)) end(g, 'fugitive');
   }
   if (g.hostId === id) g.hostId = [...g.players.values()].find(q => !q.isBot && !q.left)?.id ?? '';
@@ -121,24 +124,12 @@ export function start(g: Game, rng = Math.random) {
   const ps = [...g.players.values()];
   const waiting = ps.filter(p => !isReady(g, p));
   if (waiting.length) throw new GameError(waiting.length === 1 ? `${waiting[0].name} n'est pas prêt.` : `${waiting.length} joueurs ne sont pas prêts.`);
-  if (isZombie(g)) {
-    // Un seul chasseur, tiré parmi les volontaires (choix « Chasseur »), sinon parmi tous.
-    const pool = ps.filter(p => p.choice === 'hunter');
-    const from = pool.length ? pool : ps;
-    const first = from[Math.floor(rng() * from.length)];
-    for (const p of ps) p.role = p === first ? 'hunter' : 'fugitive';
-  } else {
-    const randoms = ps.filter(p => p.choice === 'random').sort(() => rng() - 0.5);
-    for (const p of ps) if (p.choice !== 'random') p.role = p.choice;
-    const wantedHunters = Math.max(1, Math.round(ps.length / 3));
-    for (const p of randoms) {
-      const hunters = ps.filter(q => q.role === 'hunter').length;
-      const fugitives = ps.filter(q => q.role === 'fugitive').length;
-      // Priorité : au moins un de chaque, puis ~1/3 de chasseurs.
-      p.role = fugitives === 0 && hunters > 0 ? 'fugitive' : hunters < wantedHunters ? 'hunter' : 'fugitive';
-    }
-  }
-  if (!ps.some(p => p.role === 'hunter') || !ps.some(p => p.role === 'fugitive')) {
+  if ((g.rules.hunters ?? 0) >= ps.length) throw new GameError(`Trop de chasseurs pour ${ps.length} joueurs : il faut au moins un fugitif.`);
+  const dispersion = !!g.rules.dispersion && g.rules.headStartMin > 0;
+  // Dispersion : tout le monde part du même côté, les rôles tombent à la fin de l'avance (reveal).
+  if (dispersion) for (const p of ps) p.role = 'fugitive';
+  else assignRoles(g, ps, rng);
+  if (ps.length < 2 || (!dispersion && (!ps.some(p => p.role === 'hunter') || !ps.some(p => p.role === 'fugitive')))) {
     for (const p of ps) p.role = null;
     throw new GameError('Il faut au moins un chasseur et un fugitif.');
   }
@@ -147,14 +138,62 @@ export function start(g: Game, rng = Math.random) {
   g.phase = g.rules.headStartMin > 0 ? 'headstart' : 'hunt';
   g.clock = 0;
   g.nextPingAt = huntStart(g);
+  if (dispersion) {
+    system(g, 'fugitive', `Dispersion : éparpillez-vous ! Les rôles tombent dans ${g.rules.headStartMin} min.`);
+    return;
+  }
   system(g, 'fugitive', `Tu as ${g.rules.headStartMin} min d'avance. Cache-toi !`);
   system(g, 'hunter', `Les fugitifs ont ${g.rules.headStartMin} min d'avance. Patience.`);
-  system(g, 'all', isZombie(g)
-    ? `Mode zombie : ${ps.find(p => p.role === 'hunter')!.name} est le seul chasseur. Chaque fugitif attrapé le rejoint.`
-    : 'La partie commence. Bonne chance à tous !');
+  const hunters = ps.filter(p => p.role === 'hunter');
+  system(g, 'all', !isZombie(g) ? 'La partie commence. Bonne chance à tous !'
+    : hunters.length === 1 ? `Mode zombie : ${hunters[0].name} est le seul chasseur. Chaque fugitif attrapé le rejoint.`
+    : `Mode zombie : ${hunters.length} chasseurs au départ. Chaque fugitif attrapé les rejoint.`);
+}
+
+function shuffle<T>(list: T[], rng: () => number): T[] {
+  const a = [...list];
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+/** Tirage des rôles. Nombre de chasseurs fixé ou Dispersion : au sort, choix ignorés. Sinon, les choix d'abord. */
+function assignRoles(g: Game, ps: Player[], rng: () => number) {
+  const fixed = g.rules.hunters ?? 0;
+  const k = Math.min(ps.length - 1, fixed || (isZombie(g) ? 1 : g.rules.dispersion ? Math.max(1, Math.round(ps.length / 3)) : 0));
+  if (k > 0) {
+    const mix = shuffle(ps, rng);
+    // Zombie sans nombre fixé : le premier chasseur est tiré parmi les volontaires (tri stable, l'ordre reste aléatoire).
+    if (isZombie(g) && !fixed && !g.rules.dispersion) mix.sort((a, b) => +(b.choice === 'hunter') - +(a.choice === 'hunter'));
+    mix.forEach((p, i) => { p.role = i < k ? 'hunter' : 'fugitive'; });
+    return;
+  }
+  const randoms = shuffle(ps.filter(p => p.choice === 'random'), rng);
+  for (const p of ps) if (p.choice !== 'random') p.role = p.choice;
+  const wantedHunters = Math.max(1, Math.round(ps.length / 3));
+  for (const p of randoms) {
+    const hunters = ps.filter(q => q.role === 'hunter').length;
+    const fugitives = ps.filter(q => q.role === 'fugitive').length;
+    // Priorité : au moins un de chaque, puis ~1/3 de chasseurs.
+    p.role = fugitives === 0 && hunters > 0 ? 'fugitive' : hunters < wantedHunters ? 'hunter' : 'fugitive';
+  }
+}
+
+/** Dispersion, fin de l'avance : les rôles tombent parmi les joueurs encore en jeu. */
+function reveal(g: Game) {
+  const ps = [...g.players.values()].filter(p => !p.left && p.caughtAt === null);
+  if (ps.length < 2) return end(g, 'fugitive');
+  assignRoles(g, ps, Math.random);
+  for (const p of ps) if (p.role === 'hunter') p.outSince = null;
+  g.fugitivesTotal = ps.filter(p => p.role === 'fugitive').length;
+  const h = ps.length - g.fugitivesTotal;
+  system(g, 'hunter', h > 1 ? `Les rôles sont tombés : tu es chasseur, avec ${h - 1} coéquipier${h > 2 ? 's' : ''}. À la chasse !` : 'Les rôles sont tombés : tu es le seul chasseur. À la chasse !');
+  system(g, 'fugitive', 'Les rôles sont tombés : tu es fugitif. Les chasseurs sont lâchés, cache-toi !');
+  system(g, 'all', `Rôles tirés : ${h} chasseur${h > 1 ? 's' : ''}, ${g.fugitivesTotal} fugitif${g.fugitivesTotal > 1 ? 's' : ''}.`);
 }
 
 export const isZombie = (g: Game) => g.rules.mode === 'zombie';
+/** Dispersion pendant l'avance : rôles pas encore tirés. */
+export const hidden = (g: Game) => !!g.rules.dispersion && g.phase === 'headstart';
 /** L'hôte est prêt en lançant, les bots toujours. */
 export const isReady = (g: Game, p: Player) => p.isBot || p.id === g.hostId || !!p.ready;
 
@@ -249,8 +288,12 @@ export function tick(g: Game, realDtMs: number) {
   g.clock += realDtMs * g.speed;
   if (g.phase === 'headstart' && g.clock >= huntStart(g)) {
     g.phase = 'hunt';
-    system(g, 'fugitive', 'Les chasseurs sont lâchés !');
-    system(g, 'hunter', "C'est parti, à la chasse !");
+    if (g.rules.dispersion) reveal(g);
+    else {
+      system(g, 'fugitive', 'Les chasseurs sont lâchés !');
+      system(g, 'hunter', "C'est parti, à la chasse !");
+    }
+    if (g.phase === 'ended') return;
   }
   if (g.nextPingAt !== null && g.clock >= g.nextPingAt) ping(g);
   checkZone(g);
@@ -266,10 +309,16 @@ export function ping(g: Game) {
     const s = out ? current(p) : positionAt(p, g.clock - PING_DELAY_MS);
     if (s) forHunters.push(seen(p, s, out));
   }
-  const forFugitives = ps.flatMap(p => {
-    const s = p.role === 'hunter' ? current(p) : null;
-    return s ? [seen(p, s)] : [];
-  });
+  // Chasseurs montrés un ping sur N : entre-temps, les fugitifs gardent la dernière position vue (avec son âge).
+  g.pings = (g.pings ?? 0) + 1;
+  const showEvery = g.rules.huntersShownEvery ?? 1;
+  const shown = showEvery > 0 && (g.pings - 1) % showEvery === 0;
+  const forFugitives = shown
+    ? ps.flatMap(p => {
+      const s = p.role === 'hunter' ? current(p) : null;
+      return s ? [seen(p, s)] : [];
+    })
+    : g.lastPing?.forFugitives ?? [];
   g.lastPing = { at: g.clock, forHunters, forFugitives };
   const every = g.rules.pingEveryMin * MIN;
   // Si l'horloge a sauté plusieurs pings (avance rapide), un seul ping puis on recale.
@@ -277,7 +326,9 @@ export function ping(g: Game) {
   g.nextPingAt = Math.max(huntStart(g), huntStart(g) + k * every);
   const n = forHunters.length;
   system(g, 'hunter', n ? `Ping ! ${n} fugitif${n > 1 ? 's viennent' : ' vient'} d'apparaître sur la carte.` : 'Ping ! Aucun fugitif repéré pour l\'instant.');
-  system(g, 'fugitive', 'Ping ! Les chasseurs savent où tu étais il y a 1 min.');
+  system(g, 'fugitive', showEvery === 1 ? 'Ping ! Les chasseurs savent où tu étais il y a 1 min.'
+    : shown ? 'Ping ! Les chasseurs savent où tu étais il y a 1 min, et eux apparaissent sur ta carte.'
+    : 'Ping ! Les chasseurs savent où tu étais il y a 1 min. Eux restent cachés.');
 }
 
 function end(g: Game, winner: Role) {
@@ -411,7 +462,7 @@ export function view(g: Game, id: string): GameView | null {
     : [];
   return {
     startsInMs: g.startAt ? Math.max(0, g.startAt - Date.now()) : 0,
-    code: g.code, phase: g.phase, mode: isZombie(g) ? 'zombie' : 'classic', training: g.training, speed: g.speed, clock: g.clock,
+    code: g.code, phase: g.phase, mode: isZombie(g) ? 'zombie' : 'classic', training: g.training, hidden: hidden(g), speed: g.speed, clock: g.clock,
     huntStart: huntStart(g), huntEnd: huntEnd(g), nextPingAt: g.nextPingAt,
     zone: {
       enabled: g.rules.zone.enabled, center: g.rules.zone.center,
@@ -422,7 +473,7 @@ export function view(g: Game, id: string): GameView | null {
       outOfZone: me.role === 'fugitive' && me.caughtAt === null && isOutOfZone(g, me),
       eliminateAt: me.role === 'fugitive' && me.outSince != null ? me.outSince + OUT_OF_ZONE_LIMIT_MS : null,
       zoneAlert: g.phase === 'headstart' || g.phase === 'hunt' ? zoneAlert(g, me) : null,
-      qr: me.role === 'fugitive' && me.caughtAt === null ? qrFor(g, me) : null,
+      qr: me.role === 'fugitive' && me.caughtAt === null && !hidden(g) ? qrFor(g, me) : null,
     },
     fugitivesLeft: fugitives.filter(p => p.caughtAt === null).length,
     fugitivesTotal: g.fugitivesTotal,

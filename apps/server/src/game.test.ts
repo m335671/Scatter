@@ -277,3 +277,60 @@ test('positions : un client qui inonde ne fait pas grossir son historique sans f
   for (let i = 0; i < 5000; i++) updatePosition(g, 'f', C); // horloge figée : rien n'est purgé par l'âge
   assert.ok(g.players.get('f')!.history.length <= 401);
 });
+
+/** Salon de n joueurs (« Au hasard »), règles modifiées par `rules`, lancé. */
+function many(n: number, rules: Partial<ReturnType<typeof defaultRules>> = {}): Game {
+  const g = createGame('ABCD12', { id: 'p0', name: 'P0', username: 'p0' }, { ...defaultRules(C), ...rules });
+  for (let i = 1; i < n; i++) join(g, { id: `p${i}`, name: `P${i}`, username: `p${i}` });
+  g.players.get('p1')!.choice = 'hunter'; // ignoré dès que le nombre de chasseurs est fixé
+  ready(g);
+  start(g);
+  return g;
+}
+const count = (g: Game, role: string) => [...g.players.values()].filter(p => p.role === role).length;
+
+test('nombre de chasseurs fixé : tirés au sort, choix ignorés, au moins un fugitif', () => {
+  const g = many(6, { hunters: 4 });
+  assert.equal(count(g, 'hunter'), 4);
+  assert.equal(g.fugitivesTotal, 2);
+  assert.throws(() => many(3, { hunters: 3 }), /Trop de chasseurs/);
+  const z = many(6, { mode: 'zombie', hunters: 2 });
+  assert.equal(count(z, 'hunter'), 2);
+});
+
+test('dispersion : tout le monde ensemble pendant l\'avance, rôles tirés à la fin', () => {
+  const g = many(6, { dispersion: true, hunters: 2 });
+  assert.equal(g.phase, 'headstart');
+  const v = view(g, 'p0')!;
+  assert.equal(v.hidden, true);
+  assert.equal(v.me.qr, null); // pas de QR tant que les rôles ne sont pas tirés
+  for (const p of g.players.values()) updatePosition(g, p.id, C);
+  assert.equal(view(g, 'p0')!.team.length, 6); // toute la carte se voit pareil
+  leave(g, 'p5'); // un départ pendant la course ne termine pas la partie
+  assert.equal(g.phase, 'headstart');
+  tick(g, 3 * MIN);
+  assert.equal(g.phase, 'hunt');
+  assert.equal(view(g, 'p0')!.hidden, false);
+  assert.equal(count(g, 'hunter'), 2);
+  assert.equal(g.fugitivesTotal, 3); // le joueur parti n'est pas tiré
+  assert.equal(g.players.get('p5')!.role, 'fugitive');
+});
+
+test('chasseurs montrés aux fugitifs un ping sur N, ou jamais', () => {
+  const g = many(2, { huntersShownEvery: 2, hunters: 1 });
+  const h = [...g.players.values()].find(p => p.role === 'hunter')!;
+  const f = [...g.players.values()].find(p => p.role === 'fugitive')!;
+  updatePosition(g, h.id, C);
+  tick(g, 3 * MIN); // ping 1 : montré
+  assert.equal(view(g, f.id)!.ping!.players[0].lat, C.lat);
+  updatePosition(g, h.id, { lat: 45.901, lng: C.lng });
+  tick(g, 2 * MIN); // ping 2 : caché, la position précédente reste
+  assert.equal(view(g, f.id)!.ping!.players[0].lat, C.lat);
+  tick(g, 2 * MIN); // ping 3 : montré à jour
+  assert.equal(view(g, f.id)!.ping!.players[0].lat, 45.901);
+  const never = many(2, { huntersShownEvery: 0, hunters: 1 });
+  for (const p of never.players.values()) updatePosition(never, p.id, C);
+  tick(never, 3 * MIN);
+  const fug = [...never.players.values()].find(p => p.role === 'fugitive')!;
+  assert.equal(view(never, fug.id)!.ping!.players.length, 0);
+});

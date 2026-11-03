@@ -6,6 +6,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { io, type Socket } from 'socket.io-client';
 import { defaultRules } from '@kr/shared';
 
@@ -18,7 +19,7 @@ const sockets: Socket[] = [];
 let n = 0;
 
 before(async () => {
-  server = spawn(process.execPath, ['--experimental-strip-types', '--no-warnings', new URL('./index.ts', import.meta.url).pathname], {
+  server = spawn(process.execPath, ['--experimental-strip-types', '--no-warnings', fileURLToPath(new URL('./index.ts', import.meta.url))], {
     env: { ...process.env, PORT: String(PORT), DATA_DIR: DATA }, stdio: 'ignore',
   });
   for (let i = 0; i < 50; i++) {

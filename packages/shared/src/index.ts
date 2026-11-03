@@ -20,6 +20,12 @@ export const Rules = z.object({
   huntersCanTalk: z.boolean(),
   /** Rôles libres : chacun choisit le sien. Coupé : seul l'hôte choisit (le sien et celui des autres). */
   freeRoles: z.boolean().default(true),
+  /** Nombre de chasseurs tirés au sort au lancement (choix des joueurs ignorés). 0 : automatique. */
+  hunters: z.number().int().min(0).max(19).default(0),
+  /** Dispersion : tout le monde part ensemble sans rôle, les rôles sont tirés à la fin de l'avance. */
+  dispersion: z.boolean().default(false),
+  /** Les fugitifs voient les chasseurs un ping sur N (1 : à chaque ping, 0 : jamais). */
+  huntersShownEvery: z.number().int().min(0).max(10).default(1),
   spectatorDelayMin: z.number().int().min(0).max(2), // limité par l'historique de positions (3 min)
   zone: z.object({
     enabled: z.boolean(),
@@ -45,6 +51,9 @@ export const defaultRules = (center: LatLng): Rules => ({
   headStartMin: 3,
   huntersCanTalk: true,
   freeRoles: true,
+  hunters: 0,
+  dispersion: false,
+  huntersShownEvery: 1,
   spectatorDelayMin: 1,
   zone: { enabled: true, center, startRadiusM: 420, finalRadiusM: 150, shrinkEveryMin: 5 },
   bots: { hunters: 2, fugitives: 3, smart: false, chatty: true },
@@ -118,6 +127,8 @@ export interface GameView {
   phase: Phase;
   mode: GameMode;
   training: boolean;
+  /** Dispersion, pendant l'avance : rôles pas encore tirés, tout le monde est dans la même équipe. */
+  hidden: boolean;
   speed: number;
   clock: number;      // horloge de jeu (ms depuis le lancement)
   /** Temps réel restant avant le vrai départ (décompte de lancement), 0 ensuite. */
