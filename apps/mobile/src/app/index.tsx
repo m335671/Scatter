@@ -9,7 +9,7 @@ import { ActivityTab } from '../tabs/activity';
 import { PlayTab } from '../tabs/play';
 import { ProfileTab } from '../tabs/profile';
 import { fonts, useTheme } from '../theme';
-import { KeyboardSpacer, useKeyboardHeight } from '../ui';
+import { KeyboardSpacer, haptic, useKeyboardHeight } from '../ui';
 
 type Tab = 'play' | 'activity' | 'profile';
 
@@ -37,7 +37,7 @@ export default function Home() {
     const on = tab === key;
     const color = on ? (t.dark ? t.accent : t.text) : t.textDim;
     return (
-      <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => setTab(key)} disabled={busy}
+      <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => { if (!on) haptic.select(); setTab(key); }} disabled={busy}
         style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, paddingVertical: 8, opacity: busy && !on ? 0.4 : 1 }}>
         <Icon size={25} color={color} weight={on ? 'bold' : 'regular'} />
         <Text style={{ fontFamily: on ? fonts.bold : fonts.semibold, fontSize: 12, color }}>{label}</Text>
@@ -48,7 +48,7 @@ export default function Home() {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
       <View style={{ flex: 1 }}>
-        {tab === 'play' && <PlayTab onActivity={() => setTab('activity')} onBusy={setBusy} />}
+        {tab === 'play' && <PlayTab onBusy={setBusy} />}
         {tab === 'activity' && <ActivityTab />}
         {tab === 'profile' && <ProfileTab />}
       </View>
