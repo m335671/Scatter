@@ -17,6 +17,7 @@ export const CopyIcon: Icon = require('phosphor-react-native/src/icons/Copy').Co
 export const CrosshairIcon: Icon = require('phosphor-react-native/src/icons/Crosshair').CrosshairIcon;
 export const DeviceMobileIcon: Icon = require('phosphor-react-native/src/icons/DeviceMobile').DeviceMobileIcon;
 export const DotsThreeIcon: Icon = require('phosphor-react-native/src/icons/DotsThree').DotsThreeIcon;
+export const FlashlightIcon: Icon = require('phosphor-react-native/src/icons/Flashlight').FlashlightIcon;
 export const MapPinIcon: Icon = require('phosphor-react-native/src/icons/MapPin').MapPinIcon;
 export const MapTrifoldIcon: Icon = require('phosphor-react-native/src/icons/MapTrifold').MapTrifoldIcon;
 export const NavigationArrowIcon: Icon = require('phosphor-react-native/src/icons/NavigationArrow').NavigationArrowIcon;

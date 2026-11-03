@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Modal, PanResponder, Pressable, ScrollView, Text, View } from 'react-native';
-import { Redirect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, BackHandler, Modal, PanResponder, Pressable, ScrollView, Text, View } from 'react-native';
+import { Redirect, useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import QRCode from 'react-native-qrcode-svg';
 import { Camera, GeoJSONSource, Layer, Map, NativeUserLocation, type CameraRef } from '@maplibre/maplibre-react-native';
-import { BroadcastIcon, CrosshairIcon, DotsThreeIcon, MapTrifoldIcon, QrCodeIcon, ScanIcon } from '../icons';
+import { BroadcastIcon, CrosshairIcon, DotsThreeIcon, FlashlightIcon, MapTrifoldIcon, QrCodeIcon, ScanIcon } from '../icons';
+import { setTorch, torchAvailable } from '../../modules/torch';
 import type { GameView, LatLng, SeenPlayer } from '@kr/shared';
 import { emit, leaveGame } from '../api';
 import { useGpsStatus } from '../location';
@@ -14,7 +15,7 @@ import { useMapStyle } from '../map-style';
 import { recordGame } from '../stats';
 import { setState, useStore } from '../store';
 import { fonts, radius, useTheme, type Theme } from '../theme';
-import { Group, Row, Segmented, fmtClock, fmtDistance, showDialog } from '../ui';
+import { Group, Row, Segmented, fmtClock, fmtDistance, haptic, showDialog } from '../ui';
 import { circle, zoomFor } from '../zone';
 
 /** Hauteur fixe de la barre d'onglets flottante : le reste de l'écran se cale dessus. */
@@ -39,6 +40,13 @@ export default function GameScreen() {
   const alert = game?.me.zoneAlert?.kind;
   useEffect(() => { if (alert) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}); }, [alert]);
 
+  // Retour Android (bouton ou glissement depuis le bord) : on ne sort pas d'une partie par mégarde.
+  // Radio → carte ; sinon rien, on quitte avec « Quitter la partie ». Seulement quand cet écran est devant (pas sous le scanner).
+  useFocusEffect(useCallback(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => { if (tab === 'radio') setTab('map'); return true; });
+    return () => sub.remove();
+  }, [tab]));
+
   if (!game) return <Redirect href="/" />;
 
   return (
@@ -48,10 +56,10 @@ export default function GameScreen() {
         : <SafeAreaView edges={['top']} style={{ flex: 1 }}><Radio game={game} /></SafeAreaView>}
       <TabBar tab={tab} onTab={setTab} onMore={() => setMore(true)} />
       <PingFlash game={game} />
-      {/* key : en zombie, le fugitif attrapé devient chasseur et revoit la révélation. */}
+      {/* key : en zombie, le fugitif attrapé devient chasseur et revoit la révélation ; en Dispersion, le rôle tombe à la fin de l'avance. */}
       {counting
         ? <StartCountdown ms={game.startsInMs} onDone={() => setCounting(false)} />
-        : <RoleReveal key={game.me.role} game={game} />}
+        : <RoleReveal key={game.hidden ? 'hidden' : game.me.role} game={game} />}
       <MoreSheet game={game} visible={more} onClose={() => setMore(false)} onQr={() => { setMore(false); setQr(true); }} />
       <QrSheet game={game} visible={qr && !!game.me.qr} onClose={() => setQr(false)} />
     </View>
@@ -144,6 +152,7 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
 
       <View pointerEvents="box-none" style={{ position: 'absolute', left: 12, right: 12, bottom: Math.max(insets.bottom, 12) + TAB_H + 10, gap: 12 }}>
         <View pointerEvents="box-none" style={{ alignSelf: 'flex-end', gap: 12, alignItems: 'flex-end' }}>
+          {torchAvailable && <TorchButton />}
           <RoundButton label="Recentrer" onPress={() => camera.current?.jumpTo({ center: [zone.center.lng, zone.center.lat], zoom: zoomFor(zone.radiusM) })}>
             <CrosshairIcon size={24} color={t.text} weight="bold" />
           </RoundButton>
@@ -152,7 +161,7 @@ function MapView({ game, onRadio, onQr }: { game: GameView; onRadio: () => void;
               <ScanIcon size={30} color={t.onAccent} weight="bold" />
             </RoundButton>
           )}
-          {game.me.role === 'fugitive' && !game.me.caught && game.phase !== 'ended' && (
+          {!!game.me.qr && game.phase !== 'ended' && (
             <RoundButton label="Mon QR code" big accent onPress={onQr}>
               <QrCodeIcon size={30} color={t.onAccent} weight="bold" />
             </RoundButton>
@@ -176,6 +185,9 @@ function PhaseBanner({ game, t }: { game: GameView; t: Theme }) {
   if (game.phase === 'ended') {
     title = 'Partie terminée';
     sub = 'Tout le monde est visible sur la carte.';
+  } else if (game.hidden) {
+    title = 'Éparpille-toi !';
+    sub = `Rôles tirés dans ${fmtClock(game.huntStart - game.clock)}`;
   } else if (game.phase === 'headstart') {
     title = game.me.role === 'hunter' ? 'Les fugitifs se cachent' : 'Cache-toi !';
     sub = `${game.me.role === 'hunter' ? 'Départ' : 'Les chasseurs partent'} dans ${fmtClock(game.huntStart - game.clock)}`;
@@ -243,7 +255,7 @@ function Legend({ game, others }: { game: GameView; others: SeenPlayer[] }) {
   );
   return (
     <View pointerEvents="none" style={{ marginTop: 8, alignSelf: 'flex-start', maxWidth: '100%', backgroundColor: t.surface, borderRadius: radius.inner, paddingHorizontal: 12, paddingVertical: 8, gap: 4 }}>
-      {hasTeam && item(<View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: t.accent, marginHorizontal: 1 }} />, 'Ton équipe, en direct')}
+      {hasTeam && item(<View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: t.accent, marginHorizontal: 1 }} />, game.hidden ? 'Tout le monde, en direct' : 'Ton équipe, en direct')}
       {others.length > 0 && item(target(t.text), enemyLabel)}
       {hasExposed && item(target(t.danger), 'Hors zone : visible en direct')}
       {others.length > 0 && item(<View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: t.text, opacity: 0.2 }} />, 'Halo : précision du GPS (visible en zoomant)')}
@@ -258,7 +270,7 @@ function Hud({ game }: { game: GameView }) {
   const units = useStore(s => s.settings.units);
   const pingEvery = useStore(s => (s.lobby?.rules.pingEveryMin ?? 2) * 60_000);
   const headstart = game.phase === 'headstart';
-  const mainLabel = headstart ? 'Avance' : 'Temps restant';
+  const mainLabel = game.hidden ? 'Rôles dans' : headstart ? 'Avance' : 'Temps restant';
   const mainValue = fmtClock((headstart ? game.huntStart : game.huntEnd) - game.clock);
   const toPing = game.nextPingAt !== null ? game.nextPingAt - game.clock : null;
   const pingFrac = toPing === null ? 0 : 1 - Math.min(1, toPing / (headstart ? game.huntStart : pingEvery));
@@ -286,11 +298,14 @@ function Hud({ game }: { game: GameView }) {
           <Text style={{ fontFamily: fonts.body, fontSize: 13, lineHeight: 17, color: t.textDim, fontVariant: ['tabular-nums'] }}>{zoneLine}</Text>
         </View>
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: t.line }}>
-        <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: t.textDim }}>Fugitifs restants</Text>
-        <View style={{ flex: 1 }}>{bar(game.fugitivesTotal ? game.fugitivesLeft / game.fugitivesTotal : 0)}</View>
-        <Text style={{ fontFamily: fonts.mono, fontSize: 16, color: t.text }}>{game.fugitivesLeft}/{game.fugitivesTotal}</Text>
-      </View>
+      {/* Dispersion : pas encore de fugitifs, le compte trahirait le nombre de chasseurs à venir. */}
+      {!game.hidden && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: t.line }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: t.textDim }}>Fugitifs restants</Text>
+          <View style={{ flex: 1 }}>{bar(game.fugitivesTotal ? game.fugitivesLeft / game.fugitivesTotal : 0)}</View>
+          <Text style={{ fontFamily: fonts.mono, fontSize: 16, color: t.text }}>{game.fugitivesLeft}/{game.fugitivesTotal}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -355,7 +370,7 @@ function TabBar({ tab, onTab, onMore }: { tab: 'map' | 'radio'; onTab: (t: 'map'
   const item = (key: 'map' | 'radio', label: string, Icon: typeof MapTrifoldIcon, badge?: number) => {
     const on = tab === key;
     return (
-      <Pressable accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => onTab(key)}
+      <Pressable accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => { if (!on) haptic.select(); onTab(key); }}
         style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: radius.block, backgroundColor: on ? t.accentSoft : 'transparent', paddingVertical: 8 }}>
         <View>
           <Icon size={26} color={on ? t.accentText : t.textDim} weight={on ? 'bold' : 'regular'} />
@@ -375,7 +390,7 @@ function TabBar({ tab, onTab, onMore }: { tab: 'map' | 'radio'; onTab: (t: 'map'
         {item('map', 'Carte', MapTrifoldIcon)}
         {item('radio', 'Radio', BroadcastIcon, unread)}
       </View>
-      <Pressable accessibilityRole="button" accessibilityLabel="Plus d'options" onPress={onMore}
+      <Pressable accessibilityRole="button" accessibilityLabel="Plus d'options" onPress={() => { haptic.tap(); onMore(); }}
         style={{ width: 72, height: TAB_H, borderRadius: radius.block + 8, backgroundColor: t.surface, borderWidth: 1, borderColor: t.line, alignItems: 'center', justifyContent: 'center' }}>
         <DotsThreeIcon size={30} color={t.text} weight="bold" />
       </Pressable>
@@ -383,11 +398,24 @@ function TabBar({ tab, onTab, onMore }: { tab: 'map' | 'radio'; onTab: (t: 'map'
   );
 }
 
+/** Lampe du téléphone, pour la nuit. Éteinte en quittant l'écran de partie. */
+function TorchButton() {
+  const t = useTheme();
+  const [on, setOn] = useState(false);
+  useEffect(() => () => { setTorch(false).catch(() => {}); }, []);
+  const toggle = () => setTorch(!on).then(() => setOn(!on), e => showDialog({ title: 'Lampe indisponible', message: (e as Error).message }));
+  return (
+    <RoundButton label={on ? 'Éteindre la lampe' : 'Allumer la lampe'} accent={on} onPress={toggle}>
+      <FlashlightIcon size={24} color={on ? t.onAccent : t.text} weight={on ? 'fill' : 'bold'} />
+    </RoundButton>
+  );
+}
+
 function RoundButton({ children, onPress, label, big, accent }: { children: React.ReactNode; onPress: () => void; label: string; big?: boolean; accent?: boolean }) {
   const t = useTheme();
   const size = big ? 68 : 52;
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={() => { haptic.tap(big); onPress(); }}
       style={({ pressed }) => ({
         width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center',
         backgroundColor: accent ? t.accent : t.surface, borderWidth: accent ? 0 : 1, borderColor: t.line,
@@ -488,10 +516,10 @@ const revealed = new Set<string>();
 
 function RoleReveal({ game }: { game: GameView }) {
   const t = useTheme();
-  const key = `${game.code}:${game.me.role}`;
+  const key = `${game.code}:${game.hidden ? 'hidden' : game.me.role}`;
   const [show, setShow] = useState(() => game.phase !== 'ended' && !revealed.has(key));
   const p = useRef(new Animated.Value(0)).current;
-  const hunter = game.me.role === 'hunter';
+  const hunter = game.me.role === 'hunter' && !game.hidden;
   const zombie = game.mode === 'zombie';
   // Zombie : on devient chasseur en cours de partie en se faisant attraper.
   const converted = zombie && hunter && game.fugitivesLeft < game.fugitivesTotal;
@@ -515,13 +543,16 @@ function RoleReveal({ game }: { game: GameView }) {
   const fg = hunter ? t.onFlash : t.text;
   return (
     <Animated.View style={{ position: 'absolute', inset: 0, opacity, backgroundColor: hunter ? t.flash : t.bg, justifyContent: 'center', padding: 24 }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: fg, opacity: 0.85, letterSpacing: 2 }}>{converted ? 'CONTAMINÉ. TU ES' : 'TU ES'}</Text>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: fg, opacity: 0.85, letterSpacing: 2 }}>
+        {game.hidden ? 'DISPERSION' : converted ? 'CONTAMINÉ. TU ES' : revealed.has(`${game.code}:hidden`) ? 'LES RÔLES SONT TOMBÉS. TU ES' : 'TU ES'}
+      </Text>
       <Animated.Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.hero, fontSize: 120, lineHeight: 124, color: hunter ? fg : t.accentText, letterSpacing: -1.5, transform: [{ scale }] }}>
-        {hunter ? 'CHASSEUR' : 'FUGITIF'}
+        {game.hidden ? 'FILE !' : hunter ? 'CHASSEUR' : 'FUGITIF'}
       </Animated.Text>
       <Text style={{ fontFamily: fonts.display, fontSize: 18, lineHeight: 24, color: fg, marginTop: 8 }}>
-        {converted ? 'Aide les chasseurs à attraper les derniers fugitifs.'
-          : zombie && hunter ? 'Seul contre tous. Chaque fugitif attrapé rejoint ton équipe.'
+        {game.hidden ? `Éloigne-toi des autres. Les rôles sont tirés au sort dans ${fmtClock(game.huntStart - game.clock)}.`
+          : converted ? 'Aide les chasseurs à attraper les derniers fugitifs.'
+          : zombie && hunter ? 'Chaque fugitif attrapé rejoint ton équipe. Contamine-les tous.'
           : zombie ? 'Un fugitif attrapé devient chasseur. Tiens jusqu\'à la fin.'
           : hunter ? 'Attrape tous les fugitifs avant la fin du temps.' : 'Ne te fais pas attraper jusqu\'à la fin.'}
       </Text>
@@ -593,7 +624,7 @@ function MoreSheet({ game, visible, onClose, onQr }: { game: GameView; visible: 
             options={[{ value: 'light', label: 'Clair' }, { value: 'dark', label: 'Sombre' }]} />
         } />
       </Group>
-      {game.me.role === 'fugitive' && !game.me.caught && game.phase !== 'ended' && (
+      {!!game.me.qr && game.phase !== 'ended' && (
         <Group><Row title="Montrer mon QR code" sub="À présenter au chasseur qui t'attrape" onPress={onQr} /></Group>
       )}
       {training && (
