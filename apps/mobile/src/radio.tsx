@@ -5,7 +5,7 @@ import type { Channel, GameView } from '@kr/shared';
 import { emit } from './api';
 import { setState, useStore } from './store';
 import { fonts, radius, useTheme } from './theme';
-import { fmtClock, showDialog, useKeyboardHeight } from './ui';
+import { fmtClock, haptic, showDialog, useKeyboardHeight } from './ui';
 
 const QUICK: Record<'hunter' | 'fugitive' | 'all', string[]> = {
   hunter: ["J'en vois un !", 'Surveillez le canal', 'Vous êtes où ?'],
@@ -41,7 +41,7 @@ export function Radio({ game }: { game: GameView }) {
     if (!msg.trim()) return;
     setText('');
     // Refusé : le texte revient dans le champ, rien n'est perdu.
-    try { await emit('chat', { text: msg, channel }); } catch (e) { setText(msg); showDialog({ title: 'Message non envoyé', message: (e as Error).message }); }
+    try { await emit('chat', { text: msg, channel }); haptic.tap(); } catch (e) { haptic.error(); setText(msg); showDialog({ title: 'Message non envoyé', message: (e as Error).message }); }
   }
 
   const tab = (c: Channel, label: string) => {

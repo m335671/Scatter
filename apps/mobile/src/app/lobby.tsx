@@ -4,16 +4,17 @@ import { Redirect, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 import * as Clipboard from 'expo-clipboard';
-import * as Haptics from 'expo-haptics';
 import { CaretDownIcon, CheckIcon, CopyIcon, QrCodeIcon, XIcon } from '../icons';
-import { defaultRules, type GameMode, type LobbyPlayer, type RoleChoice, type Rules } from '@kr/shared';
+import { defaultRules, type LobbyPlayer, type RoleChoice, type Rules } from '@kr/shared';
 import { emit, leaveGame } from '../api';
 import { currentPosition, freshPosition } from '../location';
 import { useStore } from '../store';
 import { fonts, radius, useTheme } from '../theme';
-import { BackHeader, Button, Choices, Group, Row, Segmented, T, Toggle, fmtDistance, initial, showDialog } from '../ui';
+import { BackHeader, Button, Choices, Group, Row, Segmented, T, Toggle, fmtDistance, haptic, initial, showDialog } from '../ui';
 
 const ROLE_LABEL: Record<RoleChoice, string> = { hunter: 'Chasseur', fugitive: 'Fugitif', random: 'Au hasard' };
+/** Mode affiché : la Dispersion est une règle à part (`dispersion`), jouée en Classique. */
+type ModeChoice = 'classic' | 'zombie' | 'dispersion';
 
 export default function LobbyScreen() {
   const t = useTheme();
@@ -54,6 +55,9 @@ export default function LobbyScreen() {
   const min = (v: number) => `${v} min`;
   const m = (v: number) => fmtDistance(v, units);
   const freeRoles = lobby.training || r.freeRoles;
+  // Nombre de chasseurs fixé ou Dispersion : rôles tirés au sort, les choix ne servent à rien.
+  const drawn = r.hunters > 0 || r.dispersion;
+  const mode: ModeChoice = r.dispersion ? 'dispersion' : r.mode;
   const changeRole = (role: RoleChoice, id?: string) =>
     emit('role', { role, id }).catch(e => showDialog({ title: 'Changement refusé', message: e.message }));
   // Rôles choisis par l'hôte : il touche la pastille d'un joueur pour la changer.
@@ -83,14 +87,14 @@ export default function LobbyScreen() {
 
   async function copy() {
     await Clipboard.setStringAsync(lobby!.code);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    haptic.success();
     setCopied(true); // la coche remplace l'icône un instant : copié
     setTimeout(() => setCopied(false), 1500);
   }
 
   async function toggleReady() {
     setBusy(true);
-    try { await emit('ready', { ready: !iAmReady }); } catch (e) { showDialog({ title: 'Action impossible', message: (e as Error).message }); } finally { setBusy(false); }
+    try { await emit('ready', { ready: !iAmReady }); if (!iAmReady) haptic.success(); } catch (e) { showDialog({ title: 'Action impossible', message: (e as Error).message }); } finally { setBusy(false); }
   }
 
   async function recenter() {
@@ -143,9 +147,9 @@ export default function LobbyScreen() {
         {!lobby.training && (
           <View style={{ backgroundColor: t.surface, borderWidth: t.dark ? 1 : 0, borderColor: t.line, borderRadius: radius.block + 6, paddingHorizontal: 16, paddingVertical: 4 }}>
             {humans.map((p, i) => (
-              <PlayerRow key={p.id} p={p} me={p.id === me.id} first={i === 0} ready={isReady(p)}
+              <PlayerRow key={p.id} p={p} me={p.id === me.id} first={i === 0} ready={isReady(p)} drawn={drawn}
                 onKick={isHost && p.id !== me.id ? () => kick(p) : undefined}
-                onRole={isHost && !freeRoles ? () => pickRole(p) : undefined} />
+                onRole={isHost && !freeRoles && !drawn ? () => pickRole(p) : undefined} />
             ))}
             {humans.length < 3 && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderTopWidth: 1, borderTopColor: t.line }}>
@@ -171,11 +175,13 @@ export default function LobbyScreen() {
           </Group>
         )}
 
-        <Group label="Tu joues" footer={lobby.training ? undefined
+        <Group label="Tu joues" footer={drawn ? `Rôles tirés au sort${r.hunters ? ` (${r.hunters} chasseur${r.hunters > 1 ? 's' : ''})` : ''}, révélés ${r.dispersion ? "à la fin de l'avance" : 'au lancement'}.`
+          : lobby.training ? undefined
           : !freeRoles ? (isHost ? 'Touche la pastille d’un joueur pour choisir son rôle.' : "C'est l'hôte qui choisit les rôles.")
           : r.mode === 'zombie' ? "« Chasseur » : volontaire pour être le premier chasseur."
           : "« Au hasard » complète l'équipe qui en a besoin, environ un chasseur pour trois joueurs."}>
-          {freeRoles || isHost ? (
+          {drawn ? <Row title="Ton rôle" value="Au sort" />
+          : freeRoles || isHost ? (
             <View style={{ padding: 12 }}>
               <Segmented<RoleChoice> stretch value={myChoice} onChange={role => changeRole(role)}
                 options={(['hunter', 'fugitive', 'random'] as const).map(v => ({ value: v, label: ROLE_LABEL[v] }))} />
@@ -183,15 +189,21 @@ export default function LobbyScreen() {
           ) : <Row title="Ton rôle" value={ROLE_LABEL[myChoice]} />}
         </Group>
 
-        <Group label="Mode" footer={r.mode === 'zombie'
-          ? 'Un chasseur au départ, chaque fugitif attrapé le rejoint.'
-          : 'Deux équipes fixes : un fugitif attrapé passe spectateur.'}>
+        <Group label="Mode" footer={{
+          classic: 'Deux équipes fixes : un fugitif attrapé passe spectateur.',
+          zombie: 'Un chasseur au départ, chaque fugitif attrapé le rejoint.',
+          dispersion: "Tout le monde s'éparpille sans rôle, les chasseurs sont tirés au sort à la fin de l'avance.",
+        }[mode]}>
           {isHost ? (
             <View style={{ padding: 12 }}>
-              <Segmented<GameMode> stretch value={r.mode} onChange={mode => set(x => ({ ...x, mode }))}
-                options={[{ value: 'classic', label: 'Classique' }, { value: 'zombie', label: 'Zombie' }]} />
+              {/* Dispersion sans avance n'aurait pas de course : on en met une. */}
+              <Segmented<ModeChoice> stretch value={mode} onChange={m => set(x => ({
+                ...x, mode: m === 'zombie' ? 'zombie' : 'classic', dispersion: m === 'dispersion',
+                headStartMin: m === 'dispersion' && !x.headStartMin ? 3 : x.headStartMin,
+              }))}
+                options={[{ value: 'classic', label: 'Classique' }, { value: 'zombie', label: 'Zombie' }, { value: 'dispersion', label: 'Dispersion' }]} />
             </View>
-          ) : <Row title="Mode" value={r.mode === 'zombie' ? 'Zombie' : 'Classique'} />}
+          ) : <Row title="Mode" value={{ classic: 'Classique', zombie: 'Zombie', dispersion: 'Dispersion' }[mode]} />}
         </Group>
 
         <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -211,7 +223,12 @@ export default function LobbyScreen() {
             <Group label="Règles de la partie" footer={isHost ? undefined : "Seul l'hôte peut modifier les règles."}>
               {pick('Durée', r.durationMin, [10, 15, 20, 30, 45, 60, 90, 120], min, v => set(x => ({ ...x, durationMin: v })))}
               {pick('Ping toutes les', r.pingEveryMin, [1, 2, 3, 5, 10], min, v => set(x => ({ ...x, pingEveryMin: v })))}
-              {pick('Avance des fugitifs', r.headStartMin, [0, 1, 2, 3, 5, 10], min, v => set(x => ({ ...x, headStartMin: v })))}
+              {pick(r.dispersion ? 'Course de départ' : 'Avance des fugitifs', r.headStartMin, [0, 1, 2, 3, 5, 10].filter(v => v || !r.dispersion), min, v => set(x => ({ ...x, headStartMin: v })))}
+              {pick(r.mode === 'zombie' ? 'Chasseurs au départ' : 'Chasseurs', r.hunters, [0, 1, 2, 3, 4, 5].filter(v => v < Math.max(2, lobby.players.length)),
+                v => (v ? String(v) : 'Auto'), v => set(x => ({ ...x, hunters: v })), 'Tirés au sort, révélés au départ')}
+              {pick('Les fugitifs voient les chasseurs', r.huntersShownEvery, [1, 2, 3, 5, 0],
+                v => (v === 1 ? 'À chaque ping' : v ? `Toutes les ${v * r.pingEveryMin} min` : 'Jamais'),
+                v => set(x => ({ ...x, huntersShownEvery: v })), 'Moins souvent : plus de vigilance et de radio')}
               {!lobby.training && (
                 <Row title="Chacun choisit son rôle" sub={r.freeRoles ? undefined : "Coupé : l'hôte choisit pour tout le monde"}
                   right={<Toggle value={r.freeRoles} disabled={!isHost} onChange={v => set(x => ({ ...x, freeRoles: v }))} />} />
@@ -254,13 +271,14 @@ export default function LobbyScreen() {
 }
 
 /** `onKick` : l'hôte exclut un autre joueur (croix, ou toucher la ligne). `onRole` : l'hôte choisit le rôle (pastille). */
-function PlayerRow({ p, me, first, ready, onKick, onRole }: { p: LobbyPlayer; me: boolean; first: boolean; ready: boolean; onKick?: () => void; onRole?: () => void }) {
+/** `drawn` : rôles tirés au sort, la pastille ne montre aucun choix. */
+function PlayerRow({ p, me, first, ready, drawn, onKick, onRole }: { p: LobbyPlayer; me: boolean; first: boolean; ready: boolean; drawn: boolean; onKick?: () => void; onRole?: () => void }) {
   const t = useTheme();
   const pill = {
     hunter: { bg: t.accent, fg: t.onAccent, border: t.accent },
     fugitive: { bg: t.text, fg: t.bg, border: t.text },
     random: { bg: 'transparent', fg: t.text, border: t.line },
-  }[p.choice];
+  }[drawn ? 'random' : p.choice];
   return (
     <Pressable onPress={onKick} disabled={!onKick} accessibilityHint={onKick ? 'Exclure ce joueur du salon' : undefined}
       style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderTopWidth: first ? 0 : 1, borderTopColor: t.line, opacity: pressed ? 0.6 : 1 })}>
@@ -276,9 +294,9 @@ function PlayerRow({ p, me, first, ready, onKick, onRole }: { p: LobbyPlayer; me
         {ready && <CheckIcon size={14} color={t.onAccent} weight="bold" />}
       </View>
       <Pressable onPress={onRole} disabled={!onRole} hitSlop={6} accessibilityRole={onRole ? 'button' : undefined}
-        accessibilityLabel={`Rôle : ${ROLE_LABEL[p.choice]}`} accessibilityHint={onRole ? 'Choisir le rôle de ce joueur' : undefined}
+        accessibilityLabel={`Rôle : ${drawn ? 'au sort' : ROLE_LABEL[p.choice]}`} accessibilityHint={onRole ? 'Choisir le rôle de ce joueur' : undefined}
         style={({ pressed }) => ({ height: 36, paddingHorizontal: 14, borderRadius: 18, backgroundColor: pill.bg, borderWidth: 1.5, borderColor: pill.border, flexDirection: 'row', alignItems: 'center', gap: 5, opacity: pressed ? 0.7 : 1 })}>
-        <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: pill.fg }}>{ROLE_LABEL[p.choice]}</Text>
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: pill.fg }}>{drawn ? 'Au sort' : ROLE_LABEL[p.choice]}</Text>
         {onRole && <CaretDownIcon size={13} color={pill.fg} weight="bold" />}
       </Pressable>
       {onKick && (

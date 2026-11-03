@@ -5,6 +5,7 @@ import {
   type PressableProps, type StyleProp, type TextInputProps, type TextStyle, type ViewStyle,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { ArrowRightIcon, CaretLeftIcon, CaretRightIcon } from './icons';
 import { useRouter } from 'expo-router';
 import { fonts, radius, useTheme } from './theme';
@@ -37,6 +38,18 @@ export function T({ kind = 'body', style, children, ...rest }: { kind?: TextKind
   return <Text style={[k[kind], style]} {...rest}>{children}</Text>;
 }
 
+/** Retours haptiques : une confirmation au doigt, sans regarder l'écran. Sans effet si le téléphone n'en a pas. */
+export const haptic = {
+  /** Choix dans une liste, interrupteur, onglet. */
+  select: () => { Haptics.selectionAsync().catch(() => {}); },
+  /** Appui sur un bouton. */
+  tap: (strong?: boolean) => { Haptics.impactAsync(strong ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light).catch(() => {}); },
+  /** Action réussie (arrivée dans un salon, capture…). */
+  success: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); },
+  /** Action refusée. */
+  error: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {}); },
+};
+
 /** Bouton pilule. `arrow` : flèche dans sa propre pastille, calée à droite. */
 export function Button({ title, onPress, kind = 'primary', loading, disabled, style, arrow }: {
   title: string; onPress?: () => void; kind?: 'primary' | 'secondary' | 'ghost' | 'danger'; loading?: boolean; disabled?: boolean; style?: StyleProp<ViewStyle>; arrow?: boolean;
@@ -47,7 +60,7 @@ export function Button({ title, onPress, kind = 'primary', loading, disabled, st
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={onPress}
+      onPress={onPress && (() => { haptic.tap(kind === 'danger'); onPress(); })}
       disabled={disabled || loading}
       style={({ pressed }) => [
         { backgroundColor: bg, borderRadius: radius.pill, height: 58, alignItems: 'center', justifyContent: arrow ? 'space-between' : 'center', flexDirection: 'row', paddingLeft: arrow ? 22 : 20, paddingRight: arrow ? 7 : 20 },
@@ -75,7 +88,7 @@ export function BackHeader({ title, right }: { title?: string; right?: ReactNode
   return (
     <View style={{ height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
       <View style={{ minWidth: 90 }}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Retour" hitSlop={8} onPress={() => router.canGoBack() ? router.back() : router.replace('/')}
+        <Pressable accessibilityRole="button" accessibilityLabel="Retour" hitSlop={8} onPress={() => { haptic.tap(); if (router.canGoBack()) router.back(); else router.replace('/'); }}
           style={({ pressed }) => ({ width: 44, height: 44, borderRadius: 22, backgroundColor: t.surface, borderWidth: 1, borderColor: t.line, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] })}>
           <CaretLeftIcon size={20} color={t.text} weight="bold" />
         </Pressable>
@@ -111,7 +124,7 @@ export function Row({ title, sub, value, right, onPress, danger }: {
 }) {
   const t = useTheme();
   return (
-    <Pressable onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined}
+    <Pressable onPress={onPress && (e => { haptic.select(); onPress(e); })} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined}
       style={({ pressed }) => [{ minHeight: 60, paddingVertical: 12, paddingRight: 16, paddingLeft: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }, pressed && { backgroundColor: t.surface2 }]}>
       <View style={{ flex: 1, minWidth: 90 }}>
         <Text style={{ fontFamily: danger ? fonts.semibold : fonts.body, fontSize: 17, color: danger ? t.danger : t.text }}>{title}</Text>
@@ -133,7 +146,7 @@ export function Segmented<V extends string | number>({ options, value, onChange,
       {options.map(o => {
         const on = o.value === value;
         return (
-          <Pressable key={String(o.value)} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => onChange(o.value)}
+          <Pressable key={String(o.value)} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => { if (!on) { haptic.select(); onChange(o.value); } }}
             style={{ height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: radius.inner - 3, backgroundColor: on ? t.accent : 'transparent', flexGrow: stretch ? 1 : 0, paddingHorizontal: 14 }}>
             <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: on ? t.onAccent : t.text }}>{o.label}</Text>
           </Pressable>
@@ -163,7 +176,7 @@ export function Choices({ title, sub, value, options, label, onChange }: {
           const on = v === value;
           return (
             <Pressable key={v} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={`${title} : ${label(v)}`}
-              onPress={() => !on && onChange(v)}
+              onPress={() => { if (!on) { haptic.select(); onChange(v); } }}
               style={({ pressed }) => ({ height: 40, paddingHorizontal: 16, borderRadius: 20, justifyContent: 'center', backgroundColor: on ? t.accent : t.surface2, opacity: pressed ? 0.7 : 1 })}>
               <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: on ? t.onAccent : t.text }}>{label(v)}</Text>
             </Pressable>
@@ -176,7 +189,7 @@ export function Choices({ title, sub, value, options, label, onChange }: {
 
 export function Toggle({ value, onChange, disabled }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   const t = useTheme();
-  return <Switch value={value} onValueChange={onChange} disabled={disabled} trackColor={{ true: t.accent, false: t.surface2 }} thumbColor={value ? t.onAccent : t.textDim} />;
+  return <Switch value={value} onValueChange={v => { haptic.select(); onChange(v); }} disabled={disabled} trackColor={{ true: t.accent, false: t.surface2 }} thumbColor={value ? t.onAccent : t.textDim} />;
 }
 
 export function Field(props: TextInputProps & { prefix?: string; ok?: boolean; error?: boolean; right?: ReactNode }) {
@@ -254,10 +267,11 @@ export function DialogHost() {
  * chaque écran remonte son contenu lui-même.
  */
 export function useKeyboardHeight() {
-  const [h, setH] = useState(0);
+  const height = (k: { height: number; screenY: number }) => Math.max(k.height, Dimensions.get('screen').height - k.screenY);
+  // Clavier déjà ouvert au montage (ex. KeyboardSpacer qui n'apparaît qu'avec le clavier) : sinon l'événement est raté et la hauteur reste 0.
+  const [h, setH] = useState(() => { const m = Keyboard.isVisible() ? Keyboard.metrics() : undefined; return m ? height(m) : 0; });
   useEffect(() => {
-    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', e =>
-      setH(Math.max(e.endCoordinates.height, Dimensions.get('screen').height - e.endCoordinates.screenY)));
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', e => setH(height(e.endCoordinates)));
     const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setH(0));
     return () => { show.remove(); hide.remove(); };
   }, []);
