@@ -25,6 +25,7 @@ export const PaperPlaneRightIcon: Icon = require('phosphor-react-native/src/icon
 export const PathIcon: Icon = require('phosphor-react-native/src/icons/Path').PathIcon;
 export const QrCodeIcon: Icon = require('phosphor-react-native/src/icons/QrCode').QrCodeIcon;
 export const ScanIcon: Icon = require('phosphor-react-native/src/icons/Scan').ScanIcon;
+export const SunIcon: Icon = require('phosphor-react-native/src/icons/Sun').SunIcon;
 export const TargetIcon: Icon = require('phosphor-react-native/src/icons/Target').TargetIcon;
 export const UserIcon: Icon = require('phosphor-react-native/src/icons/User').UserIcon;
 export const XIcon: Icon = require('phosphor-react-native/src/icons/X').XIcon;

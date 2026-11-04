@@ -5,8 +5,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics';
 import QRCode from 'react-native-qrcode-svg';
 import { Camera, GeoJSONSource, Layer, Map, NativeUserLocation, type CameraRef } from '@maplibre/maplibre-react-native';
-import { BroadcastIcon, CrosshairIcon, DotsThreeIcon, FlashlightIcon, MapTrifoldIcon, QrCodeIcon, ScanIcon } from '../icons';
-import { setTorch, torchAvailable } from '../../modules/torch';
+import { BroadcastIcon, CrosshairIcon, DotsThreeIcon, FlashlightIcon, MapTrifoldIcon, QrCodeIcon, ScanIcon, SunIcon } from '../icons';
+import { setTorch, setTorchLevel, torchAvailable, torchLevels } from '../../modules/torch';
 import type { GameView, LatLng, SeenPlayer } from '@kr/shared';
 import { emit, leaveGame } from '../api';
 import { useGpsStatus } from '../location';
@@ -398,16 +398,101 @@ function TabBar({ tab, onTab, onMore }: { tab: 'map' | 'radio'; onTab: (t: 'map'
   );
 }
 
-/** Lampe du téléphone, pour la nuit. Éteinte en quittant l'écran de partie. */
+/** Hauteur de la barre de luminosité de la lampe. */
+const TORCH_BAR = 190;
+
+/**
+ * Lampe du téléphone, pour la nuit. Éteinte en quittant l'écran de partie.
+ * Appui long (si le téléphone sait régler la lampe : Android 13+, iPhone) : une barre verticale apparaît,
+ * on glisse sans lever le doigt (ou on la touche ensuite) pour régler la luminosité.
+ */
 function TorchButton() {
   const t = useTheme();
   const [on, setOn] = useState(false);
-  useEffect(() => () => { setTorch(false).catch(() => {}); }, []);
-  const toggle = () => setTorch(!on).then(() => setOn(!on), e => showDialog({ title: 'Lampe indisponible', message: (e as Error).message }));
+  const [level, setLevel] = useState(1); // de 0 à 1
+  const [open, setOpen] = useState(false);
+  const [pressed, setPressed] = useState(false);
+  // Les gestes lisent ces valeurs : les PanResponder sont créés une seule fois.
+  const st = useRef({ on: false, level: 1, step: 0, open: false, barBottom: 0, hold: undefined as ReturnType<typeof setTimeout> | undefined, hide: undefined as ReturnType<typeof setTimeout> | undefined }).current;
+  const adjustable = torchLevels > 1;
+
+  useEffect(() => () => { clearTimeout(st.hold); clearTimeout(st.hide); setTorch(false).catch(() => {}); }, []);
+
+  const fail = (e: unknown) => showDialog({ title: 'Lampe indisponible', message: (e as Error).message });
+  const turn = (next: boolean) => {
+    // Rallumée : à la luminosité choisie, si on l'a réglée.
+    const p = !next ? setTorch(false) : st.step ? setTorchLevel(st.level) : setTorch(true);
+    p.then(() => { st.on = next; setOn(next); }, fail);
+  };
+  const slide = (pageY: number) => {
+    const l = Math.min(1, Math.max(1 / torchLevels, (st.barBottom - pageY) / TORCH_BAR));
+    st.level = l;
+    setLevel(l);
+    const step = Math.max(1, Math.round(l * torchLevels));
+    if (step === st.step) return;
+    // Un cran sensible par vingtième de la course, pas à chacun des 100 niveaux de l'iPhone.
+    if (Math.floor(step * 20 / torchLevels) !== Math.floor(st.step * 20 / torchLevels)) haptic.select();
+    st.step = step;
+    setTorchLevel(step / torchLevels).then(() => { st.on = true; setOn(true); }, () => {});
+  };
+  const show = () => {
+    clearTimeout(st.hide);
+    st.open = true;
+    setOpen(true);
+    haptic.tap(true);
+    if (!st.on) turn(true);
+  };
+  const later = () => {
+    clearTimeout(st.hide);
+    st.hide = setTimeout(() => { st.open = false; setOpen(false); }, 1800);
+  };
+
+  const button = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderGrant: e => {
+      // Bas de la barre : 10 px au-dessus du bouton.
+      st.barBottom = e.nativeEvent.pageY - e.nativeEvent.locationY - 10;
+      setPressed(true);
+      if (adjustable) st.hold = setTimeout(show, 350);
+    },
+    onPanResponderMove: e => { if (st.open) slide(e.nativeEvent.pageY); },
+    onPanResponderRelease: () => {
+      clearTimeout(st.hold);
+      setPressed(false);
+      if (st.open) later();
+      else { haptic.tap(); turn(!st.on); }
+    },
+    onPanResponderTerminate: () => { clearTimeout(st.hold); setPressed(false); if (st.open) later(); },
+  })).current;
+  const bar = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderGrant: e => { clearTimeout(st.hide); slide(e.nativeEvent.pageY); },
+    onPanResponderMove: e => slide(e.nativeEvent.pageY),
+    onPanResponderRelease: later,
+    onPanResponderTerminate: later,
+  })).current;
+
+  const shown = on ? level : 0;
   return (
-    <RoundButton label={on ? 'Éteindre la lampe' : 'Allumer la lampe'} accent={on} onPress={toggle}>
-      <FlashlightIcon size={24} color={on ? t.onAccent : t.text} weight={on ? 'fill' : 'bold'} />
-    </RoundButton>
+    <View>
+      {open && (
+        <View {...bar.panHandlers} accessibilityLabel={`Luminosité de la lampe : ${Math.round(shown * 100)} %`}
+          style={{ position: 'absolute', bottom: 52 + 10, right: 0, width: 52, height: TORCH_BAR, borderRadius: 26, backgroundColor: t.surface, borderWidth: 1, borderColor: t.line, overflow: 'hidden' }}>
+          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: `${shown * 100}%`, backgroundColor: t.accent }} />
+          {/* Le soleil grossit et s'éclaire avec la lampe. */}
+          <View style={{ position: 'absolute', top: 12, left: 0, right: 0, alignItems: 'center', opacity: 0.45 + 0.55 * shown, transform: [{ scale: 0.75 + 0.5 * shown }, { rotate: `${shown * 90}deg` }] }}>
+            <SunIcon size={24} color={shown > 0.88 ? t.onAccent : t.text} weight={shown > 0.5 ? 'fill' : 'bold'} />
+          </View>
+        </View>
+      )}
+      <View {...button.panHandlers} accessibilityRole="button" accessibilityLabel={on ? 'Éteindre la lampe' : 'Allumer la lampe'}
+        accessibilityHint={adjustable ? 'Appui long pour régler la luminosité' : undefined}
+        style={{ width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? t.accent : t.surface, borderWidth: on ? 0 : 1, borderColor: t.line, transform: [{ scale: pressed ? 0.95 : 1 }] }}>
+        <FlashlightIcon size={24} color={on ? t.onAccent : t.text} weight={on ? 'fill' : 'bold'} />
+      </View>
+    </View>
   );
 }
 
@@ -547,7 +632,7 @@ function RoleReveal({ game }: { game: GameView }) {
         {game.hidden ? 'DISPERSION' : converted ? 'CONTAMINÉ. TU ES' : revealed.has(`${game.code}:hidden`) ? 'LES RÔLES SONT TOMBÉS. TU ES' : 'TU ES'}
       </Text>
       <Animated.Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.hero, fontSize: 120, lineHeight: 124, color: hunter ? fg : t.accentText, letterSpacing: -1.5, transform: [{ scale }] }}>
-        {game.hidden ? 'FILE !' : hunter ? 'CHASSEUR' : 'FUGITIF'}
+        {game.hidden ? 'COURS !' : hunter ? 'CHASSEUR' : 'FUGITIF'}
       </Animated.Text>
       <Text style={{ fontFamily: fonts.display, fontSize: 18, lineHeight: 24, color: fg, marginTop: 8 }}>
         {game.hidden ? `Éloigne-toi des autres. Les rôles sont tirés au sort dans ${fmtClock(game.huntStart - game.clock)}.`

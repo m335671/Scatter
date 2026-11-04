@@ -48,12 +48,12 @@ export default function Home() {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
       <View style={{ flex: 1 }}>
-        {tab === 'play' && <PlayTab onBusy={setBusy} />}
+        {tab === 'play' && <PlayTab onActivity={() => setTab('activity')} onBusy={setBusy} />}
         {tab === 'activity' && <ActivityTab />}
         {tab === 'profile' && <ProfileTab />}
       </View>
-      {/* Clavier ouvert (code à saisir) : la barre d'onglets laisse la place, le contenu remonte au-dessus du clavier. */}
-      {keyboard ? <KeyboardSpacer /> : <SafeAreaView edges={['bottom']} accessibilityRole="tablist"
+      {/* Clavier ouvert dans le Profil : la barre d'onglets laisse la place au contenu. L'onglet Jouer remonte lui-même son panneau. */}
+      {keyboard && tab !== 'play' ? <KeyboardSpacer /> : <SafeAreaView edges={['bottom']} accessibilityRole="tablist"
         style={{ flexDirection: 'row', backgroundColor: t.dark ? t.bg : t.surface, borderTopWidth: 1, borderTopColor: t.line, marginTop: 12 }}>
         {item('play', 'Jouer', TargetIcon)}
         {item('activity', 'Activité', PathIcon)}

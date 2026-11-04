@@ -316,6 +316,15 @@ test('dispersion : tout le monde ensemble pendant l\'avance, rôles tirés à la
   assert.equal(g.players.get('p5')!.role, 'fugitive');
 });
 
+test('dispersion zombie : un seul chasseur tiré à la fin de la course', () => {
+  const g = many(5, { mode: 'zombie', dispersion: true });
+  assert.equal(view(g, 'p0')!.hidden, true);
+  tick(g, 3 * MIN);
+  assert.equal(g.phase, 'hunt');
+  assert.equal(count(g, 'hunter'), 1);
+  assert.equal(g.fugitivesTotal, 4);
+});
+
 test('chasseurs montrés aux fugitifs un ping sur N, ou jamais', () => {
   const g = many(2, { huntersShownEvery: 2, hunters: 1 });
   const h = [...g.players.values()].find(p => p.role === 'hunter')!;

@@ -13,8 +13,6 @@ import { fonts, radius, useTheme } from '../theme';
 import { BackHeader, Button, Choices, Group, Row, Segmented, T, Toggle, fmtDistance, haptic, initial, showDialog } from '../ui';
 
 const ROLE_LABEL: Record<RoleChoice, string> = { hunter: 'Chasseur', fugitive: 'Fugitif', random: 'Au hasard' };
-/** Mode affiché : la Dispersion est une règle à part (`dispersion`), jouée en Classique. */
-type ModeChoice = 'classic' | 'zombie' | 'dispersion';
 
 export default function LobbyScreen() {
   const t = useTheme();
@@ -57,7 +55,9 @@ export default function LobbyScreen() {
   const freeRoles = lobby.training || r.freeRoles;
   // Nombre de chasseurs fixé ou Dispersion : rôles tirés au sort, les choix ne servent à rien.
   const drawn = r.hunters > 0 || r.dispersion;
-  const mode: ModeChoice = r.dispersion ? 'dispersion' : r.mode;
+  const modeName = (r.mode === 'zombie' ? 'Zombie' : 'Classique') + (r.dispersion ? ' · Dispersion' : '');
+  // Entraînement : les bots arrivent au lancement, on les compte déjà. Vrai salon : d'autres joueurs peuvent encore venir.
+  const players = lobby.training ? 1 + Math.max(r.mode === 'zombie' ? 1 : 0, r.bots.hunters + r.bots.fugitives) : Infinity;
   const changeRole = (role: RoleChoice, id?: string) =>
     emit('role', { role, id }).catch(e => showDialog({ title: 'Changement refusé', message: e.message }));
   // Rôles choisis par l'hôte : il touche la pastille d'un joueur pour la changer.
@@ -189,21 +189,21 @@ export default function LobbyScreen() {
           ) : <Row title="Ton rôle" value={ROLE_LABEL[myChoice]} />}
         </Group>
 
-        <Group label="Mode" footer={{
-          classic: 'Deux équipes fixes : un fugitif attrapé passe spectateur.',
-          zombie: 'Un chasseur au départ, chaque fugitif attrapé le rejoint.',
-          dispersion: "Tout le monde s'éparpille sans rôle, les chasseurs sont tirés au sort à la fin de l'avance.",
-        }[mode]}>
+        <Group label="Mode" footer={r.dispersion
+          ? `Tout le monde s'éparpille sans rôle, ${r.mode === 'zombie' ? 'puis les chasseurs tombent et chaque fugitif attrapé les rejoint' : 'puis les chasseurs sont tirés au sort'}.`
+          : r.mode === 'zombie' ? 'Un chasseur au départ, chaque fugitif attrapé le rejoint.'
+          : 'Deux équipes fixes : un fugitif attrapé passe spectateur.'}>
           {isHost ? (
-            <View style={{ padding: 12 }}>
+            <>
+              <View style={{ padding: 12 }}>
+                <Segmented<Rules['mode']> stretch value={r.mode} onChange={v => set(x => ({ ...x, mode: v }))}
+                  options={[{ value: 'classic', label: 'Classique' }, { value: 'zombie', label: 'Zombie' }]} />
+              </View>
               {/* Dispersion sans avance n'aurait pas de course : on en met une. */}
-              <Segmented<ModeChoice> stretch value={mode} onChange={m => set(x => ({
-                ...x, mode: m === 'zombie' ? 'zombie' : 'classic', dispersion: m === 'dispersion',
-                headStartMin: m === 'dispersion' && !x.headStartMin ? 3 : x.headStartMin,
-              }))}
-                options={[{ value: 'classic', label: 'Classique' }, { value: 'zombie', label: 'Zombie' }, { value: 'dispersion', label: 'Dispersion' }]} />
-            </View>
-          ) : <Row title="Mode" value={{ classic: 'Classique', zombie: 'Zombie', dispersion: 'Dispersion' }[mode]} />}
+              <Row title="Dispersion" sub="Rôles tirés après la course"
+                right={<Toggle value={r.dispersion} onChange={v => set(x => ({ ...x, dispersion: v, headStartMin: v && !x.headStartMin ? 3 : x.headStartMin }))} />} />
+            </>
+          ) : <Row title="Mode" value={modeName} />}
         </Group>
 
         <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -224,7 +224,7 @@ export default function LobbyScreen() {
               {pick('Durée', r.durationMin, [10, 15, 20, 30, 45, 60, 90, 120], min, v => set(x => ({ ...x, durationMin: v })))}
               {pick('Ping toutes les', r.pingEveryMin, [1, 2, 3, 5, 10], min, v => set(x => ({ ...x, pingEveryMin: v })))}
               {pick(r.dispersion ? 'Course de départ' : 'Avance des fugitifs', r.headStartMin, [0, 1, 2, 3, 5, 10].filter(v => v || !r.dispersion), min, v => set(x => ({ ...x, headStartMin: v })))}
-              {pick(r.mode === 'zombie' ? 'Chasseurs au départ' : 'Chasseurs', r.hunters, [0, 1, 2, 3, 4, 5].filter(v => v < Math.max(2, lobby.players.length)),
+              {pick(r.mode === 'zombie' ? 'Chasseurs au départ' : 'Chasseurs', r.hunters, [0, 1, 2, 3, 4, 5, 6, 8].filter(v => v < players),
                 v => (v ? String(v) : 'Auto'), v => set(x => ({ ...x, hunters: v })), 'Tirés au sort, révélés au départ')}
               {pick('Les fugitifs voient les chasseurs', r.huntersShownEvery, [1, 2, 3, 5, 0],
                 v => (v === 1 ? 'À chaque ping' : v ? `Toutes les ${v * r.pingEveryMin} min` : 'Jamais'),

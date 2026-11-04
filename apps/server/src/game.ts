@@ -186,8 +186,11 @@ function reveal(g: Game) {
   for (const p of ps) if (p.role === 'hunter') p.outSince = null;
   g.fugitivesTotal = ps.filter(p => p.role === 'fugitive').length;
   const h = ps.length - g.fugitivesTotal;
-  system(g, 'hunter', h > 1 ? `Les rôles sont tombés : tu es chasseur, avec ${h - 1} coéquipier${h > 2 ? 's' : ''}. À la chasse !` : 'Les rôles sont tombés : tu es le seul chasseur. À la chasse !');
-  system(g, 'fugitive', 'Les rôles sont tombés : tu es fugitif. Les chasseurs sont lâchés, cache-toi !');
+  const zombie = isZombie(g);
+  system(g, 'hunter', h > 1 ? `Les rôles sont tombés : tu es chasseur, avec ${h - 1} coéquipier${h > 2 ? 's' : ''}. ${zombie ? 'Contaminez-les tous !' : 'À la chasse !'}`
+    : `Les rôles sont tombés : tu es le seul chasseur. ${zombie ? 'Chaque fugitif attrapé te rejoint.' : 'À la chasse !'}`);
+  system(g, 'fugitive', zombie ? 'Les rôles sont tombés : tu es fugitif. Un fugitif attrapé devient chasseur, cache-toi !'
+    : 'Les rôles sont tombés : tu es fugitif. Les chasseurs sont lâchés, cache-toi !');
   system(g, 'all', `Rôles tirés : ${h} chasseur${h > 1 ? 's' : ''}, ${g.fugitivesTotal} fugitif${g.fugitivesTotal > 1 ? 's' : ''}.`);
 }
 
