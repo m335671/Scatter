@@ -33,7 +33,7 @@ Jeu de manhunt mobile en conditions réelles, entre amis. Open source, gratuit, 
   - l'hôte règle les règles (ce qui remet tout le monde « pas prêt »), lance la partie et peut exclure un joueur, qui ne peut plus revenir ;
   - « Chacun choisit son rôle » (`freeRoles`, activé par défaut) : coupé, seul l'hôte choisit, en touchant la pastille de rôle d'un joueur.
 - **Règles réglables par l'hôte** :
-  - mode Classique, Zombie ou Dispersion (dans les règles : `mode` + `dispersion`, la Dispersion se joue en Classique) ;
+  - mode Classique ou Zombie, avec ou sans Dispersion (`mode` + `dispersion`) ;
   - nombre de chasseurs (0 = automatique ; en Zombie, chasseurs au départ) ;
   - « les fugitifs voient les chasseurs » : à chaque ping, un ping sur N, ou jamais (`huntersShownEvery`) ;
   - durée (5 à 180 min) ;
@@ -146,7 +146,7 @@ Fichiers app (`apps/mobile/src/`) :
 - **Formes** : arrondis 18 (blocs), 12 (éléments internes), boutons en pilule.
 - **Haptique** : `haptic` dans `ui.tsx` (select, tap, success, error). Les composants partagés (Button, Row, Segmented, Choices, Toggle) vibrent déjà.
 - **Retour Android** : bloqué sur l'écran de partie (on sort avec « Quitter la partie »).
-- **Lampe** : module natif local `modules/torch` (Kotlin + Swift), lié automatiquement. Ses dossiers `android/` et `ios/` sont du code source (exception dans `.gitignore`).
+- **Lampe** : module natif local `modules/torch` (Kotlin + Swift), lié automatiquement. Appui long : barre de luminosité, si le téléphone la permet (Android 13+, iPhone). Ses dossiers `android/` et `ios/` sont du code source (exception dans `.gitignore`).
 - **Icône de l'app** (Android) : appliquée quand l'app passe en arrière-plan, jamais en partie : le changement ferme l'app sur Samsung.
 - **Icônes** : Phosphor, toujours importées depuis `src/icons.ts` (une ligne par icône, jamais depuis `phosphor-react-native` directement : tout le paquet serait embarqué, +6 Mo).
 - **Boîtes de dialogue** : jamais `Alert.alert`, toujours `showDialog`.
