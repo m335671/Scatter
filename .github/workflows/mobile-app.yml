@@ -1,4 +1,4 @@
-name: App mobile (APK + IPA)
+name: App mobile (APK, IPA à la demande)
 
 # Lancement manuel (onglet Actions → « Run workflow ») ou sur un tag v1.2.3.
 # Pas de déclenchement à chaque push : le build iOS coûte des minutes macOS (×10 sur un dépôt privé).
@@ -59,7 +59,8 @@ jobs:
           files: scatter-*.apk
 
   ios:
-    if: ${{ github.event_name == 'push' || inputs.ios }}
+    # Jamais sur un tag : seulement en manuel, case « ios » cochée (minutes macOS).
+    if: ${{ inputs.ios }}
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v7

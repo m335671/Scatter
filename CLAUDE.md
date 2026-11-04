@@ -10,7 +10,8 @@ Jeu de manhunt mobile en conditions réelles, entre amis. Open source, gratuit, 
   - pas d'abstraction inutile ;
   - commentaires courts, dans le style du code existant.
 - **Commits** : un commit par changement cohérent, message en français. Les pousser sur `main` seulement quand l'utilisateur le demande.
-- **Jamais de tag `v*` sans feu vert explicite.** Un tag lance le build IPA (environ 100 min macOS décomptées, ×10 sur un dépôt privé, quota gratuit de 2 000 min/mois). Un push sur `main` ne reconstruit que l'image serveur.
+- **Versions** : quand l'utilisateur demande un push sur `main`, publier aussi une nouvelle version (tag `vX.Y.Z`, mineure par défaut). Un tag ne construit que l'APK. Un push sur `main` reconstruit l'image serveur.
+- **Jamais d'IPA jusqu'à nouvel ordre** : ni case `ios` cochée, ni autre moyen (environ 100 min macOS décomptées, ×10 sur un dépôt privé, quota gratuit de 2 000 min/mois).
 - **`CONTRIBUER.md`** : ne pas le suivre dans git (il est gitignoré). Il est en partie périmé ; la référence, c'est ce fichier-ci.
 - **Mises à jour du serveur** : l'utilisateur les fait lui-même, avec `docker compose pull && docker compose up -d`. Après un push, lui dire que l'image est prête, puis vérifier `https://ton-serveur.example/version`.
 - **Distribution** : l'app n'est distribuée qu'en dernière version, donc pas de compatibilité avec les anciennes versions de l'app. Une vérification de version viendra avant le Play Store.
@@ -19,7 +20,7 @@ Jeu de manhunt mobile en conditions réelles, entre amis. Open source, gratuit, 
 - **Données personnelles** : ne jamais utiliser l'adresse e-mail de l'utilisateur. Les comptes de jeu n'ont pas d'e-mail.
 - **Avant de dire qu'une tâche est finie** : `npm test` passe, et `npx tsc --noEmit` dans `apps/mobile` ne renvoie rien. Si c'est visible à l'écran, il faut aussi un test sur le téléphone : à faire en local uniquement, sinon le signaler.
 - **APK de test** : quand une tâche est finie (tests et typecheck OK), commiter, pousser sur la branche de travail perso de Claude, puis lancer `mobile-app.yml` en manuel sur cette branche avec `ios=false`. L'APK est l'artefact `scatter-android` du run. Donner le lien du run et la liste précise de ce qu'il faut tester.
-- **APK à volonté, IPA sous contrôle** : les builds Android sont libres. L'IPA coûte des crédits macOS : seulement sur un tag `v*` ou en cochant `ios` à la main (décoché par défaut).
+- **APK à volonté, IPA sous contrôle** : les builds Android sont libres. L'IPA coûte des crédits macOS : seulement en cochant `ios` à la main (décoché par défaut), et pas avant le feu vert de l'utilisateur.
 - **Ne jamais dégrader l'expérience de jeu**, même pour corriger un bug : vérifier chaque changement du point de vue du joueur, et prendre des marges.
 
 ## Le jeu
@@ -186,8 +187,7 @@ cd apps/server && node --experimental-strip-types --no-warnings src/load.ts http
   - changer de domaine oblige à recompiler l'app (`EXPO_PUBLIC_SERVER_URL`) ;
   - `docker-compose.yml` : port 3022, volume `/data` (comptes et sauvegarde des parties).
 - **Releases** :
-  - un tag `vX.Y.Z` lance `mobile-app.yml`, qui construit l'APK (Linux) et l'IPA non signée (macOS), puis publie `scatter-vX.Y.Z.apk/.ipa` dans une Release ;
-  - **seulement sur demande explicite** ;
+  - un tag `vX.Y.Z` lance `mobile-app.yml`, qui construit l'APK (Linux) et le publie (`scatter-vX.Y.Z.apk`) dans une Release ; l'IPA non signée (macOS) ne se construit qu'en manuel ;
   - en manuel (« Run workflow »), APK seul par défaut, l'IPA est à cocher ;
   - pour un changement Android seul : APK compilé en local, puis `gh release upload <tag> <apk> --clobber`.
 - **Taille de l'APK** : bibliothèques natives compressées (`expo-build-properties`, `useLegacyPackaging`) : environ −26 Mo, au prix d'environ 40 Mo de plus une fois installée sur le téléphone.
