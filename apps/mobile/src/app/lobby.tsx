@@ -190,7 +190,7 @@ export default function LobbyScreen() {
         </Group>
 
         <Group label="Mode" footer={r.dispersion
-          ? `Tout le monde s'éparpille sans rôle, ${r.mode === 'zombie' ? 'puis les chasseurs tombent et chaque fugitif attrapé les rejoint' : 'puis les chasseurs sont tirés au sort'}.`
+          ? `Tout le monde s'éparpille sans rôle, ${r.mode === 'zombie' ? r.hunters > 1 ? 'puis les chasseurs tombent et chaque fugitif attrapé les rejoint' : 'puis un chasseur tombe et chaque fugitif attrapé le rejoint' : 'puis les chasseurs sont tirés au sort'}.`
           : r.mode === 'zombie' ? 'Un chasseur au départ, chaque fugitif attrapé le rejoint.'
           : 'Deux équipes fixes : un fugitif attrapé passe spectateur.'}>
           {isHost ? (

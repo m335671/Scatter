@@ -479,11 +479,11 @@ function TorchButton() {
     <View>
       {open && (
         <View {...bar.panHandlers} accessibilityLabel={`Luminosité de la lampe : ${Math.round(shown * 100)} %`}
-          style={{ position: 'absolute', bottom: 52 + 10, right: 0, width: 52, height: TORCH_BAR, borderRadius: 26, backgroundColor: t.surface, borderWidth: 1, borderColor: t.line, overflow: 'hidden' }}>
+          style={{ position: 'absolute', bottom: 52 + 10, right: 6, width: 40, height: TORCH_BAR, borderRadius: 20, backgroundColor: t.surface, borderWidth: 1, borderColor: t.line, overflow: 'hidden' }}>
           <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: `${shown * 100}%`, backgroundColor: t.accent }} />
           {/* Le soleil grossit et s'éclaire avec la lampe. */}
           <View style={{ position: 'absolute', top: 12, left: 0, right: 0, alignItems: 'center', opacity: 0.45 + 0.55 * shown, transform: [{ scale: 0.75 + 0.5 * shown }, { rotate: `${shown * 90}deg` }] }}>
-            <SunIcon size={24} color={shown > 0.88 ? t.onAccent : t.text} weight={shown > 0.5 ? 'fill' : 'bold'} />
+            <SunIcon size={20} color={shown > 0.88 ? t.onAccent : t.text} weight={shown > 0.5 ? 'fill' : 'bold'} />
           </View>
         </View>
       )}
