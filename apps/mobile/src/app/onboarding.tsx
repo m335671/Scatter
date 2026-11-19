@@ -2,17 +2,20 @@ import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { CaretLeftIcon, CheckIcon } from '../icons';
-import { register, usernameAvailable } from '../api';
+import { checkServer, register, usernameAvailable } from '../api';
+import { BUILD_SERVER, getState, setState } from '../store';
 import { fonts, radius, useTheme } from '../theme';
 import { Button, Field, Screen, Steps, T, KeyboardSpacer } from '../ui';
 
-const TOTAL = 2;
+const TOTAL = 3;
 const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9_]/g, '').slice(0, 20);
 
 export default function Onboarding() {
   const t = useTheme();
   const router = useRouter();
-  const [step, setStep] = useState(1);
+  // 0 : serveur, 1 : nom, 2 : @username. Serveur déjà choisi (compte refusé par le serveur) : on passe au nom.
+  const [step, setStep] = useState(() => (getState().server ? 1 : 0));
+  const [server, setServer] = useState(BUILD_SERVER.replace(/^https:\/\//, ''));
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [available, setAvailable] = useState<boolean | null>(null);
@@ -30,6 +33,21 @@ export default function Onboarding() {
 
   async function next() {
     setError('');
+    if (step === 0) {
+      setBusy(true);
+      try {
+        const { url } = await checkServer(server);
+        setState({ server: url });
+        // Déjà un compte (nouvelle version de l'app) : il est sur ce serveur, on reprend là.
+        if (getState().user) return router.replace('/');
+        setStep(1);
+      } catch (e) {
+        setError((e as Error).message);
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     if (step === 1) {
       if (!username) setUsername(slug(name));
       return setStep(2);
@@ -50,15 +68,24 @@ export default function Onboarding() {
 
   const header = (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 48 }}>
-      <View style={{ width: 90 }}>{step === 2 ? <BackHeaderMini onPress={() => setStep(1)} /> : null}</View>
-      <Steps step={step} total={TOTAL} />
-      <T kind="dim" style={{ width: 90, textAlign: 'right' }}>{step} sur {TOTAL}</T>
+      <View style={{ width: 90 }}>{step > 0 ? <BackHeaderMini onPress={() => { setError(''); setStep(step - 1); }} /> : null}</View>
+      <Steps step={step + 1} total={TOTAL} />
+      <T kind="dim" style={{ width: 90, textAlign: 'right' }}>{step + 1} sur {TOTAL}</T>
     </View>
   );
 
   return (
     <Screen>
         {header}
+        {step === 0 && (
+          <>
+            <T kind="title" style={{ marginTop: 24 }}>Sur quel serveur ?</T>
+            <T kind="dim">Ton groupe joue sur un serveur Scatter. Demande son adresse à la personne qui l'héberge.</T>
+            <Field value={server} onChangeText={s => { setServer(s); setError(''); }} placeholder="run.exemple.fr" autoFocus
+              autoCapitalize="none" autoCorrect={false} keyboardType="url" returnKeyType="go" error={!!error}
+              onSubmitEditing={() => server.trim() && next()} style={{ fontSize: 20 }} />
+          </>
+        )}
         {step === 1 && (
           <>
             <T kind="title" style={{ marginTop: 24 }}>On t'appelle comment ?</T>
@@ -94,7 +121,7 @@ export default function Onboarding() {
           title="Continuer"
           onPress={next}
           loading={busy}
-          disabled={(step === 1 && !name.trim()) || (step === 2 && available !== true)}
+          disabled={(step === 0 && !server.trim()) || (step === 1 && !name.trim()) || (step === 2 && available !== true)}
         />
       <KeyboardSpacer />
     </Screen>

@@ -4,7 +4,7 @@ import { AppState, Platform, Pressable, ScrollView, Text, TextInput, View } from
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import { getAppIconName, setAlternateAppIcon, supportsAlternateIcons } from 'expo-alternate-app-icons';
-import { updateMe } from '../api';
+import { changeServer, updateMe } from '../api';
 import { clearStats } from '../stats';
 import { getState, setState, useStore, type Settings } from '../store';
 import { CheckIcon } from '../icons';
@@ -19,6 +19,8 @@ export function ProfileTab() {
   const user = useStore(s => s.user);
   const settings = useStore(s => s.settings);
   const connected = useStore(s => s.connected);
+  const server = useStore(s => s.server);
+  const inGame = useStore(s => !!s.lobby || !!s.game);
 
   const patch = (p: Partial<Settings>) => setState(s => ({ settings: { ...s.settings, ...p } }));
   const dyn = settings.dynamicColors;
@@ -66,6 +68,12 @@ export function ProfileTab() {
           : <Row title="Nom" value={user?.name} onPress={() => { setDraft(user?.name ?? ''); setEdit('name'); }} />}
         {edit === 'username' ? input(draft, setDraft, save, { maxLength: 20, returnKeyType: 'done' })
           : <Row title="Nom d'utilisateur" value={user ? `@${user.username}` : ''} onPress={() => { setDraft(user?.username ?? ''); setEdit('username'); }} />}
+        <Row title="Serveur" value={server?.replace(/^https?:\/\//, '')} onPress={() => inGame
+          ? showDialog({ title: 'Pas pendant une partie', message: 'Quitte la partie ou le salon avant de changer de serveur.' })
+          : showDialog({
+            title: 'Changer de serveur ?', message: 'Tu créeras un nouveau compte sur le nouveau serveur. Celui-ci ne sera plus accessible depuis ce téléphone. Tes stats restent.',
+            actions: [{ label: 'Changer', kind: 'danger', onPress: changeServer }, { label: 'Annuler', kind: 'cancel' }],
+          })} />
       </Group>
 
       <Group label="Préférences" footer="La nuit, Sombre fatigue moins les yeux et risque moins de te trahir.">

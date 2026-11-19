@@ -16,10 +16,11 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts(fontFiles);
   const ready = useStore(s => s.ready);
   const token = useStore(s => s.token);
+  const server = useStore(s => s.server);
   const phase = useStore(s => s.game?.phase);
 
   useEffect(() => { loadPersisted(); preloadMapStyles(); }, []);
-  useEffect(() => { if (ready && token) connect(); }, [ready, token]);
+  useEffect(() => { if (ready && server && token) connect(); }, [ready, server, token]);
 
   // On partage sa position uniquement pendant une manche.
   const playing = phase === 'headstart' || phase === 'hunt';

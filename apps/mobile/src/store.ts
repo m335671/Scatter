@@ -22,6 +22,8 @@ export interface Dialog { title: string; message?: string; actions?: DialogActio
 
 export interface State {
   ready: boolean;
+  /** Adresse du serveur, choisie au premier lancement (ex. https://run.exemple.fr). */
+  server: string | null;
   token: string | null;
   user: User | null;
   settings: Settings;
@@ -35,11 +37,11 @@ export interface State {
   permsChecked: boolean;
 }
 
-// Défini au build (EXPO_PUBLIC_SERVER_URL). En dev : `adb reverse tcp:3000 tcp:3000` relie le téléphone au PC.
-export const DEFAULT_SERVER = process.env.EXPO_PUBLIC_SERVER_URL ?? 'http://localhost:3000';
+// Facultatif, défini au build : pré-remplit l'écran du serveur. En dev : http://localhost:3000 avec `adb reverse tcp:3000 tcp:3000`.
+export const BUILD_SERVER = process.env.EXPO_PUBLIC_SERVER_URL ?? '';
 
 let state: State = {
-  ready: false, token: null, user: null, connected: false, lobby: null, game: null, chat: [], unread: { team: 0, all: 0 }, dialog: null, permsChecked: false,
+  ready: false, server: null, token: null, user: null, connected: false, lobby: null, game: null, chat: [], unread: { team: 0, all: 0 }, dialog: null, permsChecked: false,
   settings: {
     appearance: 'system', palette: 'foret', dynamicColors: { enabled: false, by: 'mode', classic: 'braise', zombie: 'foret', hunter: 'braise', fugitive: 'ocean' }, notifPalette: 'foret',
     units: 'km', tutorialSeen: false,
@@ -53,7 +55,7 @@ export function setState(patch: Partial<State> | ((s: State) => Partial<State>))
   const p = typeof patch === 'function' ? patch(state) : patch;
   state = { ...state, ...p };
   listeners.forEach(l => l());
-  if ('token' in p || 'user' in p || 'settings' in p) persist();
+  if ('server' in p || 'token' in p || 'user' in p || 'settings' in p) persist();
 }
 
 export function useStore<T>(selector: (s: State) => T): T {
@@ -66,8 +68,8 @@ export function useStore<T>(selector: (s: State) => T): T {
 const KEY = 'keeprunnin';
 
 function persist() {
-  const { token, user, settings } = state;
-  SecureStore.setItemAsync(KEY, JSON.stringify({ token, user, settings })).catch(() => {});
+  const { server, token, user, settings } = state;
+  SecureStore.setItemAsync(KEY, JSON.stringify({ server, token, user, settings })).catch(() => {});
 }
 
 export async function loadPersisted() {
@@ -77,7 +79,7 @@ export async function loadPersisted() {
       const saved = JSON.parse(raw);
       // Réglages imbriqués fusionnés aussi : une ancienne sauvegarde n'a pas les champs ajoutés depuis.
       const settings = { ...state.settings, ...saved.settings, dynamicColors: { ...state.settings.dynamicColors, ...saved.settings?.dynamicColors } };
-      state = { ...state, token: saved.token, user: saved.user, settings };
+      state = { ...state, server: saved.server ?? null, token: saved.token, user: saved.user, settings };
     }
   } finally {
     setState({ ready: true });

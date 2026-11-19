@@ -1,12 +1,37 @@
 import { io, type Socket } from 'socket.io-client';
 import type { ChatMessage, GameView, Lobby } from '@kr/shared';
-import { DEFAULT_SERVER, getState, loadPersisted, setState, type User } from './store';
+import { getState, loadPersisted, setState, type User } from './store';
 import { notifyChat, notifyState } from './notify';
 import { trackPosition } from './stats';
 import { showDialog } from './ui';
 
-// Toujours le serveur compilé dans l'app (EXPO_PUBLIC_SERVER_URL) : plus d'adresse saisie à la main.
-const base = () => DEFAULT_SERVER.replace(/\/$/, '');
+// Le serveur choisi au premier lancement (écran d'accueil de l'onboarding).
+const base = () => getState().server ?? '';
+
+/** « run.exemple.fr » → « https://run.exemple.fr », puis vérifie que c'est bien un serveur Scatter. */
+export async function checkServer(input: string) {
+  let url = input.trim().replace(/\/+$/, '');
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 6000);
+  try {
+    const res = await fetch(url + '/version', { signal: ctrl.signal });
+    const data = await res.json();
+    if (typeof data?.version !== 'string') throw new Error();
+    return { url, version: data.version as string };
+  } catch {
+    throw new Error(ctrl.signal.aborted ? 'Le serveur ne répond pas.' : "Aucun serveur Scatter à cette adresse.");
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Oublie le serveur et le compte qui va avec : retour à l'écran du serveur. */
+export function changeServer() {
+  socket?.close();
+  socket = null;
+  setState({ server: null, token: null, user: null, connected: false, lobby: null, game: null, chat: [], unread: { team: 0, all: 0 } });
+}
 
 async function http<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getState().token;

@@ -17,6 +17,7 @@ export default function Home() {
   const t = useTheme();
   const router = useRouter();
   const user = useStore(s => s.user);
+  const server = useStore(s => s.server);
   const tutorialSeen = useStore(s => s.settings.tutorialSeen);
   const permsChecked = useStore(s => s.permsChecked);
   const [tab, setTab] = useState<Tab>('play');
@@ -30,7 +31,7 @@ export default function Home() {
     checkAll().then(p => (allGranted(p) ? setState({ permsChecked: true }) : router.push('/permissions?auto=1'))).catch(() => {});
   }, [user, tutorialSeen, permsChecked]);
 
-  if (!user) return <Redirect href="/onboarding" />;
+  if (!user || !server) return <Redirect href="/onboarding" />;
   if (!tutorialSeen) return <Redirect href="/tutorial" />;
 
   const item = (key: Tab, label: string, Icon: typeof TargetIcon) => {
