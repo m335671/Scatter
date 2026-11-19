@@ -49,7 +49,28 @@ jobs:
       - name: APK release (arm64)
         working-directory: apps/mobile/android
         run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
-      - run: mv apps/mobile/android/app/build/outputs/apk/release/app-release.apk scatter-$VERSION.apk
+      # Gradle signe avec la clé de debug du modèle Expo : on re-signe avec la clé Scatter (secrets du dépôt).
+      # La lignée (rotation depuis la clé de debug) laisse les APK déjà installés se mettre à jour sans désinstaller
+      # (Android 9+) : v2 avec l'ancienne clé, v3 avec la nouvelle. Pas de secrets (fork) : clé de debug.
+      - name: Signature
+        env:
+          SCATTER_KEYSTORE: ${{ secrets.SCATTER_KEYSTORE }}
+          SCATTER_KEYSTORE_PASS: ${{ secrets.SCATTER_KEYSTORE_PASS }}
+          SCATTER_LINEAGE: ${{ secrets.SCATTER_LINEAGE }}
+        run: |
+          APK=apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+          if [ -z "$SCATTER_KEYSTORE" ]; then
+            echo "::warning::Secret SCATTER_KEYSTORE absent : APK signé avec la clé de debug."
+            mv "$APK" scatter-$VERSION.apk; exit 0
+          fi
+          echo "$SCATTER_KEYSTORE" | base64 -d > "$RUNNER_TEMP/scatter.jks"
+          echo "$SCATTER_LINEAGE" | base64 -d > "$RUNNER_TEMP/scatter.lineage"
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          "$BT/apksigner" sign --ks apps/mobile/android/app/debug.keystore --ks-pass pass:android --ks-key-alias androiddebugkey \
+            --next-signer --ks "$RUNNER_TEMP/scatter.jks" --ks-pass env:SCATTER_KEYSTORE_PASS --ks-key-alias scatter \
+            --lineage "$RUNNER_TEMP/scatter.lineage" --rotation-min-sdk-version 28 --out scatter-$VERSION.apk "$APK"
+          rm "$RUNNER_TEMP/scatter.jks" "$RUNNER_TEMP/scatter.lineage"
+          "$BT/apksigner" verify -v --print-certs scatter-$VERSION.apk | grep "CN=Scatter"
       - uses: actions/upload-artifact@v4
         with:
           name: scatter-android

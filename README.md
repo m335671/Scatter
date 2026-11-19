@@ -71,7 +71,7 @@ Sous Windows :
 - **Apostrophe dans le chemin** : compiler depuis un chemin sans apostrophe, car le `'` casse CMake (`git worktree add C:/dev/scatter`).
 - **Chemins de plus de 260 caractères** : installer CMake 3.31.6 avec le SDK Manager, puis ajouter `cmake.dir=<sdk>/cmake/3.31.6` dans `android/local.properties`. C'est à refaire après chaque `prebuild --clean`.
 
-L'APK est signé avec la clé de debug : ça suffit pour l'installer à la main. Facultatif : `EXPO_PUBLIC_SERVER_URL=https://…` au moment du `prebuild` pré-remplit l'écran du serveur.
+Compilé ainsi, l'APK est signé avec la clé de debug : ça suffit pour l'installer à la main. Les APK des Releases sont signés avec la clé Scatter, que seul le CI connaît. Facultatif : `EXPO_PUBLIC_SERVER_URL=https://…` au moment du `prebuild` pré-remplit l'écran du serveur.
 
 ## Publier une version
 
