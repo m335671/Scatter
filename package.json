@@ -1,9 +1,13 @@
 {
   "name": "keep-runnin",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "server": "npm run dev -w apps/server",
     "test": "npm test -w apps/server"
-  }
+  },
+  "license": "AGPL-3.0-only"
 }

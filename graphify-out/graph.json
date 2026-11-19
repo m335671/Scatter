@@ -7062,13 +7062,13 @@
     },
     {
       "id": "claude_deploy",
-      "label": "Production et deploiement serveur (ton-serveur.example)",
+      "label": "Production et deploiement serveur (domaine du serveur)",
       "author": null,
       "captured_at": null,
       "community": 4,
       "contributor": null,
       "file_type": "concept",
-      "norm_label": "production et deploiement serveur (ton-serveur.example)",
+      "norm_label": "production et deploiement serveur (domaine du serveur)",
       "source_file": "CLAUDE.md",
       "source_location": null,
       "source_url": null

@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
     inputs:
       server_url:
-        description: Adresse du serveur compilée dans l'app
-        default: https://ton-serveur.example
+        description: Adresse pré-remplie sur l'écran du serveur (facultatif)
+        default: ''
       ios:
         description: Construire aussi l'IPA (minutes macOS, à cocher exprès)
         type: boolean
@@ -16,7 +16,8 @@ on:
     tags: ['v*']
 
 env:
-  EXPO_PUBLIC_SERVER_URL: ${{ inputs.server_url || 'https://ton-serveur.example' }}
+  # Le serveur se choisit dans l'app au premier lancement : rien de compilé par défaut.
+  EXPO_PUBLIC_SERVER_URL: ${{ inputs.server_url }}
   NODE_ENV: production
   # Tag v1.2.3 → version 1.2.3 dans l'app et dans le nom des fichiers. Lancement manuel → « dev ».
   VERSION: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'dev' }}

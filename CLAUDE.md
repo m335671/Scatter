@@ -1,6 +1,6 @@
 # Scatter (ex « Keep Runni'n »)
 
-Jeu de manhunt mobile en conditions réelles, entre amis. Open source, gratuit, sans achats. Dépôt privé `m335671/Keep-Runni-n`, branche `main`.
+Jeu de manhunt mobile en conditions réelles, entre amis. Open source, gratuit, sans achats. Dépôt public `m335671/Keep-Runni-n`, licence AGPL-3.0, branche `main`.
 
 ## Règles de travail (à respecter)
 
@@ -13,7 +13,7 @@ Jeu de manhunt mobile en conditions réelles, entre amis. Open source, gratuit, 
 - **Versions** : quand l'utilisateur demande un push sur `main`, publier aussi une nouvelle version (tag `vX.Y.Z`, mineure par défaut). Un tag ne construit que l'APK. Un push sur `main` reconstruit l'image serveur.
 - **Jamais d'IPA jusqu'à nouvel ordre** : ni case `ios` cochée, ni autre moyen (environ 100 min macOS décomptées, ×10 sur un dépôt privé, quota gratuit de 2 000 min/mois).
 - **`CONTRIBUER.md`** : ne pas le suivre dans git (il est gitignoré). Il est en partie périmé ; la référence, c'est ce fichier-ci.
-- **Mises à jour du serveur** : l'utilisateur les fait lui-même, avec `docker compose pull && docker compose up -d`. Après un push, lui dire que l'image est prête, puis vérifier `https://ton-serveur.example/version`.
+- **Mises à jour du serveur** : l'utilisateur les fait lui-même, avec `docker compose pull && docker compose up -d`. Après un push, lui dire que l'image est prête, puis vérifier `/version` sur son domaine (noté dans la mémoire privée de Claude, jamais dans le dépôt).
 - **Distribution** : l'app n'est distribuée qu'en dernière version, donc pas de compatibilité avec les anciennes versions de l'app. Une vérification de version viendra avant le Play Store.
 - **Objectifs serveur, en permanence** : rapidité et capacité à tenir beaucoup de parties en même temps. Mesurer avant d'optimiser (`bench.ts`, `load.ts`).
 - **Pas de limitation par adresse IP** : les opérateurs 4G partagent une IP entre beaucoup d'abonnés.
@@ -136,7 +136,7 @@ Fichiers app (`apps/mobile/src/`) :
   - pseudos : emojis acceptés, caractères invisibles et de contrôle refusés.
 - **`/health`** donne la version, le commit et la charge : parties, joueurs, attente p99 (doit rester sous ~50 ms), mémoire. Le même bilan est logué toutes les 10 min.
 - **Zone** : placée à la création sur la dernière position connue de l'hôte (instantané), recalée sur une position fraîche quand l'hôte lance (`start { center }`, 5 s max, ignorée si imprécise).
-- **Adresse du serveur** : celle compilée dans l'app (`EXPO_PUBLIC_SERVER_URL`), pas de réglage dans le Profil.
+- **Adresse du serveur** : saisie au premier lancement (première étape de l'onboarding, testée avec `/version`), changeable dans Profil → Serveur (efface le compte local). `EXPO_PUBLIC_SERVER_URL` ne fait que pré-remplir le champ. Aucun domaine en dur dans le dépôt.
 - **Comptes** : un jeton aléatoire est stocké sur le téléphone. Si le serveur répond `unauthorized`, l'app repasse à l'inscription.
 
 ## Interface (conventions)
@@ -183,8 +183,7 @@ cd apps/server && node --experimental-strip-types --no-warnings src/load.ts http
 
 - **Serveur** :
   - un push sur `main` déclenche `server-image.yml`, qui lance les tests puis publie `ghcr.io/m335671/keep-runni-n:latest` ;
-  - serveur maison Debian, derrière NPMPlus (WebSockets activés) et CrowdSec, domaine `https://ton-serveur.example` ;
-  - changer de domaine oblige à recompiler l'app (`EXPO_PUBLIC_SERVER_URL`) ;
+  - serveur de l'utilisateur derrière un reverse proxy (WebSockets activés) ; son domaine n'est jamais écrit dans le dépôt ;
   - `docker-compose.yml` : port 3022, volume `/data` (comptes et sauvegarde des parties).
 - **Releases** :
   - un tag `vX.Y.Z` lance `mobile-app.yml`, qui construit l'APK (Linux) et le publie (`scatter-vX.Y.Z.apk`) dans une Release ; l'IPA non signée (macOS) ne se construit qu'en manuel ;
