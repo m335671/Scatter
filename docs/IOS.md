@@ -14,7 +14,7 @@ L'app est écrite pour iOS et Android, mais iOS n'a jamais été compilé ni tes
 ## Premier build (Apple ID gratuit, iPhone branché en USB)
 
 ```sh
-git clone https://github.com/m335671/Keep-Runni-n.git && cd Keep-Runni-n
+git clone https://github.com/m335671/Scatter.git && cd Scatter
 npm install
 cd apps/mobile
 npx expo prebuild --platform ios --clean

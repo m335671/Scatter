@@ -1,6 +1,6 @@
 # Scatter (ex « Keep Runni'n »)
 
-Jeu de manhunt mobile en conditions réelles, entre amis. Open source, gratuit, sans achats. Dépôt public `m335671/Keep-Runni-n`, licence AGPL-3.0, branche `main`.
+Jeu de manhunt mobile en conditions réelles, entre amis. Open source, gratuit, sans achats. Dépôt public `m335671/Scatter`, licence AGPL-3.0, branche `main`.
 
 ## Règles de travail (à respecter)
 
@@ -182,7 +182,7 @@ cd apps/server && node --experimental-strip-types --no-warnings src/load.ts http
 ## Production et déploiement
 
 - **Serveur** :
-  - un push sur `main` déclenche `server-image.yml`, qui lance les tests puis publie `ghcr.io/m335671/keep-runni-n:latest` ;
+  - un push sur `main` déclenche `server-image.yml`, qui lance les tests puis publie `ghcr.io/m335671/scatter:latest` ;
   - serveur de l'utilisateur derrière un reverse proxy (WebSockets activés) ; son domaine n'est jamais écrit dans le dépôt ;
   - `docker-compose.yml` : port 3022, volume `/data` (comptes et sauvegarde des parties).
 - **Releases** :

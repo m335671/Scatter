@@ -3,7 +3,7 @@ Pod::Spec.new do |s|
   s.version        = '0.1.0'
   s.summary        = 'Lampe du téléphone (Scatter)'
   s.author         = 'Scatter'
-  s.homepage       = 'https://github.com/m335671/Keep-Runni-n'
+  s.homepage       = 'https://github.com/m335671/Scatter'
   s.license        = 'MIT'
   s.platform       = :ios, '15.1'
   s.swift_version  = '5.4'

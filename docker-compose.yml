@@ -4,7 +4,7 @@
 # Derrière NPMPlus : proxy host vers http://<ip>:3022 (ou ${KR_PORT}), avec « Websockets Support » activé.
 services:
   keeprunnin:
-    image: ghcr.io/m335671/keep-runni-n:latest
+    image: ghcr.io/m335671/scatter:latest
     container_name: keeprunnin
     restart: unless-stopped
     ports:

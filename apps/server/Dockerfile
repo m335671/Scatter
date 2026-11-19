@@ -1,5 +1,5 @@
 FROM node:22-alpine
-LABEL org.opencontainers.image.source="https://github.com/m335671/Keep-Runni-n" \
+LABEL org.opencontainers.image.source="https://github.com/m335671/Scatter" \
       org.opencontainers.image.description="Scatter game server" \
       org.opencontainers.image.licenses="MIT"
 WORKDIR /app

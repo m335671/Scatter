@@ -43,7 +43,7 @@ npm test         # moteur de jeu + bout en bout avec un vrai serveur
 
 ### Héberger avec Docker
 
-Chaque push sur `main` publie l'image `ghcr.io/m335671/keep-runni-n:latest`, après les tests. Sur le serveur, seul `docker-compose.yml` est nécessaire :
+Chaque push sur `main` publie l'image `ghcr.io/m335671/scatter:latest`, après les tests. Sur le serveur, seul `docker-compose.yml` est nécessaire :
 
 ```sh
 docker compose pull && docker compose up -d
