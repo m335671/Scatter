@@ -411,6 +411,7 @@ function TorchButton() {
   const [on, setOn] = useState(false);
   const [level, setLevel] = useState(1); // de 0 à 1
   const [open, setOpen] = useState(false);
+  const grow = useRef(new Animated.Value(0)).current; // 0 : rentrée dans le bouton, 1 : sortie
   const [pressed, setPressed] = useState(false);
   // Les gestes lisent ces valeurs : les PanResponder sont créés une seule fois.
   const st = useRef({ on: false, level: 1, step: 0, open: false, barBottom: 0, hold: undefined as ReturnType<typeof setTimeout> | undefined, hide: undefined as ReturnType<typeof setTimeout> | undefined }).current;
@@ -439,12 +440,17 @@ function TorchButton() {
     clearTimeout(st.hide);
     st.open = true;
     setOpen(true);
+    Animated.spring(grow, { toValue: 1, friction: 7, tension: 120, useNativeDriver: false }).start();
     haptic.tap(true);
     if (!st.on) turn(true);
   };
   const later = () => {
     clearTimeout(st.hide);
-    st.hide = setTimeout(() => { st.open = false; setOpen(false); }, 1800);
+    st.hide = setTimeout(() => {
+      st.open = false;
+      // Elle rentre dans le bouton avant de disparaître (sauf si on l'a rouverte entre-temps).
+      Animated.timing(grow, { toValue: 0, duration: 180, useNativeDriver: false }).start(({ finished }) => { if (finished && !st.open) setOpen(false); });
+    }, 1800);
   };
 
   const button = useRef(PanResponder.create({
@@ -478,14 +484,15 @@ function TorchButton() {
   return (
     <View>
       {open && (
-        <View {...bar.panHandlers} accessibilityLabel={`Luminosité de la lampe : ${Math.round(shown * 100)} %`}
-          style={{ position: 'absolute', bottom: 52 + 10, right: 6, width: 40, height: TORCH_BAR, borderRadius: 20, backgroundColor: t.surface, borderWidth: 1, borderColor: t.line, overflow: 'hidden' }}>
-          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: `${shown * 100}%`, backgroundColor: t.accent }} />
+        // La barre sort de derrière le bouton (depuis son centre) et monte. Les 26 + 10 px du bas restent sous le bouton.
+        <Animated.View {...bar.panHandlers} accessibilityLabel={`Luminosité de la lampe : ${Math.round(shown * 100)} %`}
+          style={{ position: 'absolute', bottom: 26, right: 6, width: 40, height: grow.interpolate({ inputRange: [0, 1], outputRange: [26, 36 + TORCH_BAR] }), borderRadius: 20, backgroundColor: t.surface, borderWidth: 1, borderColor: t.line, overflow: 'hidden' }}>
+          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 36 + shown * TORCH_BAR, backgroundColor: t.accent }} />
           {/* Le soleil grossit et s'éclaire avec la lampe. */}
-          <View style={{ position: 'absolute', top: 12, left: 0, right: 0, alignItems: 'center', opacity: 0.45 + 0.55 * shown, transform: [{ scale: 0.75 + 0.5 * shown }, { rotate: `${shown * 90}deg` }] }}>
+          <Animated.View style={{ position: 'absolute', top: 12, left: 0, right: 0, alignItems: 'center', opacity: grow.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 0, 0.45 + 0.55 * shown] }), transform: [{ scale: 0.75 + 0.5 * shown }, { rotate: `${shown * 90}deg` }] }}>
             <SunIcon size={20} color={shown > 0.88 ? t.onAccent : t.text} weight={shown > 0.5 ? 'fill' : 'bold'} />
-          </View>
-        </View>
+          </Animated.View>
+        </Animated.View>
       )}
       <View {...button.panHandlers} accessibilityRole="button" accessibilityLabel={on ? 'Éteindre la lampe' : 'Allumer la lampe'}
         accessibilityHint={adjustable ? 'Appui long pour régler la luminosité' : undefined}
