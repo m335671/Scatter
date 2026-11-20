@@ -1,15 +1,17 @@
 # Scatter (ex Keep Runni'n) : serveur de jeu.
 # Déploiement : copier ce fichier sur le serveur, puis
 #   docker compose pull && docker compose up -d
+# Depuis l'ancien fichier (service « keeprunnin ») : docker compose up -d --remove-orphans, pour retirer l'ancien conteneur.
 # Derrière NPMPlus : proxy host vers http://<ip>:3022 (ou ${KR_PORT}), avec « Websockets Support » activé.
 services:
-  keeprunnin:
+  scatter:
     image: ghcr.io/m335671/scatter:latest
-    container_name: keeprunnin
+    container_name: scatter
     restart: unless-stopped
     ports:
       - "${KR_PORT:-3022}:3000"
     volumes:
+      # Le volume garde son ancien nom : le renommer créerait un volume vide (comptes perdus).
       - keeprunnin-data:/data   # comptes (SQLite)
       # Ou un dossier précis du serveur (supprimer alors le bloc « volumes: » en bas) :
       #   - /srv/keeprunnin/data:/data
