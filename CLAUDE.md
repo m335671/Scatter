@@ -188,6 +188,7 @@ cd apps/server && node --experimental-strip-types --no-warnings src/load.ts http
 - **Releases** :
   - un tag `vX.Y.Z` lance `mobile-app.yml`, qui construit l'APK (Linux) et le publie (`scatter-vX.Y.Z.apk`) dans une Release ; l'IPA non signée (macOS) ne se construit qu'en manuel ;
   - en manuel (« Run workflow »), APK seul par défaut, l'IPA est à cocher ;
+  - case « release » (manuel, depuis `main`) : publie la Release `v<version de app.json>` et crée le tag. C'est le chemin des sessions cloud de Claude, qui ne peuvent pas pousser de tag ni créer de Release elles-mêmes ;
   - pour un changement Android seul : APK compilé en local, puis `gh release upload <tag> <apk> --clobber`.
 - **Signature de l'APK** : le CI re-signe avec la clé Scatter (secrets `SCATTER_KEYSTORE`, `SCATTER_KEYSTORE_PASS`, `SCATTER_LINEAGE`). La lignée fait la rotation depuis la clé de debug du modèle Expo : les anciens APK se mettent à jour sans désinstaller (Android 9+). La clé est hors du dépôt, dans `Documents/Scatter-signature/` : ne jamais la commiter.
 - **Taille de l'APK** : bibliothèques natives compressées (`expo-build-properties`, `useLegacyPackaging`) : environ −26 Mo, au prix d'environ 40 Mo de plus une fois installée sur le téléphone.
