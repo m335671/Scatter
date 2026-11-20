@@ -12,6 +12,10 @@ on:
         description: Construire aussi l'IPA (minutes macOS, à cocher exprès)
         type: boolean
         default: false
+      release:
+        description: Publier la Release v<version de app.json> (crée le tag ; depuis main seulement)
+        type: boolean
+        default: false
   push:
     tags: ['v*']
 
@@ -19,8 +23,6 @@ env:
   # Le serveur se choisit dans l'app au premier lancement : rien de compilé par défaut.
   EXPO_PUBLIC_SERVER_URL: ${{ inputs.server_url }}
   NODE_ENV: production
-  # Tag v1.2.3 → version 1.2.3 dans l'app et dans le nom des fichiers. Lancement manuel → « dev ».
-  VERSION: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'dev' }}
 
 permissions:
   contents: write # pour joindre les fichiers à la Release sur un tag
@@ -39,6 +41,16 @@ jobs:
           distribution: temurin
           java-version: 17
       - run: npm ci
+      # Tag v1.2.3 → 1.2.3. Manuel avec « release » → version de app.json (le tag est créé par la Release).
+      # Sinon « dev ». Sert au nom des fichiers et au tag de la Release.
+      - name: Version
+        env:
+          RELEASE: ${{ inputs.release && github.ref == 'refs/heads/main' }}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then V="$GITHUB_REF_NAME"
+          elif [ "$RELEASE" = true ]; then V="v$(node -p "require('./apps/mobile/app.json').expo.version")"
+          else V=dev; fi
+          echo "VERSION=$V" >> "$GITHUB_ENV"
       - name: Version de l'app
         if: startsWith(github.ref, 'refs/tags/v')
         working-directory: apps/mobile
@@ -75,15 +87,19 @@ jobs:
         with:
           name: scatter-android
           path: scatter-*.apk
-      - if: startsWith(github.ref, 'refs/tags/')
+      - if: startsWith(github.ref, 'refs/tags/') || (inputs.release && github.ref == 'refs/heads/main')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.VERSION }}
+          target_commitish: ${{ github.sha }}
           files: scatter-*.apk
 
   ios:
     # Jamais sur un tag : seulement en manuel, case « ios » cochée (minutes macOS).
     if: ${{ inputs.ios }}
     runs-on: macos-26
+    env:
+      VERSION: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'dev' }}
     steps:
       - uses: actions/checkout@v7
       - uses: maxim-lobanov/setup-xcode@v1
