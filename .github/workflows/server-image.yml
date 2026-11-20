@@ -36,11 +36,11 @@ jobs:
           context: .
           file: apps/server/Dockerfile
           load: true
-          tags: keeprunnin:test
+          tags: scatter:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Tests du moteur de jeu
-        run: docker run --rm keeprunnin:test node --experimental-strip-types --no-warnings --test apps/server/src/game.test.ts
+        run: docker run --rm scatter:test node --experimental-strip-types --no-warnings --test apps/server/src/game.test.ts
 
       - id: meta
         uses: docker/metadata-action@v6
