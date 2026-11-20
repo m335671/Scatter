@@ -414,7 +414,7 @@ function TorchButton() {
   const grow = useRef(new Animated.Value(0)).current; // 0 : rentrée dans le bouton, 1 : sortie
   const [pressed, setPressed] = useState(false);
   // Les gestes lisent ces valeurs : les PanResponder sont créés une seule fois.
-  const st = useRef({ on: false, level: 1, step: 0, open: false, barBottom: 0, hold: undefined as ReturnType<typeof setTimeout> | undefined, hide: undefined as ReturnType<typeof setTimeout> | undefined }).current;
+  const st = useRef({ on: false, level: 1, step: 0, open: false, closing: false, barBottom: 0, hold: undefined as ReturnType<typeof setTimeout> | undefined, hide: undefined as ReturnType<typeof setTimeout> | undefined }).current;
   const adjustable = torchLevels > 1;
 
   useEffect(() => () => { clearTimeout(st.hold); clearTimeout(st.hide); setTorch(false).catch(() => {}); }, []);
@@ -444,6 +444,14 @@ function TorchButton() {
     haptic.tap(true);
     if (!st.on) turn(true);
   };
+  // Rentrée tout de suite, sans animation (appui sur le bouton pendant que la barre est sortie).
+  const close = () => {
+    clearTimeout(st.hide);
+    st.open = false;
+    grow.stopAnimation();
+    grow.setValue(0);
+    setOpen(false);
+  };
   const later = () => {
     clearTimeout(st.hide);
     st.hide = setTimeout(() => {
@@ -460,13 +468,16 @@ function TorchButton() {
       // Bas de la barre : 10 px au-dessus du bouton.
       st.barBottom = e.nativeEvent.pageY - e.nativeEvent.locationY - 10;
       setPressed(true);
-      if (adjustable) st.hold = setTimeout(show, 350);
+      // Barre déjà sortie : cet appui éteint la lampe et range la barre (au relâché), pas de nouvel appui long.
+      st.closing = st.open;
+      if (adjustable && !st.closing) st.hold = setTimeout(show, 350);
     },
-    onPanResponderMove: e => { if (st.open) slide(e.nativeEvent.pageY); },
+    onPanResponderMove: e => { if (st.open && !st.closing) slide(e.nativeEvent.pageY); },
     onPanResponderRelease: () => {
       clearTimeout(st.hold);
       setPressed(false);
-      if (st.open) later();
+      if (st.closing) { haptic.tap(); close(); turn(false); }
+      else if (st.open) later();
       else { haptic.tap(); turn(!st.on); }
     },
     onPanResponderTerminate: () => { clearTimeout(st.hold); setPressed(false); if (st.open) later(); },
